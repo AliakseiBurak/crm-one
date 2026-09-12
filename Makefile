@@ -1,4 +1,4 @@
-.PHONY: help up build down migrate fixtures styles exec e2e test logs app-send app-scheduler mysql-log-config mysql-log-drop mysql-log-tail
+.PHONY: help up build down migrate fixtures styles exec e2e test logs app-send app-scheduler dev-log mysql-log-config mysql-log-drop mysql-log-tail stan stan-baseline cs cs-dry infection infection-coverage quality
 
 help:
 	@echo "help up build down migrate fixtures styles exec e2e test logs app-send app-scheduler mysql-log-config mysql-log-drop mysql-log-tail"
@@ -39,6 +39,9 @@ app-send:
 app-scheduler:
 	docker compose exec php php bin/console messenger:consume scheduler_default --time-limit=60 -vv
 
+dev-log:
+	docker compose exec php tail -f var/log/dev.log
+
 mysql-log-config:
 	docker compose exec mysql touch /var/log/query.log
 	docker compose exec mysql chown mysql:mysql /var/log/query.log
@@ -49,3 +52,25 @@ mysql-log-drop:
 
 mysql-log-tail:
 	docker compose exec mysql tail -f /var/log/query.log
+
+# Статический анализ
+stan:
+	docker compose exec --user app php vendor/bin/phpstan analyse --no-progress
+
+stan-baseline:
+	docker compose exec --user app php vendor/bin/phpstan analyse --generate-baseline
+
+cs:
+	docker compose exec --user app php vendor/bin/php-cs-fixer fix --diff
+
+cs-dry:
+	docker compose exec --user app php vendor/bin/php-cs-fixer fix --dry-run --diff
+
+infection:
+	docker compose exec --user app php vendor/bin/infection --threads=max --no-progress
+
+infection-coverage:
+	docker compose exec --user app php vendor/bin/phpunit --coverage-xml=var/coverage/coverage-xml --log-junit=var/coverage/junit.xml
+	docker compose exec --user app php vendor/bin/infection --coverage=var/coverage --threads=max
+
+quality: cs-dry stan infection
