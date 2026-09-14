@@ -712,7 +712,7 @@ class CampaignController extends AbstractController
         }
 
         foreach ($validator->validate($campaign) as $violation) {
-            $errors[$violation->getPropertyPath()] ??= $violation->getMessage();
+            $errors[$violation->getPropertyPath()] ??= (string) $violation->getMessage();
         }
 
         return $errors;

@@ -199,7 +199,7 @@ class OrganizationController extends AbstractController
 
         $errors = [];
         foreach ($violations as $violation) {
-            $errors[$violation->getPropertyPath()] ??= $violation->getMessage();
+            $errors[$violation->getPropertyPath()] ??= (string) $violation->getMessage();
         }
 
         return $errors;

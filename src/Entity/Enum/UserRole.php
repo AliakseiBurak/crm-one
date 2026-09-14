@@ -9,6 +9,7 @@ enum UserRole: string
     case Admin = 'admin';
     case Manager = 'manager';
 
+    /** @return list<string> */
     public function roles(): array
     {
         return match ($this) {

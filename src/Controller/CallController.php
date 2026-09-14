@@ -309,7 +309,7 @@ class CallController extends AbstractController
 
         $violations = $validator->validate($call);
         foreach ($violations as $violation) {
-            $errors[$violation->getPropertyPath()] ??= $violation->getMessage();
+            $errors[$violation->getPropertyPath()] ??= (string) $violation->getMessage();
         }
 
         return $errors;
