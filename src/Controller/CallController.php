@@ -85,11 +85,15 @@ class CallController extends AbstractController
 
             $isAdmin = $this->isAdmin();
 
+            if (null === $call->organization->id) {
+                throw new \LogicException('Call organization must be persisted');
+            }
+
             return $this->render('call/form.html.twig', $this->formContext(
                 call: $call,
                 organizations: $this->organizations->findAccessibleOrganizations($this->getUser()),
                 selectedOrganizationId: $requestedOrganizationId > 0 ? $requestedOrganizationId : null,
-                contacts: isset($call->organization) ? $this->organizationContacts($call->organization->id) : [],
+                contacts: $this->organizationContacts($call->organization->id),
                 errors: $errors,
                 isAdmin: $isAdmin,
                 users: $isAdmin ? $this->users->findAdminsAndManagers() : [],
@@ -104,6 +108,10 @@ class CallController extends AbstractController
             return $this->json(['ok' => true]);
         }
 
+        if (null === $call->organization->id) {
+            throw new \LogicException('Call organization must be persisted');
+        }
+
         return $this->redirectToRoute('app_dashboard', ['highlight' => $call->organization->id]);
     }
 
@@ -111,6 +119,9 @@ class CallController extends AbstractController
     public function edit(int $id): Response
     {
         $call = $this->accessibleCall($id);
+        if (null === $call->organization->id) {
+            throw new \LogicException('Call organization must be persisted');
+        }
         $isAdmin = $this->isAdmin();
 
         return $this->render('call/form.html.twig', $this->formContext(
@@ -128,6 +139,9 @@ class CallController extends AbstractController
     public function update(int $id, Request $request, ValidatorInterface $validator): Response
     {
         $call = $this->accessibleCall($id);
+        if (null === $call->organization->id) {
+            throw new \LogicException('Call organization must be persisted');
+        }
         $ajax = $request->isXmlHttpRequest();
         $this->assertCsrfToken($request);
 
@@ -615,7 +629,7 @@ class CallController extends AbstractController
     }
 
     /**
-     * @return array{id: int, organizationId: int, contactId: int, date: ?\DateTimeImmutable,
+     * @return array{id: int|null, organizationId: int|null, contactId: int, date: ?\DateTimeImmutable,
      *     scheduledAt: ?\DateTimeImmutable, madeAt: ?\DateTimeImmutable, madeById: ?int,
      *     isDeal: bool, isNoAnswer: bool, campaignId: ?int, campaignName: ?string,
      *     nextCallId: ?int, nextCallScheduledAt: ?\DateTimeImmutable, notes: ?string}

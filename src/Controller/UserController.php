@@ -173,7 +173,7 @@ class UserController extends AbstractController
             'user' => $user,
             'groups' => $this->groups->findAllGroups(),
             'assignedIds' => array_map(
-                static fn(GroupAssignment $a): int => $a->group->id,
+                static fn(GroupAssignment $a): int => (int) $a->group->id,
                 $user->groupAssignments->toArray(),
             ),
         ]);
@@ -197,7 +197,7 @@ class UserController extends AbstractController
 
         // Add new assignments (несуществующие id групп игнорируются)
         $currentIds = array_map(
-            static fn(GroupAssignment $a): int => $a->group->id,
+            static fn(GroupAssignment $a): int => (int) $a->group->id,
             $user->groupAssignments->toArray(),
         );
         foreach ($selectedIds as $groupId) {

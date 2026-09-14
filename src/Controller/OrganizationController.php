@@ -80,7 +80,7 @@ class OrganizationController extends AbstractController
 
         // Get current group memberships
         $groupIds = array_map(
-            static fn(OrgGroupMembership $m): int => $m->group->id,
+            static fn(OrgGroupMembership $m): int => (int) $m->group->id,
             $organization->groupMemberships->toArray()
         );
 
@@ -248,7 +248,7 @@ class OrganizationController extends AbstractController
     {
         $selected = array_map('intval', $request->request->all('groups'));
         $allowed = array_map(
-            static fn(OrganizationGroup $g): int => $g->id,
+            static fn(OrganizationGroup $g): int => (int) $g->id,
             $this->availableGroupsFor($user)
         );
 
@@ -263,7 +263,11 @@ class OrganizationController extends AbstractController
      */
     private function availableGroupsFor(?User $user): array
     {
-        if ($user instanceof User && UserRole::Admin === $user->role) {
+        if (!$user instanceof User) {
+            return [];
+        }
+
+        if (UserRole::Admin === $user->role) {
             return $this->groups->findAllGroups();
         }
 

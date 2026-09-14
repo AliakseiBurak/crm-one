@@ -67,21 +67,21 @@ class HomeController extends AbstractController
 
         $organizationRows = $organizationRepository->findForDashboard($user, $search, $sort, $dir);
 
-        $ids = array_map(static fn(\App\Dto\DashboardOrganizationRow $row): int => $row->organization->id, $organizationRows);
+        $ids = array_map(static fn(\App\Dto\DashboardOrganizationRow $row): int => (int) $row->organization->id, $organizationRows);
 
         $contacts = $contactRepository->findByOrganizations($ids);
         $contactsByOrganization = [];
         $contactById = [];
         foreach ($contacts as $contact) {
-            $contactsByOrganization[$contact->organization->id][] = $contact;
-            $contactById[$contact->id] = $contact;
+            $contactsByOrganization[(int) $contact->organization->id][] = $contact;
+            $contactById[(int) $contact->id] = $contact;
         }
 
         // Отметка bounced для карточек контактов на дашборде.
         $bouncedContactIds = [];
         foreach ($contacts as $contact) {
             if ($campaignRecipients->hasBouncedForContact($contact)) {
-                $bouncedContactIds[$contact->id] = true;
+                $bouncedContactIds[(int) $contact->id] = true;
             }
         }
 

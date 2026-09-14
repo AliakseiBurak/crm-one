@@ -38,6 +38,9 @@ class GroupController extends AbstractController
     public function list(Request $request): Response
     {
         $user = $this->getUser();
+        if (!$user instanceof User) {
+            throw new \LogicException('User must be authenticated');
+        }
         $isAdmin = UserRole::Admin === $user->role;
 
         $groups = $isAdmin
@@ -70,7 +73,7 @@ class GroupController extends AbstractController
             'manageableIds' => $isAdmin
                 ? null
                 : array_map(
-                    static fn(OrganizationGroup $g): int => $g->id,
+                    static fn(OrganizationGroup $g): int => (int) $g->id,
                     $this->groups->findCreatedBy($user),
                 ),
             'sort' => $sort,
@@ -218,7 +221,7 @@ class GroupController extends AbstractController
         $canEdit = $this->canManageGroup($group);
 
         $memberIds = array_map(
-            static fn(OrgGroupMembership $m): int => $m->organization->id,
+            static fn(OrgGroupMembership $m): int => (int) $m->organization->id,
             $group->memberships->toArray()
         );
 
@@ -323,7 +326,7 @@ class GroupController extends AbstractController
             'group' => $group,
             'managers' => $this->users->findManagers(),
             'assignedIds' => array_map(
-                static fn(GroupAssignment $a): int => $a->user->id,
+                static fn(GroupAssignment $a): int => (int) $a->user->id,
                 $group->assignments->toArray(),
             ),
         ]);
@@ -341,7 +344,7 @@ class GroupController extends AbstractController
         // Назначать группу можно только менеджерам (ADR-0008): администратор
         // видит все группы без GroupAssignment, отправка id админа игнорируется.
         $managerIds = array_map(
-            static fn(User $m): int => $m->id,
+            static fn(User $m): int => (int) $m->id,
             $this->users->findManagers(),
         );
         $selectedIds = array_values(array_intersect($selectedIds, $managerIds));
@@ -356,7 +359,7 @@ class GroupController extends AbstractController
 
         // Add new assignments
         $currentIds = array_map(
-            static fn(GroupAssignment $a): int => $a->user->id,
+            static fn(GroupAssignment $a): int => (int) $a->user->id,
             $group->assignments->toArray(),
         );
         foreach ($selectedIds as $managerId) {

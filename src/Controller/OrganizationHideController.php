@@ -44,8 +44,8 @@ class OrganizationHideController extends AbstractController
 
         $grouped = [];
         foreach ($this->hides->findBy([], ['hiddenAt' => 'DESC']) as $hide) {
-            $grouped[$hide->organization->id]['organization'] = $hide->organization;
-            $grouped[$hide->organization->id]['hides'][] = $hide;
+            $grouped[(int) $hide->organization->id]['organization'] = $hide->organization;
+            $grouped[(int) $hide->organization->id]['hides'][] = $hide;
         }
 
         usort(

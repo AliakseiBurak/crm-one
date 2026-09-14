@@ -42,7 +42,7 @@ final class OrganizationHideService
 
         $managerIdsByEmail = [];
         foreach ($this->users->findManagers() as $manager) {
-            $managerIdsByEmail[$manager->id] = $manager->email;
+            $managerIdsByEmail[(int) $manager->id] = $manager->email;
         }
 
         $invalid = [];

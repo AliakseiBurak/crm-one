@@ -12,6 +12,7 @@ use App\Entity\Enum\CampaignStatus;
 use App\Entity\Enum\RecipientStatus;
 use App\Entity\Enum\UserRole;
 use App\Entity\Organization;
+use App\Entity\User;
 use App\Repository\CampaignRecipientRepository;
 use App\Repository\CampaignRepository;
 use App\Repository\OrganizationGroupRepository;
@@ -362,6 +363,9 @@ class CampaignController extends AbstractController
         $campaign = $this->campaign($id);
         $available = $this->availableOrganizations($campaign);
         $user = $this->getUser();
+        if (!$user instanceof User) {
+            throw new \LogicException('User must be authenticated');
+        }
         $availableGroups = (UserRole::Admin === $user->role)
             ? $this->groups->findAllGroups()
             : $this->groups->findForManager($user);
