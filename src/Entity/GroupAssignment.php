@@ -28,5 +28,7 @@ class GroupAssignment
         $this->user = $user;
         $this->group = $group;
         $this->assignedAt = new \DateTimeImmutable();
+        $user->groupAssignments->add($this);
+        $group->assignments->add($this);
     }
 }

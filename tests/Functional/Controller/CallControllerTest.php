@@ -663,6 +663,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
         $campaign = $this->persistReadyCampaign('Осенняя рассылка');
+        $contact->setEmail('ivan@romashka.example');
         $call = $this->makeCallFor($organization, $contact);
         $this->em()->flush();
         $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
@@ -715,6 +716,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testLaunchedMailingReplaceIncrementsReplacementCount(): void
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
+        $contact->setEmail('ivan@romashka.example');
         $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
         $campaign = $this->persistLaunchedCampaign('Акция');
         $this->em()->persist(new CampaignRecipient($campaign, $organization, $contact));
@@ -746,6 +748,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
         $campaign = $this->persistDraftCampaign('Новые курсы');
+        $contact->setEmail('ivan@romashka.example');
         $call = $this->makeCallFor($organization, $contact);
         $this->em()->flush();
         $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));

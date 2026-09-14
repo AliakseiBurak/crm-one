@@ -363,6 +363,8 @@ final class CampaignControllerTest extends DatabaseWebTestCase
     public function testManagerAddsAccessibleOrganizationAsRecipient(): void
     {
         [$manager1, , $romashka, $zavod] = $this->makeTwoManagersWithOrganizations();
+        $this->em()->persist((new Contact())->setOrganization($romashka)->setName('Контакт')->setEmail('romashka@example.test'));
+        $this->em()->flush();
         // «ООО Завод» скрыта от менеджера (ADR-0012): в списке организаций
         // формы её нет.
         $this->em()->persist(new OrganizationHide($zavod, $manager1));
@@ -416,6 +418,8 @@ final class CampaignControllerTest extends DatabaseWebTestCase
     public function testAdminCanAddAnyOrganizationAsRecipient(): void
     {
         [, $manager2, , $zavod] = $this->makeTwoManagersWithOrganizations();
+        $this->em()->persist((new Contact())->setOrganization($zavod)->setName('Контакт')->setEmail('zavod@example.test'));
+        $this->em()->flush();
         $campaign = $this->persistCampaign('Акция');
         $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
 
@@ -433,6 +437,9 @@ final class CampaignControllerTest extends DatabaseWebTestCase
     public function testDuplicateRecipientPromptsReplace(): void
     {
         [$manager1] = $this->makeTwoManagersWithOrganizations();
+        $romashka0 = $this->findOrganization('ООО Ромашка');
+        $this->em()->persist((new Contact())->setOrganization($romashka0)->setName('Контакт')->setEmail('romashka@example.test'));
+        $this->em()->flush();
         $campaign = $this->persistCampaign('Акция');
         $romashka = $this->findOrganization('ООО Ромашка');
         $recipient = new CampaignRecipient($campaign, $romashka);
@@ -540,7 +547,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
     public function testRecipientAddedToDraftExistsBeforeCampaignLaunch(): void
     {
         $campaign = $this->persistCampaign('Черновик');
-        $romashka = $this->persistOrganization('ООО Ромашка');
+        $romashka = $this->persistOrganizationWithEmail('ООО Ромашка', 'romashka@example.test');
         $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->formToken($campaign->id);

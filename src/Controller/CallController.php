@@ -85,15 +85,11 @@ class CallController extends AbstractController
 
             $isAdmin = $this->isAdmin();
 
-            if (null === $call->organization->id) {
-                throw new \LogicException('Call organization must be persisted');
-            }
-
             return $this->render('call/form.html.twig', $this->formContext(
                 call: $call,
                 organizations: $this->organizations->findAccessibleOrganizations($this->getUser()),
                 selectedOrganizationId: $requestedOrganizationId > 0 ? $requestedOrganizationId : null,
-                contacts: $this->organizationContacts($call->organization->id),
+                contacts: $requestedOrganizationId > 0 ? $this->organizationContacts($requestedOrganizationId) : [],
                 errors: $errors,
                 isAdmin: $isAdmin,
                 users: $isAdmin ? $this->users->findAdminsAndManagers() : [],

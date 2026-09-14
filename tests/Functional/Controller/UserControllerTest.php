@@ -131,12 +131,13 @@ final class UserControllerTest extends DatabaseWebTestCase
     public function testCreateWithInvalidRoleShowsError(): void
     {
         $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
-        $this->open('/admin/users/new');
-        $this->submitFormByButton('Создать', [
+        $token = $this->open('/admin/users/new')->filter('input[name="_csrf_token"]')->attr('value');
+        $this->client->request('POST', '/admin/users/new', [
             'email' => 'test@example.com',
             'name' => '',
             'surname' => '',
-            'role' => 'manager',
+            'role' => 'guest',
+            '_csrf_token' => $token,
         ]);
 
         $this->assertResponseStatusCodeSame(422);
