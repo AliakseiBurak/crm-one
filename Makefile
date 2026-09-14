@@ -1,7 +1,37 @@
 .PHONY: help up build down migrate fixtures styles exec e2e test logs app-send app-scheduler dev-log mysql-log-config mysql-log-drop mysql-log-tail stan stan-baseline cs cs-dry infection infection-coverage quality
 
 help:
-	@echo "help up build down migrate fixtures styles exec e2e test logs app-send app-scheduler mysql-log-config mysql-log-drop mysql-log-tail"
+	@echo "Usage: make <target>"
+	@echo ""
+	@echo "Docker:"
+	@echo "  up                Start containers"
+	@echo "  build             Build containers"
+	@echo "  down              Stop containers"
+	@echo "  exec              Open shell in php container"
+	@echo "  logs              Tail container logs"
+	@echo ""
+	@echo "Application:"
+	@echo "  migrate           Run Doctrine migrations"
+	@echo "  fixtures          Load fixtures"
+	@echo "  styles            Build frontend assets"
+	@echo "  app-send          Run campaign send command"
+	@echo "  app-scheduler     Run Messenger scheduler"
+	@echo ""
+	@echo "Testing & Quality:"
+	@echo "  test              Run PHPUnit tests"
+	@echo "  e2e               Run E2E tests"
+	@echo "  stan              Run PHPStan"
+	@echo "  stan-baseline     Regenerate PHPStan baseline"
+	@echo "  cs                Fix code style (PHP CS Fixer)"
+	@echo "  cs-dry            Check code style (dry-run)"
+	@echo "  infection         Run Infection mutation testing"
+	@echo "  infection-coverage Run Infection with coverage"
+	@echo "  quality           Run all quality checks (cs-dry + stan + infection)"
+	@echo ""
+	@echo "MySQL logging:"
+	@echo "  mysql-log-config  Enable general query log"
+	@echo "  mysql-log-drop    Clear query log"
+	@echo "  mysql-log-tail    Tail query log"
 
 up:
 	docker compose up -d
