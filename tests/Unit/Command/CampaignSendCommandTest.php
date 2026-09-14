@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Unit\Command;
 
 use App\Command\CampaignSendCommand;
@@ -13,7 +15,7 @@ final class CampaignSendCommandTest extends TestCase
     public function testPassesLimitToProcessor(): void
     {
         $processor = $this->createMock(CampaignSendProcessor::class);
-        $processor->expects($this->once())->method('process')->with(20)->willReturn(3);
+        $processor->expects(self::once())->method('process')->with(20)->willReturn(3);
 
         $tester = $this->tester($processor);
         self::assertSame(Command::SUCCESS, $tester->execute(['--limit' => '20']));
@@ -23,7 +25,7 @@ final class CampaignSendCommandTest extends TestCase
     public function testUsesConfiguredBatchWhenLimitOmitted(): void
     {
         $processor = $this->createMock(CampaignSendProcessor::class);
-        $processor->expects($this->once())->method('process')->with(null)->willReturn(0);
+        $processor->expects(self::once())->method('process')->with(null)->willReturn(0);
 
         $tester = $this->tester($processor);
         self::assertSame(Command::SUCCESS, $tester->execute([]));

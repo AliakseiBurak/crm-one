@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Functional\Controller;
 
 use App\Entity\Call;
@@ -8,10 +10,10 @@ use App\Entity\CampaignRecipient;
 use App\Entity\Contact;
 use App\Entity\Enum\CampaignStatus;
 use App\Entity\Enum\UserRole;
-use App\Entity\OrgGroupMembership;
 use App\Entity\Organization;
 use App\Entity\OrganizationGroup;
 use App\Entity\OrganizationHide;
+use App\Entity\OrgGroupMembership;
 use App\Entity\User;
 use App\Tests\DatabaseWebTestCase;
 

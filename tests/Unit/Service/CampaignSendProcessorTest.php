@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Unit\Service;
 
 use App\Entity\Campaign;
@@ -19,10 +21,10 @@ final class CampaignSendProcessorTest extends TestCase
     {
         $lock = $this->createMock(SharedLockInterface::class);
         $lock->method('acquire')->willReturn(false);
-        $lock->expects($this->never())->method('release');
+        $lock->expects(self::never())->method('release');
 
         $mailing = $this->createMock(MailingService::class);
-        $mailing->expects($this->never())->method('processRecipient');
+        $mailing->expects(self::never())->method('processRecipient');
 
         $processed = $this->processor(
             $lock,
@@ -40,27 +42,27 @@ final class CampaignSendProcessorTest extends TestCase
         $retry = $this->recipient();
 
         $em = $this->createMock(EntityManagerInterface::class);
-        $em->expects($this->exactly(2))->method('clear');
+        $em->expects(self::exactly(2))->method('clear');
 
         $repo = $this->createMock(CampaignRecipientRepository::class);
         $repo->method('findPendingIdsForSend')->with(2)->willReturn([11]);
         $repo->method('findRetryIdsForSend')->with(1)->willReturn([22]);
-        $repo->method('find')->willReturnCallback(static fn (mixed $id): ?CampaignRecipient => match ($id) {
+        $repo->method('find')->willReturnCallback(static fn(mixed $id): ?CampaignRecipient => match ($id) {
             11 => $pending,
             22 => $retry,
             default => null,
         });
 
         $mailing = $this->createMock(MailingService::class);
-        $mailing->expects($this->exactly(2))->method('processRecipient')->willReturnCallback(
-            function (CampaignRecipient $recipient) use ($pending, $retry): void {
+        $mailing->expects(self::exactly(2))->method('processRecipient')->willReturnCallback(
+            static function (CampaignRecipient $recipient) use ($pending, $retry): void {
                 self::assertContains($recipient, [$pending, $retry]);
             },
         );
 
         $lock = $this->createMock(SharedLockInterface::class);
         $lock->method('acquire')->willReturn(true);
-        $lock->expects($this->once())->method('release');
+        $lock->expects(self::once())->method('release');
 
         $processed = $this->processor($lock, $em, $repo, $mailing, 10)->process(2);
 
@@ -73,19 +75,19 @@ final class CampaignSendProcessorTest extends TestCase
         $second = $this->recipient();
 
         $em = $this->createMock(EntityManagerInterface::class);
-        $em->expects($this->exactly(2))->method('clear');
+        $em->expects(self::exactly(2))->method('clear');
 
         $repo = $this->createMock(CampaignRecipientRepository::class);
         $repo->method('findPendingIdsForSend')->with(2)->willReturn([1, 2]);
-        $repo->expects($this->never())->method('findRetryIdsForSend');
-        $repo->method('find')->willReturnCallback(static fn (mixed $id): ?CampaignRecipient => match ($id) {
+        $repo->expects(self::never())->method('findRetryIdsForSend');
+        $repo->method('find')->willReturnCallback(static fn(mixed $id): ?CampaignRecipient => match ($id) {
             1 => $first,
             2 => $second,
             default => null,
         });
 
         $mailing = $this->createMock(MailingService::class);
-        $mailing->expects($this->exactly(2))->method('processRecipient');
+        $mailing->expects(self::exactly(2))->method('processRecipient');
 
         $lock = $this->createMock(SharedLockInterface::class);
         $lock->method('acquire')->willReturn(true);
@@ -96,7 +98,7 @@ final class CampaignSendProcessorTest extends TestCase
     public function testSkipsMissingRecipients(): void
     {
         $em = $this->createMock(EntityManagerInterface::class);
-        $em->expects($this->never())->method('clear');
+        $em->expects(self::never())->method('clear');
 
         $repo = $this->createMock(CampaignRecipientRepository::class);
         $repo->method('findPendingIdsForSend')->with(10)->willReturn([99]);
@@ -104,7 +106,7 @@ final class CampaignSendProcessorTest extends TestCase
         $repo->method('find')->with(99)->willReturn(null);
 
         $mailing = $this->createMock(MailingService::class);
-        $mailing->expects($this->never())->method('processRecipient');
+        $mailing->expects(self::never())->method('processRecipient');
 
         $lock = $this->createMock(SharedLockInterface::class);
         $lock->method('acquire')->willReturn(true);

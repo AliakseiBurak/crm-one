@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Entity\Call;
-use App\Entity\Campaign;
 use App\Entity\Contact;
 use App\Entity\Enum\UserRole;
 use App\Entity\Organization;
@@ -33,8 +34,7 @@ class CallController extends AbstractController
         private readonly UserRepository $users,
         private readonly CallResultService $callResults,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     #[Route('/calls/new', name: 'app_call_new', methods: ['GET'])]
     #[Route('/organizations/{organizationId}/calls/new', name: 'app_call_new_org', methods: ['GET'])]
@@ -220,7 +220,7 @@ class CallController extends AbstractController
         return $this->json([
             'ok' => true,
             'contacts' => array_map(
-                static fn (Contact $contact): array => ['id' => $contact->id, 'name' => $contact->name],
+                static fn(Contact $contact): array => ['id' => $contact->id, 'name' => $contact->name],
                 $this->organizationContacts($id)
             ),
         ]);
@@ -577,7 +577,7 @@ class CallController extends AbstractController
         if ($madeById > 0) {
             $chosen = $this->users->find($madeById);
             if ($chosen instanceof User
-                && in_array($chosen->role, [UserRole::Admin, UserRole::Manager], true)) {
+                && \in_array($chosen->role, [UserRole::Admin, UserRole::Manager], true)) {
                 return $chosen;
             }
         }

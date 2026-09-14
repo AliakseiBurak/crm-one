@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Repository;
 
 use App\Dto\DashboardOrganizationRow;
+use App\Entity\Enum\UserRole;
 use App\Entity\Organization;
 use App\Entity\User;
-use App\Entity\Enum\UserRole;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -65,7 +67,7 @@ class OrganizationRepository extends ServiceEntityRepository
             ->getScalarResult();
 
         return array_values(array_map(
-            static fn (array $row): int => (int) $row['id'],
+            static fn(array $row): int => (int) $row['id'],
             $rows
         ));
     }

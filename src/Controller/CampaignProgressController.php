@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Repository\CampaignRecipientRepository;
@@ -17,8 +19,7 @@ class CampaignProgressController extends AbstractController
     public function __construct(
         private readonly CampaignRecipientRepository $campaignRecipients,
         private readonly CampaignRepository $campaigns,
-    ) {
-    }
+    ) {}
 
     /**
      * Статистика всех рассылок: [{ campaignId, delivered, total }].

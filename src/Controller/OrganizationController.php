@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Entity\Enum\UserRole;
-use App\Entity\OrgGroupMembership;
 use App\Entity\Organization;
 use App\Entity\OrganizationGroup;
+use App\Entity\OrgGroupMembership;
 use App\Entity\User;
 use App\Repository\CampaignRecipientRepository;
 use App\Repository\OrganizationGroupRepository;
@@ -14,12 +16,10 @@ use App\Repository\OrganizationRepository;
 use App\Service\OrganizationHideService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route(requirements: ['id' => '\d+'])]
@@ -32,8 +32,7 @@ class OrganizationController extends AbstractController
         private readonly OrganizationHideRepository $hides,
         private readonly OrganizationHideService $hideService,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     #[Route('/organizations/new', name: 'app_organization_new', methods: ['GET'])]
     public function new(): Response
@@ -81,7 +80,7 @@ class OrganizationController extends AbstractController
 
         // Get current group memberships
         $groupIds = array_map(
-            static fn (OrgGroupMembership $m): int => $m->group->id,
+            static fn(OrgGroupMembership $m): int => $m->group->id,
             $organization->groupMemberships->toArray()
         );
 
@@ -249,7 +248,7 @@ class OrganizationController extends AbstractController
     {
         $selected = array_map('intval', $request->request->all('groups'));
         $allowed = array_map(
-            static fn (OrganizationGroup $g): int => $g->id,
+            static fn(OrganizationGroup $g): int => $g->id,
             $this->availableGroupsFor($user)
         );
 
@@ -275,7 +274,7 @@ class OrganizationController extends AbstractController
     {
         // Remove existing memberships not in selection
         foreach ($organization->groupMemberships as $membership) {
-            if (!in_array($membership->group->id, $selectedGroupIds, true)) {
+            if (!\in_array($membership->group->id, $selectedGroupIds, true)) {
                 $organization->groupMemberships->removeElement($membership);
                 $this->em->remove($membership);
             }

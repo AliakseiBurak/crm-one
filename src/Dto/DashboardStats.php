@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Dto;
 
 final readonly class DashboardStats
@@ -11,6 +13,5 @@ final readonly class DashboardStats
         public int $waitingToday,
         public int $waitingWeek,
         public int $waitingMonth,
-    ) {
-    }
+    ) {}
 }

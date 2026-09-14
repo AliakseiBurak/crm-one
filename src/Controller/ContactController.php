@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Entity\Contact;
@@ -23,8 +25,7 @@ class ContactController extends AbstractController
         private readonly CampaignRecipientRepository $campaignRecipients,
         private readonly OrganizationRepository $organizations,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     #[Route('/contacts/new', name: 'app_contact_new', methods: ['GET'])]
     public function new(Request $request): Response

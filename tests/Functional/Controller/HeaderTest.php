@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Functional\Controller;
 
 use App\Entity\Enum\UserRole;
@@ -22,17 +24,17 @@ final class HeaderTest extends DatabaseWebTestCase
 
         // «Создать ▾» — 6 пунктов для админа.
         $this->assertSelectorExists('.header__actions .header-create__toggle');
-        $this->assertSame(6, $crawler->filter('.header__actions .header-create__menu .header-create__item')->count());
+        self::assertSame(6, $crawler->filter('.header__actions .header-create__menu .header-create__item')->count());
 
         // «⚙ Админ ▾» с двумя пунктами.
         $this->assertSelectorExists('.header__actions .header-admin__toggle');
-        $this->assertSame(2, $crawler->filter('.header__actions .header-admin__menu .header-admin__item')->count());
+        self::assertSame(2, $crawler->filter('.header__actions .header-admin__menu .header-admin__item')->count());
 
         // Выпадающий список пользователя: «Профиль», первый пункт — имя/email, затем «Выйти».
         $this->assertSelectorTextContains('.header__actions .header-user__toggle', 'Профиль');
         $this->assertSelectorTextContains('.header-user__info', 'Ада Админова');
         $this->assertSelectorTextContains('.header-user__info', 'admin@b2b-crm.loc');
-        $this->assertSame(1, $crawler->filter('.header__actions .header-user__menu a[href="/logout"]')->count());
+        self::assertSame(1, $crawler->filter('.header__actions .header-user__menu a[href="/logout"]')->count());
 
         // Меню изначально закрыты.
         self::assertSame('false', $crawler->filter('.header-create__toggle')->attr('aria-expanded'));
@@ -43,10 +45,10 @@ final class HeaderTest extends DatabaseWebTestCase
         // Боковая панель: пункты навигации + «Создать» + блок пользователя.
         $this->assertSelectorExists('[data-header-sidebar]');
         $this->assertSelectorExists('[data-header-sidebar-overlay]');
-        $this->assertGreaterThanOrEqual(3, $crawler->filter('.header__sidebar-link')->count());
-        $this->assertSame(6, $crawler->filter('.header__sidebar .header-create__menu .header-create__item')->count());
-        $this->assertSame(1, $crawler->filter('.header__sidebar-user')->count());
-        $this->assertSame(1, $crawler->filter('.header__sidebar-user a[href="/logout"]')->count());
+        self::assertGreaterThanOrEqual(3, $crawler->filter('.header__sidebar-link')->count());
+        self::assertSame(6, $crawler->filter('.header__sidebar .header-create__menu .header-create__item')->count());
+        self::assertSame(1, $crawler->filter('.header__sidebar-user')->count());
+        self::assertSame(1, $crawler->filter('.header__sidebar-user a[href="/logout"]')->count());
 
         // Подвал: только копирайт.
         $this->assertSelectorTextContains('.footer', '© ' . date('Y') . ' B2B Call CRM');
@@ -62,7 +64,7 @@ final class HeaderTest extends DatabaseWebTestCase
         $this->assertResponseIsSuccessful();
 
         // 5 пунктов: без «Пользователя».
-        $this->assertSame(5, $crawler->filter('.header__actions .header-create__menu .header-create__item')->count());
+        self::assertSame(5, $crawler->filter('.header__actions .header-create__menu .header-create__item')->count());
 
         // Нет «⚙ Админ».
         $this->assertSelectorNotExists('.header__actions .header-admin');
@@ -70,7 +72,7 @@ final class HeaderTest extends DatabaseWebTestCase
         // Пользователь: «Профиль» + «Выйти».
         $this->assertSelectorTextContains('.header__actions .header-user__toggle', 'Профиль');
         $this->assertSelectorTextContains('.header-user__info', 'Пётр Сидоров');
-        $this->assertSame(1, $crawler->filter('.header__actions .header-user__menu a[href="/logout"]')->count());
+        self::assertSame(1, $crawler->filter('.header__actions .header-user__menu a[href="/logout"]')->count());
     }
 
     public function testAnonymousHeader(): void

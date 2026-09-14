@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Functional\Controller;
 
 use App\Entity\Campaign;
@@ -123,7 +125,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         for ($i = 1; $i <= 10; ++$i) {
             $recipient = new CampaignRecipient(
                 $campaign,
-                $this->persistOrganization('Организация '.$i),
+                $this->persistOrganization('Организация ' . $i),
             );
             if ($i <= 6) {
                 $recipient->markDelivered();
@@ -139,7 +141,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
 
         $this->assertResponseIsSuccessful();
         $headers = $crawler->filter('thead th')->each(
-            static fn (Crawler $header): string => trim($header->text()),
+            static fn(Crawler $header): string => trim($header->text()),
         );
         self::assertContains('Статистика', $headers);
         self::assertStringContainsString('7 из 10', $crawler->filter('tbody tr')->first()->text());
@@ -249,7 +251,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $campaign = $this->persistCampaign('Акция');
         $storageKey = bin2hex(random_bytes(16));
         // Write test file directly into storage to avoid UploadedFile test-mode issues.
-        $dir = dirname($storage->path($storageKey));
+        $dir = \dirname($storage->path($storageKey));
         if (!is_dir($dir)) {
             @mkdir($dir, 0777, true);
         }

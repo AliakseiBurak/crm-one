@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Functional\EventSubscriber;
 
 use App\Tests\DatabaseWebTestCase;
@@ -23,7 +25,7 @@ final class SearchIndexingTest extends DatabaseWebTestCase
         $crawler = $this->client->request('GET', '/login');
 
         $this->assertResponseIsSuccessful();
-        $this->assertCount(1, $crawler->filter('head meta[name="robots"][content="noindex, nofollow"]'));
+        self::assertCount(1, $crawler->filter('head meta[name="robots"][content="noindex, nofollow"]'));
     }
 
     public function testRobotsHeaderOnJsonEndpoint(): void

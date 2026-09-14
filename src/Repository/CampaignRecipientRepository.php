@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Repository;
 
 use App\Entity\CampaignRecipient;
@@ -171,7 +173,7 @@ class CampaignRecipientRepository extends ServiceEntityRepository
                 'IDENTITY(cr.campaign) AS campaignId',
                 'c.status AS campaignStatus',
                 'COUNT(cr.id) AS total',
-                "SUM(CASE WHEN cr.status IN (:delivered) THEN 1 ELSE 0 END) AS delivered",
+                'SUM(CASE WHEN cr.status IN (:delivered) THEN 1 ELSE 0 END) AS delivered',
             )
             ->innerJoin('cr.campaign', 'c')
             ->groupBy('cr.campaign')

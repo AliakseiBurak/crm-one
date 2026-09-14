@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests;
 
 use App\Entity\User;
@@ -62,11 +64,11 @@ abstract class DatabaseWebTestCase extends WebTestCase
     {
         $buttons = $this->client->getCrawler()->filter('form button');
         $match = $buttons->reduce(
-            static fn (Crawler $button) => trim($button->text()) === trim($buttonText),
+            static fn(Crawler $button) => trim($button->text()) === trim($buttonText),
         );
 
         if ($match->count() === 0) {
-            throw new \LogicException(sprintf('Форма с кнопкой «%s» не найдена.', $buttonText));
+            throw new \LogicException(\sprintf('Форма с кнопкой «%s» не найдена.', $buttonText));
         }
 
         $this->client->submit($match->first()->form(), $fields);

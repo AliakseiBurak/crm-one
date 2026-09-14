@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Entity;
 
 use App\Entity\Enum\RecipientStatus;
@@ -108,7 +110,7 @@ class CampaignRecipient
         return $this;
     }
 
-     public function markFailed(string $errorMessage, bool $transient = true): self
+    public function markFailed(string $errorMessage, bool $transient = true): self
     {
         $this->status = RecipientStatus::Failed;
         $this->errorMessage = $errorMessage;

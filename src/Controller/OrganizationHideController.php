@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Entity\User;
@@ -28,8 +30,7 @@ class OrganizationHideController extends AbstractController
         private readonly OrganizationRepository $organizations,
         private readonly UserRepository $users,
         private readonly OrganizationHideService $hideService,
-    ) {
-    }
+    ) {}
 
     #[Route('', name: 'app_organization_hide_list', methods: ['GET', 'POST'])]
     public function list(Request $request): Response
@@ -108,7 +109,7 @@ class OrganizationHideController extends AbstractController
             $duplicated = $this->hideService->findDuplicateTargets($organization, $managers);
             if ([] !== $duplicated) {
                 $this->addFlash('error', 'Организация уже скрыта от: ' . implode(', ', array_map(
-                    static fn (User $m): string => $m->email,
+                    static fn(User $m): string => $m->email,
                     $duplicated,
                 )));
 
@@ -121,7 +122,7 @@ class OrganizationHideController extends AbstractController
             $created = $this->hideService->hideFromAllManagers($organization);
         }
 
-        $this->addFlash('success', sprintf('Организация скрыта от %d менеджеров', $created));
+        $this->addFlash('success', \sprintf('Организация скрыта от %d менеджеров', $created));
 
         return $this->redirectToRoute('app_organization_hide_list');
     }

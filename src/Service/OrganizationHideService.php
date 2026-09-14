@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Service;
 
 use App\Entity\Organization;
@@ -21,8 +23,7 @@ final class OrganizationHideService
         private readonly OrganizationHideRepository $hides,
         private readonly UserRepository $users,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     /**
      * Проверяет целевые менеджеры: все IDs должны быть менеджерами (role=manager),

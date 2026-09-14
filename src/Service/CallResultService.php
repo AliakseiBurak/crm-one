@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Service;
 
 use App\Entity\Call;
@@ -22,8 +24,7 @@ final class CallResultService
         private readonly CampaignRepository $campaigns,
         private readonly CampaignRecipientRepository $recipients,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     /**
      * Кампании для действия «рассылка»: все статусы кроме archived.

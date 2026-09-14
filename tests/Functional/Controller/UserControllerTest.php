@@ -1,14 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Functional\Controller;
 
 use App\Entity\Enum\UserRole;
 use App\Entity\GroupAssignment;
-use App\Entity\OrgGroupMembership;
 use App\Entity\Organization;
 use App\Entity\OrganizationGroup;
+use App\Entity\OrgGroupMembership;
 use App\Entity\User;
-use App\Repository\UserRepository;
 use App\Tests\DatabaseWebTestCase;
 
 /**
@@ -256,8 +257,10 @@ final class UserControllerTest extends DatabaseWebTestCase
         $this->em()->clear();
 
         self::assertNull($this->em()->find(User::class, $managerId));
-        self::assertNull($this->em()->find(OrganizationGroup::class, $groupId),
-            'Группа удаляется при выборе «Удалить группу»');
+        self::assertNull(
+            $this->em()->find(OrganizationGroup::class, $groupId),
+            'Группа удаляется при выборе «Удалить группу»'
+        );
     }
 
     public function testAdminDeletesAdminNoGroupDeleted(): void

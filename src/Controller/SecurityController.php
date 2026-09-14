@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Repository\UserRepository;
@@ -7,16 +9,15 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class SecurityController extends AbstractController
 {
     public function __construct(
         private readonly UserRepository $users,
-    ) {
-    }
+    ) {}
 
     #[Route('/login', name: 'app_login')]
     public function login(Request $request, AuthenticationUtils $authenticationUtils): Response
@@ -69,7 +70,7 @@ class SecurityController extends AbstractController
 
         if ('' === $newPassword) {
             $errors[] = 'Введите новый пароль';
-        } elseif (\mb_strlen($newPassword) < 8) {
+        } elseif (mb_strlen($newPassword) < 8) {
             $errors[] = 'Пароль должен содержать не менее 8 символов';
         }
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Unit\Service;
 
 use App\Entity\Campaign;
@@ -73,7 +75,7 @@ final class MailingServiceTest extends TestCase
         $html = (string) $this->sent[0]->getHtmlBody();
         self::assertStringContainsString('Уважаемый(ая) Алиса', $html);
         self::assertStringContainsString('mso-hide:all', $html);
-        self::assertStringContainsString('https://b2b-crm.local/t/'.$recipient->trackingToken.'.png', $html);
+        self::assertStringContainsString('https://b2b-crm.local/t/' . $recipient->trackingToken . '.png', $html);
         self::assertSame(RecipientStatus::Delivered, $recipient->status);
     }
 
@@ -117,14 +119,14 @@ final class MailingServiceTest extends TestCase
         $org = $this->organization();
         $this->contact($org, 'Алиса', 'alice@example.ru');
         $recipient = new CampaignRecipient($campaign, $org);
-        $tmpDir = sys_get_temp_dir().'/mailing-service-test-'.bin2hex(random_bytes(8));
+        $tmpDir = sys_get_temp_dir() . '/mailing-service-test-' . bin2hex(random_bytes(8));
         self::assertTrue(mkdir($tmpDir, 0777, true));
         $storage = new CampaignAttachmentStorage($tmpDir);
-        $storageKey = 'mailing-service-test-'.bin2hex(random_bytes(8));
+        $storageKey = 'mailing-service-test-' . bin2hex(random_bytes(8));
         $path = $storage->path($storageKey);
 
-        if (!is_dir(dirname($path))) {
-            mkdir(dirname($path), 0777, true);
+        if (!is_dir(\dirname($path))) {
+            mkdir(\dirname($path), 0777, true);
         }
         self::assertNotFalse(file_put_contents($path, 'attachment body'));
         new CampaignAttachment($campaign, 'предложение.txt', $storageKey)
@@ -268,7 +270,7 @@ final class MailingServiceTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->method('contains')->willReturn(false);
         $this->recipients->method('find')->with(42)->willReturn(null);
-        $this->mailer->expects($this->never())->method('send');
+        $this->mailer->expects(self::never())->method('send');
 
         $this->createService($em)->processRecipient($stale);
 
@@ -325,7 +327,7 @@ final class MailingServiceTest extends TestCase
 
         $urls = $this->createMock(UrlGeneratorInterface::class);
         $urls->method('generate')->willReturnCallback(
-            static fn (string $name, array $params): string => 'https://b2b-crm.local/t/'.$params['trackingToken'].'.png',
+            static fn(string $name, array $params): string => 'https://b2b-crm.local/t/' . $params['trackingToken'] . '.png',
         );
 
         return new MailingService(
@@ -389,7 +391,7 @@ final class MailingServiceTest extends TestCase
      */
     private function addresses(array $addresses): array
     {
-        return array_values(array_map(static fn (Address $a): string => $a->getAddress(), $addresses));
+        return array_values(array_map(static fn(Address $a): string => $a->getAddress(), $addresses));
     }
 
     private function removeDirectory(string $directory): void

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\MessageHandler;
 
 use App\Message\SendCampaignBatch;
@@ -11,8 +13,7 @@ final readonly class SendCampaignBatchHandler
 {
     public function __construct(
         private CampaignSendProcessor $processor,
-    ) {
-    }
+    ) {}
 
     public function __invoke(SendCampaignBatch $message): void
     {

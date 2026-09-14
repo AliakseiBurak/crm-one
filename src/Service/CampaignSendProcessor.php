@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Service;
 
 use App\Repository\CampaignRecipientRepository;
@@ -18,8 +20,7 @@ class CampaignSendProcessor
         private readonly LockFactory $lockFactory,
         #[Autowire(param: 'mailing.batch_size')]
         private readonly int $batchSize,
-    ) {
-    }
+    ) {}
 
     /**
      * Обработать очередной батч получателей.
@@ -36,7 +37,7 @@ class CampaignSendProcessor
         try {
             $batchSize = $limit ?? $this->batchSize;
             $ids = $this->recipientRepository->findPendingIdsForSend($batchSize);
-            $remaining = $batchSize - count($ids);
+            $remaining = $batchSize - \count($ids);
 
             if ($remaining > 0) {
                 $ids = array_merge(

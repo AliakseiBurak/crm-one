@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Entity;
 
 use App\Entity\Enum\UserRole;
@@ -96,7 +98,5 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->role->roles();
     }
 
-    public function eraseCredentials(): void
-    {
-    }
+    public function eraseCredentials(): void {}
 }

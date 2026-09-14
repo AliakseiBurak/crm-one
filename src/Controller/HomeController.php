@@ -1,9 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
-use App\Entity\User;
 use App\Entity\Enum\UserRole;
+use App\Entity\User;
 use App\Repository\CallRepository;
 use App\Repository\CampaignRecipientRepository;
 use App\Repository\ContactRepository;
@@ -65,7 +67,7 @@ class HomeController extends AbstractController
 
         $organizationRows = $organizationRepository->findForDashboard($user, $search, $sort, $dir);
 
-        $ids = array_map(static fn (\App\Dto\DashboardOrganizationRow $row): int => $row->organization->id, $organizationRows);
+        $ids = array_map(static fn(\App\Dto\DashboardOrganizationRow $row): int => $row->organization->id, $organizationRows);
 
         $contacts = $contactRepository->findByOrganizations($ids);
         $contactsByOrganization = [];

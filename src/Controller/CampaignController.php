@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Entity\Campaign;
@@ -44,8 +46,7 @@ class CampaignController extends AbstractController
         private readonly CampaignAttachmentStorage $storage,
         private readonly CampaignRecipientService $recipientService,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     #[Route('/campaigns', name: 'app_campaign_index', methods: ['GET'])]
     public function index(Request $request): Response
@@ -54,7 +55,7 @@ class CampaignController extends AbstractController
         $direction = $request->query->get('dir', 'ASC');
 
         $allowed = ['name', 'subject', 'status', 'createdAt'];
-        if (!in_array($sort, $allowed, true)) {
+        if (!\in_array($sort, $allowed, true)) {
             $sort = 'name';
         }
         $direction = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
@@ -279,7 +280,7 @@ class CampaignController extends AbstractController
         $this->assertCsrfToken($request);
 
         $storageKeys = array_map(
-            static fn (CampaignAttachment $a): string => $a->storageKey,
+            static fn(CampaignAttachment $a): string => $a->storageKey,
             $campaign->attachments->toArray(),
         );
 
@@ -368,7 +369,7 @@ class CampaignController extends AbstractController
         $contactsByOrg = [];
         foreach ($available as $org) {
             $contactsByOrg[$org->id] = array_map(
-                static fn (Contact $c): array => ['id' => $c->id, 'name' => $c->name, 'email' => $c->email],
+                static fn(Contact $c): array => ['id' => $c->id, 'name' => $c->name, 'email' => $c->email],
                 $org->contacts->toArray(),
             );
         }
@@ -381,7 +382,7 @@ class CampaignController extends AbstractController
         if (null !== $accessibleIds) {
             $recipients = array_values(array_filter(
                 $recipients,
-                static fn (CampaignRecipient $r): bool => \in_array($r->organization->id, $accessibleIds, true),
+                static fn(CampaignRecipient $r): bool => \in_array($r->organization->id, $accessibleIds, true),
             ));
         }
 
@@ -426,7 +427,7 @@ class CampaignController extends AbstractController
         }
         $this->em->flush();
 
-        $this->addFlash('success', $this->bulkResultMessage($added, count($available) - $added, $noEmail));
+        $this->addFlash('success', $this->bulkResultMessage($added, \count($available) - $added, $noEmail));
 
         if ($request->headers->get('X-Requested-With') === 'XMLHttpRequest') {
             return $this->json([
@@ -474,7 +475,7 @@ class CampaignController extends AbstractController
         if (null !== $contact && (null === $contact->email || '' === $contact->email)) {
             $orgEmail = $this->firstOrganizationEmail($organization);
             if (null !== $orgEmail) {
-                $this->addFlash('notice', sprintf(
+                $this->addFlash('notice', \sprintf(
                     'У контакта «%s» отсутствует e-mail. Письмо будет отправлено организации: %s',
                     $contact->name,
                     $orgEmail,
@@ -843,9 +844,9 @@ class CampaignController extends AbstractController
      */
     private function bulkResultMessage(int $added, int $skipped, int $noEmail): string
     {
-        $message = sprintf('Добавлено: %d, пропущено: %d', $added, $skipped);
+        $message = \sprintf('Добавлено: %d, пропущено: %d', $added, $skipped);
         if ($noEmail > 0) {
-            $message .= sprintf(' (в том числе нет e-mail: %d)', $noEmail);
+            $message .= \sprintf(' (в том числе нет e-mail: %d)', $noEmail);
         }
 
         return $message;
@@ -878,7 +879,7 @@ class CampaignController extends AbstractController
             $files = $single ? [$single] : [];
         }
 
-        if (!is_array($files)) {
+        if (!\is_array($files)) {
             $files = [];
         }
 
@@ -936,7 +937,7 @@ class CampaignController extends AbstractController
         }
 
         if (0 === $result['total']) {
-            $this->addFlash('notice', sprintf('В группе «%s» нет организаций — добавлять нечего.', $group->name));
+            $this->addFlash('notice', \sprintf('В группе «%s» нет организаций — добавлять нечего.', $group->name));
 
             return $this->redirectToRoute('app_campaign_recipients', ['id' => $campaign->id]);
         }

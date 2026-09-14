@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Command;
 
 use App\Service\CampaignSendProcessor;
@@ -40,7 +42,7 @@ class CampaignSendCommand extends Command
         }
 
         if ($processed > 0) {
-            $output->writeln(sprintf('<info>Обработано получателей: %d</info>', $processed));
+            $output->writeln(\sprintf('<info>Обработано получателей: %d</info>', $processed));
         }
 
         return Command::SUCCESS;

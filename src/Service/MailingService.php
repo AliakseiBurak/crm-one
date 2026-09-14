@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Service;
 
 use App\Entity\Campaign;
@@ -32,8 +34,7 @@ readonly class MailingService
         private string $fromEmail,
         #[Autowire(param: 'mailing.from_name')]
         private string $fromName,
-    ) {
-    }
+    ) {}
 
     /**
      * Обработать одного получателя: одно письмо на организацию (TO + CC),
@@ -197,7 +198,7 @@ readonly class MailingService
             return '';
         }
 
-        return sprintf(
+        return \sprintf(
             '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">%s</div>',
             htmlspecialchars($preview, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
         );
@@ -215,7 +216,7 @@ readonly class MailingService
             UrlGeneratorInterface::ABSOLUTE_URL,
         );
 
-        return sprintf(
+        return \sprintf(
             '<img src="%s" width="1" height="1" alt="" style="display:block;border:0;height:1px;width:1px">',
             htmlspecialchars($pixelUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
         );
@@ -311,8 +312,8 @@ readonly class MailingService
             return;
         }
 
-        $subject = sprintf('Ошибка рассылки #%d: %s', $campaign->id, $campaign->name);
-        $html = sprintf(
+        $subject = \sprintf('Ошибка рассылки #%d: %s', $campaign->id, $campaign->name);
+        $html = \sprintf(
             '<h2>Рассылка #%d перешла в статус «Ошибка»</h2>'
             . '<p><strong>Название:</strong> %s</p>'
             . '<p><strong>Причина:</strong> %s</p>'

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Entity;
 
 use App\Repository\CallRepository;
@@ -43,7 +45,7 @@ class Call
     #[ORM\Column(name: 'is_no_answer', type: 'boolean', options: ['default' => false])]
     public private(set) bool $isNoAnswer = false;
 
-    #[ORM\OneToOne(targetEntity: Call::class)]
+    #[ORM\OneToOne(targetEntity: self::class)]
     #[ORM\JoinColumn(name: 'next_call_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     public private(set) ?Call $nextCall = null;
 
@@ -115,7 +117,7 @@ class Call
         return $this;
     }
 
-    public function setNextCall(?Call $nextCall): self
+    public function setNextCall(?self $nextCall): self
     {
         $this->nextCall = $nextCall;
 

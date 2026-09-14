@@ -1,14 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Functional\Controller;
 
 use App\Entity\Call;
 use App\Entity\Contact;
 use App\Entity\Enum\UserRole;
-use App\Entity\OrgGroupMembership;
 use App\Entity\Organization;
 use App\Entity\OrganizationGroup;
 use App\Entity\OrganizationHide;
+use App\Entity\OrgGroupMembership;
 use App\Entity\User;
 use App\Tests\DatabaseWebTestCase;
 
@@ -61,7 +63,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         ]);
 
         $this->assertResponseRedirects();
-        $this->assertNotNull($this->findOrganization('ООО Ромашка'));
+        self::assertNotNull($this->findOrganization('ООО Ромашка'));
 
         // Личных групп больше нет: без выбора группа организация не привязана
         // ни к одной группе (spec organization-groups: создание без выбора группы).

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Service;
 
 use App\Entity\Campaign;
@@ -25,8 +27,7 @@ final class CampaignRecipientService
         private readonly OrganizationGroupRepository $groups,
         private readonly OrganizationRepository $organizations,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     /**
      * Массовое добавление организаций из группы в рассылку.
@@ -78,7 +79,7 @@ final class CampaignRecipientService
             $before = \count($organizations);
             $organizations = array_values(array_filter(
                 $organizations,
-                static fn (Organization $o): bool => \in_array($o->id, $accessibleIds, true),
+                static fn(Organization $o): bool => \in_array($o->id, $accessibleIds, true),
             ));
             $skipped += $before - \count($organizations);
         }

@@ -1,8 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Service;
 
-use Random\RandomException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -19,8 +20,7 @@ final class CampaignAttachmentStorage
     public function __construct(
         #[Autowire(param: 'kernel.project_dir')]
         private readonly string $projectDir,
-    ) {
-    }
+    ) {}
 
     /**
      * Сохраняет загруженный файл и возвращает сгенерированный ключ хранилища.
@@ -29,7 +29,7 @@ final class CampaignAttachmentStorage
     {
         $directory = $this->directory();
         if (!is_dir($directory) && !@mkdir($directory, 0775, true) && !is_dir($directory)) {
-            throw new FileException(sprintf('Не удалось создать каталог хранилища "%s"', $directory));
+            throw new FileException(\sprintf('Не удалось создать каталог хранилища "%s"', $directory));
         }
         /** @noinspection PhpUnhandledExceptionInspection */
         $storageKey = bin2hex(random_bytes(16));

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Unit\Entity;
 
 use App\Entity\Campaign;
@@ -16,7 +18,7 @@ final class CampaignRecipientTest extends TestCase
 
         self::assertSame(RecipientStatus::Pending, $recipient->status);
         self::assertNotNull($recipient->trackingToken);
-        self::assertSame(64, strlen((string) $recipient->trackingToken));
+        self::assertSame(64, \strlen((string) $recipient->trackingToken));
         self::assertSame(0, $recipient->retryCount);
         self::assertNull($recipient->retryAt);
         self::assertNull($recipient->errorMessage);

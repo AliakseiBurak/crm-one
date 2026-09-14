@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\DataFixtures;
 
 use App\Entity\Call;
@@ -10,10 +12,10 @@ use App\Entity\Contact;
 use App\Entity\Enum\CampaignStatus;
 use App\Entity\Enum\UserRole;
 use App\Entity\GroupAssignment;
-use App\Entity\OrgGroupMembership;
 use App\Entity\Organization;
 use App\Entity\OrganizationGroup;
 use App\Entity\OrganizationHide;
+use App\Entity\OrgGroupMembership;
 use App\Entity\User;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
@@ -80,9 +82,7 @@ class AppFixtures extends Fixture
         2 => 'Запись через приёмную',
     ];
 
-    public function __construct(private readonly UserPasswordHasherInterface $passwordHasher)
-    {
-    }
+    public function __construct(private readonly UserPasswordHasherInterface $passwordHasher) {}
 
     public function load(ObjectManager $manager): void
     {
@@ -163,7 +163,7 @@ class AppFixtures extends Fixture
         // факты и планы с заметками; заметки — рабочие формулировки менеджера.
         $today = new \DateTimeImmutable('today');
         $yesterday = $today->modify('-1 day');
-        $make = function (Organization $org, ?Contact $contact, \DateTimeImmutable $madeAt, ?string $notes) use ($manager, $manager1): void {
+        $make = static function (Organization $org, ?Contact $contact, \DateTimeImmutable $madeAt, ?string $notes) use ($manager, $manager1): void {
             $call = new Call()
                 ->setOrganization($org)
                 ->setMadeAt($madeAt)
@@ -198,7 +198,7 @@ class AppFixtures extends Fixture
         // Запланированные обзвоны (scheduled) по периодам дашборда:
         // неделя (+1д) / месяц (+20д у Конкурента) / более месяца (+45д);
         // -2д — просроченный план (без заметки).
-        $plan = function (Organization $org, ?Contact $contact, \DateTimeImmutable $at, ?string $notes) use ($manager, $manager1): void {
+        $plan = static function (Organization $org, ?Contact $contact, \DateTimeImmutable $at, ?string $notes) use ($manager, $manager1): void {
             $call = new Call()
                 ->setOrganization($org)
                 ->setScheduledAt($at)
@@ -217,7 +217,7 @@ class AppFixtures extends Fixture
         // Звонки «только с датой»: без заметки и без контакта — у Конкурента.
         // Даты видны в таблице; в списке «Все звонки» строки без текста
         // (контакта тоже нет).
-        $bare = function (Organization $org, \DateTimeImmutable $at, bool $made) use ($manager, $manager1): void {
+        $bare = static function (Organization $org, \DateTimeImmutable $at, bool $made) use ($manager, $manager1): void {
             $call = new Call()
                 ->setOrganization($org)
                 ->setMadeBy($manager1);

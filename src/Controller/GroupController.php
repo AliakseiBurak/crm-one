@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Entity\Enum\UserRole;
 use App\Entity\GroupAssignment;
-use App\Entity\OrgGroupMembership;
 use App\Entity\Organization;
 use App\Entity\OrganizationGroup;
+use App\Entity\OrgGroupMembership;
 use App\Entity\User;
 use App\Repository\OrganizationGroupRepository;
 use App\Repository\OrganizationRepository;
@@ -29,8 +31,7 @@ class GroupController extends AbstractController
         private readonly OrganizationRepository $organizations,
         private readonly EntityManagerInterface $em,
         private readonly ValidatorInterface $validator,
-    ) {
-    }
+    ) {}
 
     #[Route('', name: 'app_group_list', methods: ['GET'])]
     #[IsGranted('ROLE_MANAGER')]
@@ -69,7 +70,7 @@ class GroupController extends AbstractController
             'manageableIds' => $isAdmin
                 ? null
                 : array_map(
-                    static fn (OrganizationGroup $g): int => $g->id,
+                    static fn(OrganizationGroup $g): int => $g->id,
                     $this->groups->findCreatedBy($user),
                 ),
             'sort' => $sort,
@@ -217,7 +218,7 @@ class GroupController extends AbstractController
         $canEdit = $this->canManageGroup($group);
 
         $memberIds = array_map(
-            static fn (OrgGroupMembership $m): int => $m->organization->id,
+            static fn(OrgGroupMembership $m): int => $m->organization->id,
             $group->memberships->toArray()
         );
 
@@ -227,14 +228,14 @@ class GroupController extends AbstractController
             // Скрытые организации не отображаются менеджеру (ADR-0012);
             // администратор видит всех участников.
             $members = array_map(
-                static fn (OrgGroupMembership $m): Organization => $m->organization,
+                static fn(OrgGroupMembership $m): Organization => $m->organization,
                 $group->memberships->toArray(),
             );
             $accessibleIds = $this->organizations->findAccessibleIds($this->getUser());
             if (null !== $accessibleIds) {
                 $members = array_values(array_filter(
                     $members,
-                    static fn (Organization $o): bool => \in_array($o->id, $accessibleIds, true),
+                    static fn(Organization $o): bool => \in_array($o->id, $accessibleIds, true),
                 ));
             }
 
@@ -279,7 +280,7 @@ class GroupController extends AbstractController
         // user's accessible set (they may be hidden from this manager
         // but still belong to the group for other managers — ADR-0012).
         foreach ($group->memberships as $membership) {
-            if (!in_array($membership->organization->id, $selectedIds, true)) {
+            if (!\in_array($membership->organization->id, $selectedIds, true)) {
                 if (null !== $accessibleIds && !\in_array($membership->organization->id, $accessibleIds, true)) {
                     continue; // preserve hidden org membership
                 }
@@ -322,7 +323,7 @@ class GroupController extends AbstractController
             'group' => $group,
             'managers' => $this->users->findManagers(),
             'assignedIds' => array_map(
-                static fn (GroupAssignment $a): int => $a->user->id,
+                static fn(GroupAssignment $a): int => $a->user->id,
                 $group->assignments->toArray(),
             ),
         ]);
@@ -340,14 +341,14 @@ class GroupController extends AbstractController
         // Назначать группу можно только менеджерам (ADR-0008): администратор
         // видит все группы без GroupAssignment, отправка id админа игнорируется.
         $managerIds = array_map(
-            static fn (User $m): int => $m->id,
+            static fn(User $m): int => $m->id,
             $this->users->findManagers(),
         );
         $selectedIds = array_values(array_intersect($selectedIds, $managerIds));
 
         // Remove existing assignments not in selection
         foreach ($group->assignments as $assignment) {
-            if (!in_array($assignment->user->id, $selectedIds, true)) {
+            if (!\in_array($assignment->user->id, $selectedIds, true)) {
                 $group->assignments->removeElement($assignment);
                 $this->em->remove($assignment);
             }
@@ -355,11 +356,11 @@ class GroupController extends AbstractController
 
         // Add new assignments
         $currentIds = array_map(
-            static fn (GroupAssignment $a): int => $a->user->id,
+            static fn(GroupAssignment $a): int => $a->user->id,
             $group->assignments->toArray(),
         );
         foreach ($selectedIds as $managerId) {
-            if (!in_array($managerId, $currentIds, true)) {
+            if (!\in_array($managerId, $currentIds, true)) {
                 $manager = $this->users->find($managerId);
                 if (null !== $manager) {
                     $this->em->persist(new GroupAssignment($manager, $group));

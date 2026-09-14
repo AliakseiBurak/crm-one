@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App;
 
 use App\Message\SendCampaignBatch;
@@ -16,8 +18,7 @@ class Schedule implements ScheduleProviderInterface
     public function __construct(
         private CacheInterface $cache,
         private LockFactory $lockFactory,
-    ) {
-    }
+    ) {}
 
     public function getSchedule(): SymfonySchedule
     {

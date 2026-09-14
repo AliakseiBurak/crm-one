@@ -1,11 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Dto\CreateUserRequest;
 use App\Entity\Enum\UserRole;
 use App\Entity\GroupAssignment;
-use App\Entity\OrganizationGroup;
 use App\Entity\User;
 use App\Repository\OrganizationGroupRepository;
 use App\Repository\UserRepository;
@@ -26,8 +27,7 @@ class UserController extends AbstractController
         private readonly UserRepository $users,
         private readonly OrganizationGroupRepository $groups,
         private readonly EntityManagerInterface $em,
-    ) {
-    }
+    ) {}
 
     #[Route('', name: 'app_user_list', methods: ['GET'])]
     public function list(): Response
@@ -173,7 +173,7 @@ class UserController extends AbstractController
             'user' => $user,
             'groups' => $this->groups->findAllGroups(),
             'assignedIds' => array_map(
-                static fn (GroupAssignment $a): int => $a->group->id,
+                static fn(GroupAssignment $a): int => $a->group->id,
                 $user->groupAssignments->toArray(),
             ),
         ]);
@@ -189,7 +189,7 @@ class UserController extends AbstractController
 
         // Remove existing assignments not in selection
         foreach ($user->groupAssignments as $assignment) {
-            if (!in_array($assignment->group->id, $selectedIds, true)) {
+            if (!\in_array($assignment->group->id, $selectedIds, true)) {
                 $user->groupAssignments->removeElement($assignment);
                 $this->em->remove($assignment);
             }
@@ -197,11 +197,11 @@ class UserController extends AbstractController
 
         // Add new assignments (несуществующие id групп игнорируются)
         $currentIds = array_map(
-            static fn (GroupAssignment $a): int => $a->group->id,
+            static fn(GroupAssignment $a): int => $a->group->id,
             $user->groupAssignments->toArray(),
         );
         foreach ($selectedIds as $groupId) {
-            if (!in_array($groupId, $currentIds, true)) {
+            if (!\in_array($groupId, $currentIds, true)) {
                 $group = $this->groups->find($groupId);
                 if (null !== $group) {
                     $this->em->persist(new GroupAssignment($user, $group));

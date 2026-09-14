@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Functional\Repository;
 
 use App\Entity\Enum\UserRole;
@@ -88,7 +90,7 @@ final class OrganizationRepositoryAccessTest extends DatabaseWebTestCase
 
         self::assertSame(
             [$org->id, $otherOrg->id],
-            $this->sorted(array_map(static fn (Organization $o): int => $o->id, $accessible)),
+            $this->sorted(array_map(static fn(Organization $o): int => $o->id, $accessible)),
         );
     }
 

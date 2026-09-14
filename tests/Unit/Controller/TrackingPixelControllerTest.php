@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Unit\Controller;
 
 use App\Controller\TrackingPixelController;
@@ -20,7 +22,7 @@ final class TrackingPixelControllerTest extends TestCase
         $recipient->markDelivered();
 
         $em = $this->entityManager($recipient);
-        $em->expects($this->once())->method('flush');
+        $em->expects(self::once())->method('flush');
 
         $response = new TrackingPixelController()('token-1', $em);
 
@@ -34,7 +36,7 @@ final class TrackingPixelControllerTest extends TestCase
     {
         $recipient = $this->recipient();
         $em = $this->entityManager($recipient);
-        $em->expects($this->never())->method('flush');
+        $em->expects(self::never())->method('flush');
 
         new TrackingPixelController()('token-1', $em);
 
@@ -44,7 +46,7 @@ final class TrackingPixelControllerTest extends TestCase
     public function testUnknownTokenStillReturnsPng(): void
     {
         $em = $this->entityManager(null);
-        $em->expects($this->never())->method('flush');
+        $em->expects(self::never())->method('flush');
 
         $response = new TrackingPixelController()('missing', $em);
 
