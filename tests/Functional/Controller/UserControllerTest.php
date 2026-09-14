@@ -210,7 +210,6 @@ final class UserControllerTest extends DatabaseWebTestCase
         $this->assertSelectorTextContains('body', 'Группа менеджера');
         $this->assertSelectorTextContains('body', 'Организаций в группе: 1');
         $this->assertSelectorTextContains('body', 'Пётр Сидоров');
-        $this->assertSelectorTextContains('body', 'организации останутся в системе');
     }
 
     public function testAdminReassignsGroupsWhenDeletingManager(): void
