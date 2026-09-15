@@ -1,8 +1,8 @@
 ## Context
 
-Сущность `Call` (Doctrine ORM 3.x) уже имеет поля: `isDeal`, `isNoAnswer`, `campaignId`, `nextCallId` (self-ref), `organizationId`, `contactId`, `madeAt`, `madeBy`, `scheduledAt`, `notes`, `createdAt`. Добавляются `course` (FK → Course) для курса при сделке и `isRefusal` (boolean) для отметки отказа.
+Сущность `Call` (Doctrine ORM 3.x) уже имеет поля: `isDeal`, `isNoAnswer`, `campaignId`, `nextCallId` (self-ref), `organizationId`, `contactId`, `madeAt`, `madeBy`, `scheduledAt`, `notes`, `createdAt`. Добавляется `isRefusal` (boolean) для отметки отказа.
 
-Сущность `Organization` расширяется полями `currentCourse` (FK → Course), `isActive` (boolean), `isOptedOut`, `optOutReason`, `optedOutAt`. Opt-out пара `isOptedOut`/`optOutReason` принадлежит только этому change: в `organization-fields-expansion` она исключена (развязка — вариант C), миграции не дублируются. Порядок архивации: `organization-fields-expansion` → этот change; CRUD-дельты этого change пишут итоговый union полей формы.
+Сущность `Organization` расширяется полями `isActive` (boolean), `isOptedOut`, `optOutReason`, `optedOutAt`. Opt-out пара `isOptedOut`/`optOutReason` принадлежит только этому change: в `organization-fields-expansion` она исключена (развязка — вариант C), миграции не дублируются. Порядок архивации: `organization-fields-expansion` → этот change; CRUD-дельты этого change пишут итоговый union полей формы.
 
 Эндпоинт `POST /organizations/{id}/opt-out` — новый REST-маршрут. Доступ по ролям: администратор всегда, менеджер — только если организация в области доступа.
 
@@ -11,12 +11,12 @@
 ## Goals / Non-Goals
 
 **Goals:**
-- Добавить на `Call`: `course` (FK → Course, nullable), `isRefusal` (boolean, default false)
-- Добавить на `Organization`: `currentCourse` (FK → Course, nullable), `isActive` (boolean, default true), `isOptedOut` (boolean, default false), `optOutReason` (text, nullable), `optedOutAt` (datetime, nullable)
+- Добавить на `Call`: `isRefusal` (boolean, default false)
+- Добавить на `Organization`: `isActive` (boolean, default true), `isOptedOut` (boolean, default false), `optOutReason` (text, nullable), `optedOutAt` (datetime, nullable)
 - При сохранении звонка с `isRefusal = true` и `madeAt` → по чекбоксам: `isActive = false` и/или `isOptedOut = true`
 - Сеттер `setIsOptedOut(false)` сбрасывает `optOutReason = null` и `optedOutAt = null` (перенесено из `organization-fields-expansion`)
-- В форме организации: поле «Причина отказа» показывается только при `isOptedOut = true`
-- В форме результата звонка: при `is_deal` — условный селект курса; чекбокс «отказ»
+- В форме организации: поле «Причина отказа» показывается только при `isOptedOut = true`; подтверждение при снятии отказа (восстановление в рассылках)
+- В форме результата звонка: чекбокс «отказ» с условными чекбоксами «неактивная» и «отказ от рассылок»
 - `POST /organizations/{id}/opt-out` — эндпоинт для программной отписки
 - Токен `{{unsubscribe_url}}` в теле письма кампании; кнопка «Вставить отписку» на странице редактирования
 - Исключать отписавшиеся организации из рассылок: при выборе адресатов и при отправке
@@ -30,9 +30,8 @@
 ## Decisions
 
 ### Decision 1: Типы новых полей на Call
-- `course`: `ManyToOne` → `Course`, nullable — курс, выбранный при сделке (не обязателен)
 - `isRefusal`: `boolean`, default false — отметка «отказ»
-- `isDeal` остаётся без изменений; курс привязан к звонку, а не к отдельной сущности Deal — не усложняем модель
+- `isDeal` остаётся без изменений
 
 ### Decision 2: Автоотписка при отказе — в хендлере сохранения звонка
 **Решение**: В `CallController::save` (или Form handler) — после сохранения звонка, если `isRefusal === true` и `madeAt !== null`:
@@ -52,6 +51,9 @@
 
 ### Decision 4: Сеттер-сброс optOutReason/optedOutAt при снятии отказа
 **Решение**: В `Organization::setIsOptedOut(false)` — автоматический сброс `optOutReason = null` и `optedOutAt = null` в сеттере сущности (на уровне PHP, не через EventSubscriber). При переходе false→true сеттер проставляет `optedOutAt = now` (повторный `setIsOptedOut(true)` при уже установленном флаге дату не трогает). Это гарантирует, что причина и дата не болтаются в БД при снятом флаге, а `optedOutAt` соответствует последней отписке.
+
+### Decision 4.1: Подтверждение при восстановлении в рассылках
+**Решение**: При снятии чекбокса `isOptedOut` (переход true→false) в форме организации JavaScript показывает диалог подтверждения: «Восстановить организацию в рассылках?». При подтверждении — `isOptedOut = false`, `optOutReason = null`, `optedOutAt = null`. При отмене — чекбокс возвращается в состояние true. Это предотвращает случайное восстановление отписавшейся организации.
 
 ### Decision 5: Условное отображение optOutReason в форме организации
 **Решение**: Поле `optOutReason` в форме:
@@ -75,7 +77,7 @@
 **Альтернатива**: isActive = !isOptedOut (автоматическая связь) — отвергнуто; неактивность и отказ от рассылок — разные бизнес-понятия, клиент может быть активным но отказавшимся от рассылок и наоборот.
 
 ### Decision 7: Форма звонка — условные поля
-**Решение**: В форме результата звонка селект курса отображается только при отмеченной сделке (`isDeal`), чекбоксы «неактивная»/«отказ от рассылок» — только при отмеченном отказе (`isRefusal`). Механика как в Decision 5: поля рендерятся всегда, скрываются CSS, показываются JS по чекбоксам; сервер игнорирует скрытые значения (курс без сделки, isActive/isOptedOut без отказа).
+**Решение**: В форме результата звонка чекбоксы «неактивная»/«отказ от рассылок» отображаются только при отмеченном отказе (`isRefusal`). Механика как в Decision 5: поля рендерятся всегда, скрываются CSS, показываются JS по чекбоксу; сервер игнорирует скрытые значения (isActive/isOptedOut без отказа).
 
 ### Decision 8: Токен `{{unsubscribe_url}}` в письме кампании
 

@@ -124,6 +124,15 @@ The system SHALL let the administrator update organization name and optional fie
 - **THEN** поле "Причина отказа" не отображается
 - **AND** чекбокс "Отказ от рассылки" не отмечен
 
+#### Scenario: Подтверждение восстановления в рассылках
+- **WHEN** у организации "ООО Ромашка" isOptedOut установлен в true
+- **AND** администратор открывает форму редактирования
+- **AND** снимает отметку "отказ от рассылки"
+- **THEN** отображается диалог подтверждения "Восстановить организацию в рассылках?"
+- **AND** при подтверждении isOptedOut становится false
+- **AND** optOutReason и optedOutAt сбрасываются в null
+- **AND** при отмене отметка "отказ от рассылки" остаётся
+
 ### Requirement: Менеджер редактирует видимую организацию
 The system SHALL let the manager update only the organizations visible to them (groups they created (`created_by`) + assigned groups).
 

@@ -1,18 +1,5 @@
 ## ADDED Requirements
 
-### Requirement: Организация имеет актуальный курс
-The system SHALL store an optional reference to the current course (currentCourse) on the organization, linking to the Course entity. The currentCourse SHALL be editable by administrators and managers with access to the organization.
-
-#### Scenario: Установка актуального курса
-- **WHEN** администратор редактирует организацию "ООО Ромашка"
-- **AND** выбирает курс "Python для анализа данных"
-- **THEN** currentCourse организации "ООО Ромашка" ссылается на курс "Python для анализа данных"
-
-#### Scenario: Снятие актуального курса
-- **WHEN** у организации "ООО Ромашка" установлен currentCourse
-- **AND** администратор очищает поле актуального курса
-- **THEN** currentCourse организации становится null
-
 ### Requirement: Организация имеет метку активности
 The system SHALL store an active flag isActive (boolean, default true) on the organization. The flag SHALL be editable by administrators and managers with access to the organization. When isActive is false, the organization SHALL be considered inactive by the system.
 

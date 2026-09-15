@@ -1,7 +1,7 @@
 ## 1. Сущности и миграция
 
-- [ ] 1.1 Добавить поля `course` (ManyToOne → Course, nullable) и `isRefusal` (boolean, default false) в Doctrine-сущность `Call`
-- [ ] 1.2 Добавить поля `currentCourse` (ManyToOne → Course, nullable), `isActive` (boolean, default true), `isOptedOut` (boolean, default false), `optOutReason` (text, nullable), `optedOutAt` (datetime, nullable) в Doctrine-сущность `Organization`
+- [ ] 1.1 Добавить поле `isRefusal` (boolean, default false) в Doctrine-сущность `Call`
+- [ ] 1.2 Добавить поля `isActive` (boolean, default true), `isOptedOut` (boolean, default false), `optOutReason` (text, nullable), `optedOutAt` (datetime, nullable) в Doctrine-сущность `Organization`
 - [ ] 1.3 Сгенерировать миграцию (`make:migration`) и проверить SQL
 - [ ] 1.4 Накатить миграцию и проверить `diff` — чистый
 
@@ -10,12 +10,11 @@
 - [ ] 2.1 В сервисе/хендлере сохранения звонка: при `isRefusal === true` и `madeAt !== null` → установить `Organization.isOptedOut = true` и опционально `optOutReason` (`optedOutAt` проставляется сеттером)
 - [ ] 2.2 Добавить флеш-сообщение после автоотписки: «Организация отписана от рассылок»
 
-## 3. Форма звонка — курс при сделке и отказ
+## 3. Форма звонка — отказ
 
-- [ ] 3.1 Добавить поле выбора курса (select из Course) в CallFormType — условно показывается только при `is_deal === true`
-- [ ] 3.2 Добавить чекбокс «отказ» (`isRefusal`) в CallFormType
-- [ ] 3.3 Обновить Twig-шаблон формы звонка: условное отображение селекта курса (JS/CSS), чекбокс отказа
-- [ ] 3.4 Обновить модальное окно быстрого редактирования — те же поля
+- [ ] 3.1 Добавить чекбокс «отказ» (`isRefusal`) в CallFormType
+- [ ] 3.2 Обновить Twig-шаблон формы звонка: чекбокс отказа с условными чекбоксами «неактивная» и «отказ от рассылок»
+- [ ] 3.3 Обновить модальное окно быстрого редактирования — те же поля
 
 ## 4. Эндпоинт POST /organizations/{id}/opt-out
 
@@ -27,20 +26,19 @@
 
 ## 5. Тесты
 
-- [ ] 5.1 Unit-тест: `Call::setIsRefusal(true)` + `Organization::setIsOptedOut(true)` — корректная работа сеттеров
+- [ ] 5.1 Unit-тест: `Call::setIsRefusal(true)` — корректная работа сеттера
 - [ ] 5.2 Unit-тест: `Organization::setIsOptedOut(false)` — сбрасывает `optOutReason` и `optedOutAt` в null
-- [ ] 5.3 Функциональный тест: создание звонка со сделкой и выбором курса — курс сохраняется
-- [ ] 5.4 Функциональный тест: создание звонка с отказом — `Organization.isOptedOut = true`
-- [ ] 5.5 Функциональный тест: `POST /organizations/{id}/opt-out` — успешная отписка
-- [ ] 5.6 Функциональный тест: `POST /organizations/{id}/opt-out` — 403 для недоступной организации
-- [ ] 5.7 Функциональный тест: `POST /organizations/{id}/opt-out` — 404 для несуществующей организации
-- [ ] 5.8 Функциональный тест: звонок с отказом без `madeAt` — отписка не происходит
-- [ ] 5.9 Запустить все тесты и убедиться в зелёном статусе
+- [ ] 5.3 Функциональный тест: создание звонка с отказом — `Organization.isOptedOut = true`
+- [ ] 5.4 Функциональный тест: `POST /organizations/{id}/opt-out` — успешная отписка
+- [ ] 5.5 Функциональный тест: `POST /organizations/{id}/opt-out` — 403 для недоступной организации
+- [ ] 5.6 Функциональный тест: `POST /organizations/{id}/opt-out` — 404 для несуществующей организации
+- [ ] 5.7 Функциональный тест: звонок с отказом без `madeAt` — отписка не происходит
+- [ ] 5.8 Запустить все тесты и убедиться в зелёном статусе
 
 ## 6. Фикстуры и документация
 
-- [ ] 6.1 Обновить датафикстуры — организация с `isActive = false`, организации с `isOptedOut`/`optedOutAt` (в разные периоды: прошлая неделя, текущий месяц), звонок с `isRefusal`, звонок с курсом при сделке
-- [ ] 6.2 Обновить ER-диаграмму (`openspec/design/er.md`) — блок Call: `is_refusal`, `course_id`; блок Organization: `current_course_id`, `is_active`, `is_opted_out`, `opt_out_reason`, `opted_out_at`; токен `{{unsubscribe_url}}` в комментарии `Campaign.body` и блоке Token resolution MailingService
+- [ ] 6.1 Обновить датафикстуры — организация с `isActive = false`, организации с `isOptedOut`/`optedOutAt` (в разные периоды: прошлая неделя, текущий месяц), звонок с `isRefusal`
+- [ ] 6.2 Обновить ER-диаграмму (`openspec/design/er.md`) — блок Call: `is_refusal`; блок Organization: `is_active`, `is_opted_out`, `opt_out_reason`, `opted_out_at`; токен `{{unsubscribe_url}}` в комментарии `Campaign.body` и блоке Token resolution MailingService
 - [ ] 6.3 Запустить `openspec validate` для change — проверить валидность
 
 ## 7. Токен отписки в письме кампании
@@ -71,8 +69,9 @@
 - [ ] 9.1 Добавить чекбокс `isOptedOut` («Отказ от рассылки») и поле `optOutReason` («Причина отказа», textarea) в OrganizationFormType (create + edit); `optOutReason` обёрнут в контейнер `.js-opt-out-reason`, изначально скрыт
 - [ ] 9.2 JavaScript: при переключении чекбокса `isOptedOut` показывать/скрывать `.js-opt-out-reason`
 - [ ] 9.3 Сервер: при `isOptedOut = false` в submitted data игнорировать/сбрасывать `optOutReason` в null
-- [ ] 9.4 Функциональный тест: редактирование с отказом — `isOptedOut = true`, `optOutReason` сохранён, `optedOutAt` проставлен
-- [ ] 9.5 Функциональный тест: снятие отказа — `optOutReason = null`, `optedOutAt = null`
+- [ ] 9.4 JavaScript: при снятии чекбокса `isOptedOut` (переход true→false) показывать диалог подтверждения «Восстановить организацию в рассылках?»; при отмене — возвращать чекбокс в состояние true
+- [ ] 9.5 Функциональный тест: редактирование с отказом — `isOptedOut = true`, `optOutReason` сохранён, `optedOutAt` проставлен
+- [ ] 9.6 Функциональный тест: снятие отказа — подтверждение → `optOutReason = null`, `optedOutAt = null`
 
 ## 10. Фильтр отписавшихся в рассылках
 
