@@ -26,7 +26,7 @@ async function createCampaign(page: Page, name: string, opts?: { status?: string
   if (opts?.status) {
     await page.selectOption('select[name="status"]', opts.status);
   }
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/highlight=(\d+)/);
   const match = page.url().match(/highlight=(\d+)/);
   return match ? parseInt(match[1], 10) : 0;
@@ -44,7 +44,7 @@ test('создание рассылки со всеми полями', async ({ 
   await page.fill('input[name="preview_text"]', 'Превью письма');
   await page.fill('textarea[name="body"]', '{{greeting}}! Приглашаем вас на курсы.');
   await page.selectOption('select[name="status"]', 'ready');
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
 
   await expect(page).toHaveURL(/campaigns/);
   await page.goto('/campaigns');
@@ -55,7 +55,7 @@ test('создание рассылки с валидацией обязател
   await login(page, 'admin@b2b-crm.loc', 'admin123');
 
   await page.goto('/campaigns/new');
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
 
   await expect(page.locator('.field__error', { hasText: 'Название обязательно' })).toBeVisible();
   await expect(page.locator('.field__error', { hasText: 'Тема письма обязательна' })).toBeVisible();

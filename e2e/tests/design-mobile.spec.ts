@@ -1,19 +1,25 @@
 import { expect, test } from '@playwright/test';
 
-// 4.5 Мобильный кейс (576px): навигация и tel:-ссылки присутствуют.
+// 4.5 Мобильный кейс (576px): навигация и footer присутствуют.
 test.use({ viewport: { width: 576, height: 800 } });
 
+const loginSubmit = 'form[action="/login"] button[type="submit"]';
+
+async function loginAsAdmin(page: import('@playwright/test').Page) {
+  await page.goto('/login');
+  await page.fill('input[name="_username"]', 'admin@b2b-crm.loc');
+  await page.fill('input[name="_password"]', 'admin123');
+  await page.click(loginSubmit);
+  await expect(page).toHaveURL(/\/$/);
+}
+
 test('ссылки навигации шапки видимы', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.locator('.header__menu-link').first()).toBeVisible();
+  await loginAsAdmin(page);
   await expect(page.locator('.header__logo')).toBeVisible();
+  await expect(page.locator('[data-header-hamburger]')).toBeVisible();
 });
 
-test('tel:-ссылки присутствуют в подвале', async ({ page }) => {
+test('подвал отображается на мобильном', async ({ page }) => {
   await page.goto('/');
-  const telHrefs = await page.locator('a[href^="tel:"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')));
-  expect(telHrefs.length).toBeGreaterThanOrEqual(1);
-  for (const href of telHrefs) {
-    expect(href).toMatch(/^tel:\+?\d+$/);
-  }
+  await expect(page.locator('.footer__note')).toBeVisible();
 });

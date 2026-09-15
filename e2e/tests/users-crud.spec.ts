@@ -23,7 +23,7 @@ async function createUser(page: Page, email: string, role: string, name = '', su
   await page.fill('input[name="name"]', name);
   await page.fill('input[name="surname"]', surname);
   await page.selectOption('select[name="role"]', role);
-  await page.getByRole('button', { name: 'Создать' }).click();
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await page.waitForLoadState('networkidle');
 }
 
@@ -31,7 +31,8 @@ async function createUser(page: Page, email: string, role: string, name = '', su
 
 test('администратор видит ссылку «Пользователи» в навигации', async ({ page }) => {
   await login(page, 'admin@b2b-crm.loc', 'admin123');
-  await expect(page.locator('.header__menu-link', { hasText: 'Пользователи' })).toBeVisible();
+  await page.locator('[data-header-admin-toggle]').click();
+  await expect(page.locator('.header-admin__item', { hasText: 'Пользователи' })).toBeVisible();
 });
 
 test('администратор открывает список пользователей', async ({ page }) => {
@@ -105,7 +106,7 @@ test('ошибка при создании без email', async ({ page }) => {
   await page.evaluate(() => {
     document.querySelectorAll('[required]').forEach(el => el.removeAttribute('required'));
   });
-  await page.getByRole('button', { name: 'Создать' }).click();
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await page.waitForLoadState('networkidle');
 
   await expect(page.locator('.field__error').first()).toBeVisible();
@@ -117,7 +118,7 @@ test('ошибка при создании с существующим email', a
 
   await page.fill('input[name="email"]', 'admin@b2b-crm.loc');
   await page.selectOption('select[name="role"]', 'manager');
-  await page.getByRole('button', { name: 'Создать' }).click();
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await page.waitForLoadState('networkidle');
 
   await expect(page.locator('.field__error')).toContainText('уже существует');

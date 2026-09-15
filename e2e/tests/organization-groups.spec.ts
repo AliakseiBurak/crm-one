@@ -30,7 +30,7 @@ async function createGroup(page: Page, name: string, opts?: { description?: stri
   if (opts?.color) {
     await page.fill('input[name="color"]', opts.color);
   }
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/\/groups$/);
   return 1; // Simple success indicator
 }
@@ -54,7 +54,7 @@ async function createCampaign(page: Page, name: string): Promise<number> {
   await page.fill('input[name="subject"]', 'Тема теста');
   await page.fill('textarea[name="body"]', 'Текст письма');
   await page.selectOption('select[name="status"]', 'ready');
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/highlight=(\d+)/);
   const match = page.url().match(/highlight=(\d+)/);
 
@@ -85,7 +85,7 @@ test('manager can create a new group', async ({ page }) => {
   await page.fill('input[name="name"]', groupName);
   await page.fill('textarea[name="description"]', 'Описание тестовой группы');
   await page.fill('input[name="color"]', '#3b82f6');
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   
   await expect(page).toHaveURL(/\/groups$/);
   await expect(page.locator('body', { hasText: groupName })).toBeVisible();
@@ -102,7 +102,7 @@ test('manager can edit their own group', async ({ page }) => {
   await page.fill('input[name="name"]', groupName);
   await page.fill('textarea[name="description"]', 'Оригинальное описание');
   await page.fill('input[name="color"]', '#3b82f6');
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   
   await expect(page).toHaveURL(/\/groups$/);
   
@@ -146,7 +146,7 @@ test('manager can delete their own group', async ({ page }) => {
   await page.fill('input[name="name"]', groupName);
   await page.fill('textarea[name="description"]', 'Группа для теста удаления');
   await page.fill('input[name="color"]', '#3b82f6');
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   
   await expect(page).toHaveURL(/\/groups$/);
   
@@ -190,7 +190,7 @@ test('manager can add organizations to their group', async ({ page }) => {
   await page.fill('input[name="name"]', groupName);
   await page.fill('textarea[name="description"]', 'Группа для теста участников');
   await page.fill('input[name="color"]', '#3b82f6');
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   
   await expect(page).toHaveURL(/\/groups$/);
   
@@ -223,7 +223,7 @@ test('manager can remove organizations from their group', async ({ page }) => {
   await page.fill('input[name="name"]', groupName);
   await page.fill('textarea[name="description"]', 'Группа для теста удаления участников');
   await page.fill('input[name="color"]', '#3b82f6');
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   
   await expect(page).toHaveURL(/\/groups$/);
   
@@ -320,7 +320,7 @@ test('admin can delete manager with group reassign/delete choices', async ({ pag
   await page.goto('/admin/users/new');
   await page.fill('input[name="email"]', victimEmail);
   await page.selectOption('select[name="role"]', 'manager');
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/\/admin\/users$/);
 
   // Жертва устанавливает пароль через анонимную форму на /login

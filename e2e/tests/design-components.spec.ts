@@ -12,6 +12,7 @@ async function loginAsAdmin(page: import('@playwright/test').Page) {
 }
 
 test('primary-кнопка есть в hero welcome page', async ({ page }) => {
+  await loginAsAdmin(page);
   await page.goto('/');
   await expect(page.locator('.hero .btn--primary')).toHaveCount(1);
 });
@@ -36,14 +37,15 @@ test.describe('шапка', () => {
   test('для вошедшего — кнопки «Создать организацию»/«Создать контакт» справа', async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto('/');
-    const create = page.locator('.header__create');
-    await expect(create.locator('a', { hasText: 'Создать организацию' })).toHaveAttribute('href', '/organizations/new');
-    await expect(create.locator('a', { hasText: 'Создать контакт' })).toHaveAttribute('href', '/contacts/new');
+    const createToggle = page.locator('[data-header-create-toggle]').first();
+    await createToggle.click();
+    const createMenu = page.locator('[data-header-create-menu]').first();
+    await expect(createMenu.locator('.header-create__item', { hasText: 'Организацию' })).toHaveAttribute('href', '/organizations/new');
+    await expect(createMenu.locator('.header-create__item', { hasText: 'Контакт' })).toHaveAttribute('href', '/contacts/new');
   });
 });
 
-test('подвал присутствует с контактами', async ({ page }) => {
+test('подвал присутствует с копирайтом', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.footer__menu li').first()).toBeVisible();
-  await expect(page.locator('.footer a[href^="tel:"]').first()).toBeVisible();
+  await expect(page.locator('.footer__note')).toBeVisible();
 });

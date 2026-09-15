@@ -50,7 +50,7 @@ async function createReadyCampaign(page: Page, name: string): Promise<number> {
   await page.fill('input[name="subject"]', `Тема ${name}`);
   await page.fill('textarea[name="body"]', '{{greeting}}');
   await page.selectOption('select[name="status"]', 'ready');
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/highlight=(\d+)/);
   const match = page.url().match(/highlight=(\d+)/);
   return match ? parseInt(match[1], 10) : 0;
@@ -109,7 +109,7 @@ async function createCompletedCall(page: Page, notes: string): Promise<string> {
   const yesterday = new Date(Date.now() - 86_400_000);
   await page.fill('#made_at', formatDateTime(yesterday));
   await page.fill('#notes', notes);
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/\/dashboard\?highlight=\d+$/);
 
   const highlighted = page.locator('.org-table__row--highlight');

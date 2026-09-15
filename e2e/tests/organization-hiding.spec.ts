@@ -154,7 +154,7 @@ test('повторное скрытие той же пары отклоняет�
   await page.click('button:has-text("Добавить")');
   await expect(page).toHaveURL(/\/admin\/hides$/);
   await expect(
-    page.locator('.flash--error, .flash', { hasText: 'Организация уже скрыта от' }),
+    page.locator('.alert--error, .flash--error', { hasText: 'Организация уже скрыта от' }),
   ).toBeVisible();
 
   // В реестре ровно одна запись для этой пары (не дублируется).
@@ -178,7 +178,9 @@ test('менеджер получает 403 в разделе скрытий, в
 
   await logout(page);
   await login(page, ADMIN, ADMIN_PASSWORD);
-  const link = page.locator('.header__menu-link', { hasText: 'Скрытые организации' });
+  // Открываем выпадающее меню «Админ», где находится ссылка.
+  await page.locator('[data-header-admin-toggle]').click();
+  const link = page.locator('.header-admin__item', { hasText: 'Скрытые организации' });
   await expect(link).toBeVisible();
   await link.click();
   await expect(page.locator('h1', { hasText: 'Скрытые организации' })).toBeVisible();

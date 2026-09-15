@@ -84,14 +84,13 @@ test('ошибка валидации в модальном окне показ�
 
   await openFirstCallEditModal(page);
 
-  // Режим «Будущий звонок» открывает поле запланированной даты.
-  await page.locator('[data-call-field="is_future_call"]').check();
-  await page.locator('[data-call-field="scheduled_at"]').fill('20.08.2020 10:00');
+  // Установим фактическую дату в будущем — сервер должен вернуть ошибку на русском.
+  await page.locator('[data-call-field="made_at"]').fill('01.01.2099 10:00');
   await page.locator(editModal).locator('button[type="submit"]').first().click();
 
-  await expect(page.locator('[data-call-error="scheduledAt"]')).toBeVisible();
-  await expect(page.locator('[data-call-error="scheduledAt"]')).toHaveText(
-    'Запланированная дата звонка не может быть в прошлом',
+  await expect(page.locator('[data-call-error="madeAt"]')).toBeVisible();
+  await expect(page.locator('[data-call-error="madeAt"]')).toHaveText(
+    'Фактическая дата звонка не может быть в будущем',
   );
 });
 
@@ -111,7 +110,7 @@ test('создание проведённого звонка с только ф�
   const factDate = `${pad(yesterday.getDate())}.${pad(yesterday.getMonth() + 1)}.${yesterday.getFullYear()} 12:00`;
   await page.fill('#made_at', factDate);
   await page.fill('#notes', 'e2e факт без плана');
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
 
   // Успех — редирект на панель организаций с выделенной строкой организации
   await expect(page).toHaveURL(/\/dashboard\?highlight=\d+$/);

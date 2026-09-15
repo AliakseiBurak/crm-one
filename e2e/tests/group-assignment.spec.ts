@@ -30,7 +30,7 @@ async function logout(page: Page) {
 async function createGroup(page: Page, name: string) {
   await page.goto('/groups/new');
   await page.fill('input[name="name"]', name);
-  await page.click('button:has-text("Создать")');
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/\/groups$/);
 }
 
@@ -169,7 +169,7 @@ test('в списке пользователей «Назначить» есть
   await page.fill('input[name="name"]', '');
   await page.fill('input[name="surname"]', '');
   await page.selectOption('select[name="role"]', 'admin');
-  await page.getByRole('button', { name: 'Создать' }).click();
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/\/admin\/users$/);
 
   const adminRow = page.locator('[data-user-row]', { hasText: email }).first();

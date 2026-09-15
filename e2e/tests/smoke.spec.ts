@@ -80,7 +80,7 @@ test('новый пользователь устанавливает парол�
   const email = `setup-e2e-${Date.now()}@example.com`;
   await page.fill('input[name="email"]', email);
   await page.selectOption('select[name="role"]', 'manager');
-  await page.getByRole('button', { name: 'Создать' }).click();
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await page.waitForLoadState('networkidle');
 
   // Выходим
@@ -116,7 +116,7 @@ test('установка пароля: ошибка при коротком па
   const email = `short-e2e-${Date.now()}@example.com`;
   await page.fill('input[name="email"]', email);
   await page.selectOption('select[name="role"]', 'manager');
-  await page.getByRole('button', { name: 'Создать' }).click();
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await page.waitForLoadState('networkidle');
   await page.goto('/logout');
   await page.waitForLoadState('networkidle');
@@ -140,7 +140,7 @@ test('установка пароля: ошибка при несовпаден�
   const email = `mismatch-e2e-${Date.now()}@example.com`;
   await page.fill('input[name="email"]', email);
   await page.selectOption('select[name="role"]', 'manager');
-  await page.getByRole('button', { name: 'Создать' }).click();
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await page.waitForLoadState('networkidle');
   await page.goto('/logout');
   await page.waitForLoadState('networkidle');
