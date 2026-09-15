@@ -23,7 +23,9 @@
 
 # Misc
 .DS_Store
-ralph_loop.py
+ralph_*.md
+ralph_*.py
+ralph_steps/
 ralph_logs/
 __pycache__/
 
