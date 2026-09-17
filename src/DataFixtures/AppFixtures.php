@@ -122,6 +122,11 @@ class AppFixtures extends Fixture
         }
         $manager->flush();
 
+        // Примеры новых полей (change organization-fields-expansion).
+        $organizations[0]->setAnnualPlan('Сентябрь 2026')->setDescription('Крупный ритейлер');
+        $organizations[1]->setHasUsedServices(true);
+        $organizations[2]->setDescription('Постоянный клиент');
+
         $manager->persist(new OrgGroupMembership($organizations[0], $group1));
         $manager->persist(new OrgGroupMembership($organizations[1], $group1));
         $manager->persist(new OrgGroupMembership($organizations[1], $custom));

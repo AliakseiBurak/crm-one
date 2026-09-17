@@ -28,6 +28,29 @@
                 <span class="field__error" role="alert" data-organization-error="industry" hidden></span>
             </div>
 
+            <div class="field">
+                <label class="field__label" for="modal-organization-annualPlan">Годовой план</label>
+                <input class="field__input" type="text" id="modal-organization-annualPlan" name="annualPlan"
+                       placeholder="Сентябрь 2026" data-organization-field="annualPlan">
+                <span class="field__error" role="alert" data-organization-error="annualPlan" hidden></span>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="modal-organization-description">Описание</label>
+                <textarea class="field__input" id="modal-organization-description" name="description"
+                          rows="3" data-organization-field="description"></textarea>
+                <span class="field__error" role="alert" data-organization-error="description" hidden></span>
+            </div>
+
+            <div class="field">
+                <label class="field__label">
+                    <input type="hidden" name="hasUsedServices" value="0">
+                    <input type="checkbox" name="hasUsedServices" value="1"
+                           data-organization-field="hasUsedServices">
+                    Пользовались услугами
+                </label>
+            </div>
+
             <div class="organization-form__actions">
                 {{ include('components/button.html.twig', { variant: 'primary', text: 'Сохранить', sm: true }) }}
                 <div class="organization-form__actions-right">

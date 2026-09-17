@@ -40,6 +40,29 @@
                     error: errors.industry|default(null),
                 }) }}
 
+                {{ include('components/form_field.html.twig', {
+                    name: 'annualPlan',
+                    label: 'Годовой план',
+                    value: organization.annualPlan|default(''),
+                    error: errors.annualPlan|default(null),
+                }) }}
+
+                {{ include('components/form_field.html.twig', {
+                    type: 'textarea',
+                    name: 'description',
+                    label: 'Описание',
+                    value: organization.description|default(''),
+                    error: errors.description|default(null),
+                }) }}
+
+                <div class="field">
+                    <label class="field__label">
+                        <input type="hidden" name="hasUsedServices" value="0">
+                        <input type="checkbox" name="hasUsedServices" value="1" {% if organization.hasUsedServices|default(false) %}checked{% endif %}>
+                        Пользовались услугами
+                    </label>
+                </div>
+
                 {% if groups is defined and groups is not empty %}
                     <div class="field">
                         <label class="field__label organization-section-title">Группы</label>

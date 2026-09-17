@@ -24,10 +24,19 @@ class Organization
     #[Assert\Length(max: 255, maxMessage: 'Название не должно превышать {{ limit }} символов')]
     public private(set) string $name;
 
-    #[ORM\Column(length: 255)]
-    #[Assert\NotBlank(message: 'Отрасль обязательна для заполнения')]
+    #[ORM\Column(length: 255, nullable: true)]
     #[Assert\Length(max: 255, maxMessage: 'Отрасль не должна превышать {{ limit }} символов')]
-    public private(set) string $industry;
+    public private(set) ?string $industry = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255, maxMessage: 'Годовой план не должен превышать {{ limit }} символов')]
+    public private(set) ?string $annualPlan = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    public private(set) ?string $description = null;
+
+    #[ORM\Column(name: 'has_used_services', options: ['default' => false])]
+    public private(set) bool $hasUsedServices = false;
 
     #[ORM\Column(name: 'created_at', type: 'datetime_immutable')]
     public private(set) \DateTimeImmutable $createdAt;
@@ -57,9 +66,30 @@ class Organization
         return $this;
     }
 
-    public function setIndustry(string $industry): self
+    public function setIndustry(?string $industry): self
     {
         $this->industry = $industry;
+
+        return $this;
+    }
+
+    public function setAnnualPlan(?string $annualPlan): self
+    {
+        $this->annualPlan = $annualPlan;
+
+        return $this;
+    }
+
+    public function setDescription(?string $description): self
+    {
+        $this->description = $description;
+
+        return $this;
+    }
+
+    public function setHasUsedServices(bool $hasUsedServices): self
+    {
+        $this->hasUsedServices = $hasUsedServices;
 
         return $this;
     }

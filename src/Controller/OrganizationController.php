@@ -153,6 +153,9 @@ class OrganizationController extends AbstractController
                     'id' => $organization->id,
                     'name' => $organization->name,
                     'industry' => $organization->industry,
+                    'annualPlan' => $organization->annualPlan,
+                    'description' => $organization->description,
+                    'hasUsedServices' => $organization->hasUsedServices,
                 ],
             ]);
         }
@@ -193,7 +196,13 @@ class OrganizationController extends AbstractController
     private function applyRequest(Request $request, ValidatorInterface $validator, Organization $organization): array
     {
         $organization->setName(trim((string) $request->request->get('name', '')));
-        $organization->setIndustry(trim((string) $request->request->get('industry', '')));
+        $industry = $request->request->get('industry');
+        $organization->setIndustry($industry !== null && $industry !== '' ? trim((string) $industry) : null);
+        $annualPlan = $request->request->get('annualPlan');
+        $organization->setAnnualPlan($annualPlan !== null && $annualPlan !== '' ? trim((string) $annualPlan) : null);
+        $description = $request->request->get('description');
+        $organization->setDescription($description !== null && $description !== '' ? trim((string) $description) : null);
+        $organization->setHasUsedServices((bool) $request->request->get('hasUsedServices', false));
 
         $violations = $validator->validate($organization);
 

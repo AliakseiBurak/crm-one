@@ -250,6 +250,73 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         self::assertSame(0, $this->em()->getRepository(Organization::class)->count([]));
     }
 
+    public function testCreateOrganizationWithoutIndustrySavesWithNullIndustry(): void
+    {
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/organizations/new');
+        $this->submitFormByButton('Создать', [
+            'name' => 'ООО Без Отрасли',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->client->followRedirect();
+        $this->assertResponseIsSuccessful();
+
+        $this->em()->clear();
+        $organization = $this->findOrganization('ООО Без Отрасли');
+        self::assertNotNull($organization);
+        self::assertNull($organization->industry);
+    }
+
+    public function testCreateOrganizationWithAllNewFieldsSavesCorrectly(): void
+    {
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/organizations/new');
+        $this->submitFormByButton('Создать', [
+            'name' => 'ООО Полная',
+            'industry' => 'IT',
+            'annualPlan' => 'Сентябрь 2026',
+            'description' => 'Крупный клиент',
+            'hasUsedServices' => true,
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->client->followRedirect();
+        $this->assertResponseIsSuccessful();
+
+        $this->em()->clear();
+        $organization = $this->findOrganization('ООО Полная');
+        self::assertNotNull($organization);
+        self::assertSame('IT', $organization->industry);
+        self::assertSame('Сентябрь 2026', $organization->annualPlan);
+        self::assertSame('Крупный клиент', $organization->description);
+        self::assertTrue($organization->hasUsedServices);
+    }
+
+    public function testEditOrganizationTogglesHasUsedServicesToFalse(): void
+    {
+        $organization = new Organization()
+            ->setName('ООО Ромашка')
+            ->setIndustry('IT')
+            ->setHasUsedServices(true);
+        $this->em()->persist($organization);
+        $this->em()->flush();
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->open('/organizations/' . $organization->id . '/edit');
+        $this->submitFormByButton('Сохранить', [
+            'name' => 'ООО Ромашка',
+            'industry' => 'IT',
+            'hasUsedServices' => false,
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+        $reloaded = $this->findOrganization('ООО Ромашка');
+        self::assertNotNull($reloaded);
+        self::assertFalse($reloaded->hasUsedServices);
+    }
+
     public function testManagerCannotEditInaccessibleOrganization(): void
     {
         [$manager1] = $this->makeTwoManagersWithOrganizations();
@@ -385,7 +452,8 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         $payload = json_decode((string) $this->client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
         self::assertFalse($payload['ok']);
         self::assertSame('Название обязательно для заполнения', $payload['errors']['name']);
-        self::assertSame('Отрасль обязательна для заполнения', $payload['errors']['industry']);
+        // industry необязателен — ошибки нет.
+        self::assertArrayNotHasKey('industry', $payload['errors']);
     }
 
     public function testDeleteConfirmationPageWarnsAboutCascade(): void

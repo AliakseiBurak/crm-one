@@ -12,7 +12,10 @@ if (modal) {
     const fields = {
         name: modal.querySelector('[data-organization-field="name"]'),
         industry: modal.querySelector('[data-organization-field="industry"]'),
+        annualPlan: modal.querySelector('[data-organization-field="annualPlan"]'),
+        description: modal.querySelector('[data-organization-field="description"]'),
     };
+    const hasUsedServicesCheckbox = modal.querySelector('[data-organization-field="hasUsedServices"]');
     const deleteLink = modal.querySelector('[data-organization-delete-link]');
     let activeRow = null;
 
@@ -26,8 +29,12 @@ if (modal) {
             if (!input) {
                 return;
             }
-            input.value = row.dataset[`org${key[0].toUpperCase()}${key.slice(1)}`] ?? '';
+            const dataKey = `org${key[0].toUpperCase()}${key.slice(1)}`;
+            input.value = row.dataset[dataKey] ?? '';
         });
+        if (hasUsedServicesCheckbox) {
+            hasUsedServicesCheckbox.checked = row.dataset.orgHasusedservices === '1';
+        }
         modal.querySelectorAll('[data-organization-error]').forEach((span) => {
             span.hidden = true;
             span.textContent = '';
@@ -99,6 +106,9 @@ if (modal) {
         if (payload.organization) {
             activeRow.dataset.orgName = payload.organization.name;
             activeRow.dataset.orgIndustry = payload.organization.industry;
+            activeRow.dataset.orgAnnualplan = payload.organization.annualPlan ?? '';
+            activeRow.dataset.orgDescription = payload.organization.description ?? '';
+            activeRow.dataset.orgHasusedservices = payload.organization.hasUsedServices ? '1' : '0';
             activeRow.querySelectorAll('[data-organization-cell]').forEach((cell) => {
                 cell.textContent = payload.organization[cell.dataset.organizationCell] ?? cell.textContent;
             });

@@ -59,7 +59,10 @@ erDiagram
     ORGANIZATION {
         bigint id PK
         string name
-        string industry
+        string industry "nullable"
+        string annual_plan "nullable, годовой план обучения"
+        text description "nullable, описание организации"
+        boolean has_used_services "default false"
         datetime created_at
         datetime updated_at
     }
@@ -158,8 +161,7 @@ erDiagram
    создаются/не изменяются через CRUD.
 2. **Организация** — главная модель (ADR-0001); контакт принадлежит ровно
    одной организации (ADR-0002).
-3. **Пользователи создаются администратором**; при создании менеджера
-   автосоздаётся `user-<id>-group` (ADR-0003, ADR-0005). Админ собственной
+3. **Пользователи создаются администратором** (ADR-0003). Админ собственной
    группы не имеет; группы для него не проверяются (ADR-0008).
 4. **Custom-группы** — имена, создаёт администратор/менеджер, назначаются
    менеджерам через `GROUP_ASSIGNMENT`; членство организации в группах —

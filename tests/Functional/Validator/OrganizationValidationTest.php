@@ -46,7 +46,7 @@ final class OrganizationValidationTest extends KernelTestCase
         self::assertSame('Название обязательно для заполнения', $violations->get(0)->getMessage());
     }
 
-    public function testBlankIndustryShowsRussianMessage(): void
+    public function testBlankIndustryIsAllowed(): void
     {
         $organization = new Organization()
             ->setName('ООО Ромашка')
@@ -57,12 +57,12 @@ final class OrganizationValidationTest extends KernelTestCase
             $messages[$violation->getPropertyPath()] = (string) $violation->getMessage();
         }
 
-        self::assertArrayHasKey('industry', $messages);
+        // industry необязателен — ошибки нет.
+        self::assertArrayNotHasKey('industry', $messages);
         self::assertArrayNotHasKey('name', $messages);
-        self::assertSame('Отрасль обязательна для заполнения', $messages['industry']);
     }
 
-    public function testBothRequiredFieldsReportedWhenEmpty(): void
+    public function testOnlyNameRequiredWhenBothEmpty(): void
     {
         $organization = new Organization()
             ->setName('')
@@ -73,7 +73,7 @@ final class OrganizationValidationTest extends KernelTestCase
             $paths[] = $violation->getPropertyPath();
         }
 
-        self::assertSame(['name', 'industry'], $paths);
+        self::assertSame(['name'], $paths);
     }
 
     public function testNameLongerThan255CharactersRejected(): void
