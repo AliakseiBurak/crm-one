@@ -4,19 +4,19 @@
     Кнопки «Изменить» карточек контактов и «Добавить контакт» ведут на
     маршруты contacts-crud (модальное окно / форма создания).
     Ожидает: organizationRows (DashboardOrganizationRow[]), contactsByOrganization,
-    callsByOrganization, search, sort, dir.
+    callsByOrganization, search, sort, dir, highlight.
 #}
-{% macro sort_url(col, search, sort, dir) -%}
-    {{ path('app_dashboard', { q: search|default(''), sort: col, dir: sort == col and dir == 'asc' ? 'desc' : 'asc' }) }}
+{% macro sort_url(col, search, sort, dir, highlight) -%}
+    {{ path('app_dashboard', { q: search|default(''), sort: col, dir: sort == col and dir == 'asc' ? 'desc' : 'asc' }|merge(highlight ? { highlight: highlight } : {})) }}
 {%- endmacro %}
 
-{% macro sort_header(col, label, search, sort, dir) -%}
+{% macro sort_header(col, label, search, sort, dir, highlight) -%}
     {% if sort == col %}
-        <a class="table__sortable table__sortable--active" href="{{ _self.sort_url(col, search, sort, dir) }}">
+        <a class="table__sortable table__sortable--active" href="{{ _self.sort_url(col, search, sort, dir, highlight) }}">
             {{ label }}{{ dir == 'desc' ? ' ↓' : ' ↑' }}
         </a>
     {% else %}
-        <a class="table__sortable" href="{{ _self.sort_url(col, search, sort, dir) }}">{{ label }}</a>
+        <a class="table__sortable" href="{{ _self.sort_url(col, search, sort, dir, highlight) }}">{{ label }}</a>
     {% endif %}
 {%- endmacro %}
 
@@ -47,10 +47,10 @@
                 <table class="table org-table">
                     <thead>
                         <tr>
-                            <th scope="col">{{ _self.sort_header('name', 'Название', search, sort, dir) }}</th>
-                            <th scope="col">{{ _self.sort_header('industry', 'Сфера деятельности', search, sort, dir) }}</th>
-                            <th scope="col">{{ _self.sort_header('lastCall', 'Последний звонок', search, sort, dir) }}</th>
-                            <th scope="col">{{ _self.sort_header('nextCall', 'Следующий звонок', search, sort, dir) }}</th>
+                            <th scope="col">{{ _self.sort_header('name', 'Название', search, sort, dir, highlight) }}</th>
+                            <th scope="col">{{ _self.sort_header('industry', 'Сфера деятельности', search, sort, dir, highlight) }}</th>
+                            <th scope="col">{{ _self.sort_header('lastCall', 'Последний звонок', search, sort, dir, highlight) }}</th>
+                            <th scope="col">{{ _self.sort_header('nextCall', 'Следующий звонок', search, sort, dir, highlight) }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -75,7 +75,7 @@
                             </tr>
                             <tr class="org-details">
                                 <td colspan="4">
-                                    <details class="org-details__box">
+                                    <details class="org-details__box"{% if highlight == organization.id %} open{% endif %}>
                                         <summary class="org-details__summary">Звонки и контакты организации</summary>
 
                                         <a class="btn btn--secondary btn--sm org-calls__add" href="{{ path('app_call_new_org', { organizationId: organization.id }) }}">Добавить звонок</a>

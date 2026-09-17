@@ -113,5 +113,9 @@ if (modal) {
     const highlighted = document.querySelector('.org-table__row--highlight');
     if (highlighted) {
         highlighted.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Fallback для браузеров без CSS-анимаций: убрать класс через 4 секунды.
+        window.setTimeout(() => {
+            highlighted.classList.remove('org-table__row--highlight');
+        }, 4000);
     }
 }

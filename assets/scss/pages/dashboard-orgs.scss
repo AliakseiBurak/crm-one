@@ -87,10 +87,22 @@
     }
 }
 
-// Подсветка строки после перенаправления (create/update).
+// Подсветка строки после перенаправления (create/update) — одноразовая:
+// fade-out через 4 секунды (CSS @keyframes, fill-mode: forwards).
 .org-table__row--highlight {
     background: #fff3e0;
-    transition: background-color 0.6s ease;
+    animation: highlight-fade 4s ease forwards;
+}
+
+@keyframes highlight-fade {
+    0%,
+    75% {
+        background-color: #fff3e0;
+    }
+
+    100% {
+        background-color: transparent;
+    }
 }
 
 // Вторая строка организации — нативный аккордеон раскрытия.
