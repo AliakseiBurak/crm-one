@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Независимые действия результата
-The system SHALL treat deal, refusal, no-answer, next call, and mailing as independent actions. Any combination MAY be recorded in one save. When refusal is marked, the system SHALL auto-set Organization.isOptedOut = true. The call result form SHALL NOT offer refusal-remove of a campaign recipient.
+The system SHALL treat deal, refusal, no-answer, next call, and mailing as independent actions. Any combination MAY be recorded in one save. When refusal is marked together with the checkbox «отметить отказ организации от рассылок» (full call form), the system SHALL set Organization.isOptedOut = true. The call result form SHALL NOT offer refusal-remove of a campaign recipient.
 
 #### Scenario: Письмо и следующий звонок вместе
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
@@ -17,14 +17,23 @@ The system SHALL treat deal, refusal, no-answer, next call, and mailing as indep
 - **THEN** отметка «нет ответа» сохраняется
 - **AND** организация становится адресатом «Осенняя рассылка»
 
-#### Scenario: Отказ с автоотпиской
+#### Scenario: Отказ с отпиской от рассылок
 - **WHEN** менеджер отмечает «отказ» для звонка по организации «ООО Ромашка»
+- **AND** отмечает «отметить отказ организации от рассылок»
 - **AND** сохраняет звонок
 - **THEN** отметка «отказ» сохраняется
 - **AND** у организации «ООО Ромашка» isOptedOut устанавливается в true
 
+#### Scenario: Отказ без отписки от рассылок
+- **WHEN** менеджер отмечает «отказ» для звонка по организации «ООО Ромашка»
+- **AND** не отмечает «отметить отказ организации от рассылок»
+- **AND** сохраняет звонок
+- **THEN** отметка «отказ» сохраняется
+- **AND** isOptedOut организации «ООО Ромашка» не изменяется
+
 #### Scenario: Отказ и рассылка вместе
 - **WHEN** менеджер отмечает «отказ» для звонка по организации «ООО Ромашка»
+- **AND** отмечает «отметить отказ организации от рассылок»
 - **AND** выбирает рассылку «Осенняя рассылка»
 - **AND** сохраняет звонок
 - **THEN** отметка «отказ» сохраняется

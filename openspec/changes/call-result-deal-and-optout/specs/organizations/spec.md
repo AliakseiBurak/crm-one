@@ -18,15 +18,17 @@ The system SHALL store an active flag isActive (boolean, default true) on the or
 - **THEN** isActive организации становится true
 
 ### Requirement: Организация может быть отмечена как отказавшаяся от рассылки
-The system SHALL store an opt-out flag isOptedOut (boolean, default false), an optional reason optOutReason (text, nullable) and an opt-out timestamp optedOutAt (datetime, nullable) on the organization. The system SHALL auto-set isOptedOut = true when a call with result «отказ» is saved for this organization. The optOutReason SHALL be editable only when isOptedOut is true. When isOptedOut changes from false to true, the system SHALL set optedOutAt; when isOptedOut becomes false, the system SHALL reset optOutReason and optedOutAt to null.
+The system SHALL store an opt-out flag isOptedOut (boolean, default false), an optional reason optOutReason (text, nullable) and an opt-out timestamp optedOutAt (datetime, nullable) on the organization. The call result form for a call with result «отказ» SHALL offer the checkbox «отметить отказ организации от рассылок»; when the manager marks it, the system SHALL set isOptedOut = true. The optOutReason SHALL be editable only when isOptedOut is true. When isOptedOut changes from false to true, the system SHALL set optedOutAt; when isOptedOut becomes false, the system SHALL reset optOutReason and optedOutAt to null.
 
 #### Scenario: Автоотписка при отказе
 - **WHEN** менеджер завершает звонок по организации "ООО Ромашка" с результатом «отказ»
+- **AND** отмечает чекбокс «отметить отказ организации от рассылок»
 - **THEN** у организации "ООО Ромашка" isOptedOut установлен в true
 - **AND** optedOutAt содержит момент сохранения звонка
 
 #### Scenario: Автоотписка с причиной
-- **WHEN** менеджер завершает звонок по организации "ООО Ромашка" с результатом «отказ» и причиной "Не заинтересованы"
+- **WHEN** менеджер завершает звонок по организации "ООО Ромашка" с результатом «отказ»
+- **AND** отмечает чекбокс «отметить отказ организации от рассылок» и указывает причину отказа "Не заинтересованы"
 - **THEN** у организации "ООО Ромашка" isOptedOut установлен в true
 - **AND** optOutReason равен "Не заинтересованы"
 

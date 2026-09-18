@@ -21,18 +21,19 @@ The system SHALL store a call with an organization, an optional contact, a sched
 #### Scenario: Отказ с автоотпиской
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
 - **AND** отмечает «отказ»
+- **AND** отмечает «отметить отказ организации от рассылок»
 - **THEN** в карточке звонка отображается отметка об отказе
 - **AND** у организации «ООО Ромашка» устанавливается isOptedOut = true
 
 #### Scenario: Отказ без автоотписки
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
 - **AND** отмечает «отказ»
-- **AND** снимает отметку «отметить как отказ от рассылки» (при наличии)
+- **AND** не отмечает чекбокс «отметить отказ организации от рассылок»
 - **THEN** в карточке звонка отображается отметка об отказе
 - **AND** у организации «ООО Ромашка» isOptedOut не изменяется
 
 ### Requirement: Результат звонка
-The call result SHALL be a combination of independent actions: at most one mailing campaign per save (see `campaigns`) which creates or replaces a recipient for any non-archived campaign, a deal mark with an optional course selection, a no-answer mark, a refusal mark, and a next call created from a submitted date; a call MAY have none of them, recording only the fact of the call. Mailing and next call MAY be combined. Deal and no-answer SHALL NOT prevent mailing. When refusal is marked, the system SHALL auto-set Organization.isOptedOut = true unless the manager explicitly opts out of auto-opt-out. The call result SHALL NOT remove an organization from a campaign (refusal); recipients are managed on the campaign recipients page.
+The call result SHALL be a combination of independent actions: at most one mailing campaign per save (see `campaigns`) which creates or replaces a recipient for any non-archived campaign, a deal mark with an optional course selection, a no-answer mark, a refusal mark, and a next call created from a submitted date; a call MAY have none of them, recording only the fact of the call. Mailing and next call MAY be combined. Deal and no-answer SHALL NOT prevent mailing. When refusal is marked and the manager selects «отметить отказ организации от рассылок» on the full call form, the system SHALL set Organization.isOptedOut = true. The call result SHALL NOT remove an organization from a campaign (refusal); recipients are managed on the campaign recipients page.
 
 #### Scenario: Результат — рассылка
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
@@ -61,6 +62,7 @@ The call result SHALL be a combination of independent actions: at most one maili
 #### Scenario: Результат — отказ с автоотпиской
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
 - **AND** отмечает «отказ»
+- **AND** отмечает «отметить отказ организации от рассылок»
 - **THEN** в карточке звонка отображается отметка об отказе
 - **AND** у организации «ООО Ромашка» isOptedOut устанавливается в true
 

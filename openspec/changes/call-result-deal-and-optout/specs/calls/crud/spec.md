@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Результат звонка — комбинация полей
-The system SHALL let the manager record a call result as independent actions on the call form and dashboard modal: deal, refusal, no-answer, next-call date, and mailing campaign (any status except `archived`) with recipient contact. Next-call date and mailing campaign fields SHALL be empty by default on each open (commands); the next-call date field SHALL be omitted when the call already has a linked next call. Deal and no-answer SHALL persist as checkboxes placed at the bottom of the form. Refusal SHALL appear as a checkbox; when checked, the system SHALL show additional checkboxes «отметить как неактивную» (sets Organization.isActive = false) and/or «отказ от рассылок» (sets Organization.isOptedOut = true). After a validation error the system SHALL restore all submitted result values. The form SHALL NOT offer refusal-remove of a campaign recipient.
+The system SHALL let the manager record a call result as independent actions on the call form and dashboard modal: deal, refusal, no-answer, next-call date, and mailing campaign (any status except `archived`) with recipient contact. Next-call date and mailing campaign fields SHALL be empty by default on each open (commands); the next-call date field SHALL be omitted when the call already has a linked next call. Deal and no-answer SHALL persist as checkboxes placed at the bottom of the form. Refusal SHALL appear as a checkbox; when checked on the full call form, the system SHALL show additional checkboxes «отметить организацию как неактивную» (sets Organization.isActive = false) and/or «отметить отказ организации от рассылок» (sets Organization.isOptedOut = true). These additional checkboxes SHALL NOT be available in the dashboard edit modal. After a validation error the system SHALL restore all submitted result values. The form SHALL NOT offer refusal-remove of a campaign recipient.
 
 #### Scenario: Результат — сделка
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
@@ -12,15 +12,16 @@ The system SHALL let the manager record a call result as independent actions on 
 #### Scenario: Результат — отказ
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
 - **AND** отмечает «отказ»
+- **AND** не отмечает «отметить организацию как неактивную» и «отметить отказ организации от рассылок»
 - **AND** нажимает кнопку «Сохранить»
 - **THEN** в строке звонка отображается отметка об отказе
-- **AND** у организации «ООО Ромашка» isOptedOut установлен в true
+- **AND** isActive и isOptedOut организации «ООО Ромашка» не изменяются
 
 #### Scenario: Отказ — только неактивная
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
 - **AND** отмечает «отказ»
-- **AND** отмечает «отметить как неактивную»
-- **AND** не отмечает «отказ от рассылок»
+- **AND** отмечает «отметить организацию как неактивную»
+- **AND** не отмечает «отметить отказ организации от рассылок»
 - **AND** нажимает кнопку «Сохранить»
 - **THEN** у организации «ООО Ромашка» isActive установлен в false
 - **AND** isOptedOut не изменяется
@@ -28,8 +29,8 @@ The system SHALL let the manager record a call result as independent actions on 
 #### Scenario: Отказ — неактивная и отказ от рассылок
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
 - **AND** отмечает «отказ»
-- **AND** отмечает «отметить как неактивную»
-- **AND** отмечает «отказ от рассылок» с причиной "Закрылись"
+- **AND** отмечает «отметить организацию как неактивную»
+- **AND** отмечает «отметить отказ организации от рассылок» с причиной "Закрылись"
 - **AND** нажимает кнопку «Сохранить»
 - **THEN** у организации «ООО Ромашка» isActive установлен в false
 - **AND** isOptedOut установлен в true
@@ -70,7 +71,7 @@ The system SHALL let the manager record a call result as independent actions on 
 - **AND** адресат рассылки не создаётся
 
 ### Requirement: Макет формы звонка
-The call form and dashboard edit modal SHALL order fields as: organization, contact, notes, «Будущий звонок» checkbox, then either the scheduled date (future-call mode) or the fact/result command fields (normal mode), then deal, and refusal area with «неактивная» and «отказ от рассылок» checkboxes, then no-answer checkbox. When «Будущий звонок» is checked, the system SHALL show the scheduled date field and SHALL hide all other fields except notes (organization and contact remain). When «Будущий звонок» is unchecked, the scheduled date field SHALL NOT be shown. The checkbox SHALL be checked by default when the call has a scheduled date on or after today and no actual date. When the call already has an actual date, the «Будущий звонок» checkbox and scheduled date field SHALL be unavailable.
+The call form and dashboard edit modal SHALL order fields as: organization, contact, notes, «Будущий звонок» checkbox, then either the scheduled date (future-call mode) or the fact/result command fields (normal mode), then deal, no-answer, and refusal checkbox. On the full call form, when refusal is checked, additional checkboxes «отметить организацию как неактивную» and «отметить отказ организации от рассылок» SHALL appear below refusal. In the dashboard edit modal, only the refusal checkbox SHALL appear without the additional sub-checkboxes. When «Будущий звонок» is checked, the system SHALL show the scheduled date field and SHALL hide all other fields except notes (organization and contact remain). When «Будущий звонок» is unchecked, the scheduled date field SHALL NOT be shown. The checkbox SHALL be checked by default when the call has a scheduled date on or after today and no actual date. When the call already has an actual date, the «Будущий звонок» checkbox and scheduled date field SHALL be unavailable.
 
 #### Scenario: Контакт под организацией
 - **WHEN** менеджер открывает форму создания или редактирования звонка
@@ -98,7 +99,8 @@ The call form and dashboard edit modal SHALL order fields as: organization, cont
 
 #### Scenario: Сделка, отказ и нет ответа внизу формы
 - **WHEN** менеджер открывает форму звонка без режима «Будущий звонок»
-- **THEN** чекбоксы «Сделка совершена», «Отказ» (с условными чекбоксами «неактивная» и «отказ от рассылок») и «Нет ответа» отображаются в самом низу формы
+- **THEN** чекбоксы «Сделка совершена», «Нет ответа» и «Отказ» отображаются в самом низу формы
+- **AND** при отметке «Отказ» на полной форме появляются условные чекбоксы «отметить организацию как неактивную» и «отметить отказ организации от рассылок»
 
 #### Scenario: Планирование через режим будущего звонка
 - **WHEN** менеджер отмечает «Будущий звонок»
@@ -126,7 +128,7 @@ The call form and dashboard edit modal SHALL order fields as: organization, cont
 - **AND** поле «Запланированная дата звонка» недоступно
 
 ### Requirement: Модальное окно быстрого редактирования
-The system SHALL provide a modal window for quick call editing from the dashboard without page reload. The modal SHALL include the same field order and future-call mode as the full call form, the same result actions including refusal auto-opt-out, and the same endpoint for opt-out.
+The system SHALL provide a modal window for quick call editing from the dashboard without page reload. The modal SHALL include the same field order and future-call mode as the full call form and the same result actions (deal, refusal, no-answer, next-call date, mailing campaign). Refusal in the modal SHALL record only the refusal mark: the modal SHALL NOT include the refusal sub-checkboxes («отметить организацию как неактивную» and «отметить отказ организации от рассылок») and SHALL NOT change Organization.isActive or Organization.isOptedOut; these checkboxes are available only on the full call form. The system SHALL provide the POST /organizations/{id}/opt-out endpoint for explicit organization opt-out.
 
 #### Scenario: Открытие модального окна
 - **WHEN** пользователь нажимает кнопку «Изменить» в строке звонка на дашборде
@@ -154,7 +156,8 @@ The system SHALL provide a modal window for quick call editing from the dashboar
 
 #### Scenario: Действия результата в модальном окне
 - **WHEN** пользователь открывает модальное окно проведённого звонка без связанного следующего звонка
-- **THEN** в форме доступны отметки сделки, отказа (с чекбоксами «неактивная» и «отказ от рассылок»), «нет ответа», поле даты следующего звонка и выбор рассылки (кроме архивных)
+- **THEN** в форме доступны отметки сделки, отказа, «нет ответа», поле даты следующего звонка и выбор рассылки (кроме архивных)
+- **AND** чекбоксы «отметить организацию как неактивную» и «отметить отказ организации от рассылок» в модальном окне не отображаются
 
 #### Scenario: Поле следующего звонка скрыто если он уже создан
 - **WHEN** у звонка уже есть связанный следующий звонок

@@ -38,27 +38,12 @@ The system SHALL generate each email from the campaign's stored subject, preview
 - **AND** рассылка отправляется организации «ООО Ромашка»
 - **THEN** тема отправленного письма содержит «Приглашаем на курсы»
 
+#### Scenario: Подсказка токенов на форме редактирования
+- **WHEN** менеджер открывает форму редактирования рассылки
+- **THEN** над textarea тела письма отображается подсказка с перечнем доступных токенов
+- **AND** в подсказке указан токен `{{unsubscribe_url}}` с описанием «ссылка для отписки»
+
 ## ADDED Requirements
-
-### Requirement: Интерфейс вставки токена отписки на странице кампании
-The system SHALL provide a button «Вставить отписку» on the campaign edit page, positioned above or next to the email body editor. Clicking the button SHALL insert the `{{unsubscribe_url}}` token at the cursor position in the body textarea. The button SHALL be available for all campaign statuses except `archived`. A tooltip or label next to the button SHALL explain: «Вставляет ссылку отписки от рассылки. Получатель сможет отказаться от писем по этой ссылке.»
-
-#### Scenario: Кнопка вставки отписки на странице редактирования
-- **WHEN** администратор открывает страницу редактирования кампании в статусе `draft`
-- **THEN** над редактором текста письма отображается кнопка «Вставить отписку»
-- **AND** рядом с кнопкой есть подсказка о её назначении
-
-#### Scenario: Вставка токена в тело письма
-- **WHEN** администратор нажимает кнопку «Вставить отписку»
-- **THEN** в тело письма на позиции курсора вставляется токен `{{unsubscribe_url}}`
-
-#### Scenario: Кнопка недоступна для архивированной кампании
-- **WHEN** кампания имеет статус `archived`
-- **THEN** кнопка «Вставить отписку» не отображается
-
-#### Scenario: Дважды нажатая кнопка вставляет второй токен
-- **WHEN** администратор дважды нажимает «Вставить отписку»
-- **THEN** токен `{{unsubscribe_url}}` вставляется дважды (в первой и второй позициях курсора)
 
 ### Requirement: Исключение отписавшихся организаций из рассылок
 The system SHALL exclude organizations with `isOptedOut = true` from campaign recipients on every creation path (manual add, «Выбрать все организации», добавление по группе) and SHALL re-check the flag at send time: a recipient whose organization opted out after being added SHALL be marked `failed` with errorMessage «Организация отписана от рассылок» and SHALL NOT receive the email. The rule SHALL apply before the «нет e-mail» check.
