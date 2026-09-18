@@ -1,6 +1,10 @@
 {#
     Липкие отметки результата — внизу формы (change call-result, макет формы).
     Ожидает: call (?Call), isModal (bool, default false).
+
+    Чекбоксы «Отметить организацию как неактивную» и «Отметить отказ организации от рассылок» отображаются
+    ТОЛЬКО на полной форме создания/редактирования звонка (isModal = false).
+    В модальном окне быстрого редактирования они скрыты.
 #}
 {% set prefix = isModal|default(false) ? 'modal-call-' : '' %}
 
@@ -21,3 +25,34 @@
         Нет ответа
     </label>
 </div>
+
+<div class="field" data-call-deal-flags>
+    <label class="field__consent" for="{{ prefix }}is-refusal">
+        <input type="checkbox" id="{{ prefix }}is-refusal" name="is_refusal" value="1"
+               {% if call and call.isRefusal %}checked{% endif %}
+               {% if isModal|default(false) %}data-call-field="is_refusal"{% endif %}
+               data-call-refusal-toggle>
+        Отказ
+    </label>
+</div>
+
+{% if not isModal|default(false) %}
+<div class="field" data-call-refusal-options{% if not (call and call.isRefusal) %} hidden{% endif %}>
+    <label class="field__consent" for="{{ prefix }}refusal-mark-inactive">
+        <input type="checkbox" id="{{ prefix }}refusal-mark-inactive" name="refusal_mark_inactive" value="1">
+        Отметить организацию как неактивную
+    </label>
+</div>
+
+<div class="field" data-call-refusal-options{% if not (call and call.isRefusal) %} hidden{% endif %}>
+    <label class="field__consent" for="{{ prefix }}refusal-mark-opt-out">
+        <input type="checkbox" id="{{ prefix }}refusal-mark-opt-out" name="refusal_mark_opt_out" value="1"
+               data-call-refusal-optout-toggle>
+        Отметить отказ организации от рассылок
+    </label>
+    <div class="field" data-call-refusal-optout-reason{% if not (call and call.isRefusal) %} hidden{% endif %}>
+        <label class="field__label" for="{{ prefix }}refusal-opt-out-reason">Причина отказа</label>
+        <textarea class="field__input" id="{{ prefix }}refusal-opt-out-reason" name="refusal_opt_out_reason" rows="2"></textarea>
+    </div>
+</div>
+{% endif %}

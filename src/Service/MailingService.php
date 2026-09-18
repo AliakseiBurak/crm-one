@@ -54,6 +54,14 @@ readonly class MailingService
         $recipient->markSending();
         $this->em->flush();
 
+        if ($recipient->organization->isOptedOut) {
+            $recipient->markFailed('Организация отписана от рассылок', false);
+            $this->em->flush();
+            $this->checkCampaignEscalation($campaign);
+
+            return;
+        }
+
         $resolved = $this->resolveEmailTargets($recipient);
 
         if (null === $resolved) {
@@ -161,9 +169,10 @@ readonly class MailingService
         array $ccEmails,
     ): void {
         $organization = $recipient->organization;
+        $unsubscribeUrl = $this->generateUnsubscribeUrl($recipient);
         $preview = $campaign->renderPreviewText($contact, $organization);
         $body = $this->preheaderMarkup($preview)
-            . $campaign->renderBody($contact, $organization)
+            . $campaign->renderBody($contact, $organization, $unsubscribeUrl)
             . $this->trackingPixelMarkup($recipient);
 
         $email = new Email()
@@ -180,7 +189,7 @@ readonly class MailingService
             $path = $this->attachmentStorage->path($attachment->storageKey);
             if (!is_file($path)) {
                 $this->logger->warning('Вложение рассылки #{id} не найдено: {key}', [
-                    'id' => $campaign->id,
+                    'id' => $attachment->id,
                     'key' => $attachment->storageKey,
                 ]);
                 continue;
@@ -190,6 +199,15 @@ readonly class MailingService
         }
 
         $this->mailer->send($email);
+    }
+
+    private function generateUnsubscribeUrl(CampaignRecipient $recipient): string
+    {
+        return $this->urlGenerator->generate(
+            'app_unsubscribe',
+            ['trackingToken' => $recipient->trackingToken],
+            UrlGeneratorInterface::ABSOLUTE_URL,
+        );
     }
 
     private function preheaderMarkup(?string $preview): string

@@ -237,4 +237,47 @@ class OrganizationRepository extends ServiceEntityRepository
 
         return null;
     }
+
+    /**
+     * Статистика отписок для дашборда.
+     *
+     * @param int[]|null $organizationIds
+     *
+     * @return array{optedOutToday: int, optedOutTodayByEmail: int, optedOutWeek: int, optedOutWeekByEmail: int, optedOutMonth: int, optedOutMonthByEmail: int}
+     */
+    public function optOutStats(?array $organizationIds, \DateTimeImmutable $now): array
+    {
+        $todayStart = $now->setTime(0, 0);
+        $weekStart = $todayStart->modify('-7 days');
+        $monthStart = $todayStart->modify('-30 days');
+
+        $qb = $this->createQueryBuilder('o')
+            ->select(
+                'SUM(CASE WHEN o.isOptedOut = true AND o.optedOutAt >= :todayStart THEN 1 ELSE 0 END) AS optedOutToday',
+                "SUM(CASE WHEN o.isOptedOut = true AND o.optedOutAt >= :todayStart AND o.optOutReason = 'Отписка из письма' THEN 1 ELSE 0 END) AS optedOutTodayByEmail",
+                'SUM(CASE WHEN o.isOptedOut = true AND o.optedOutAt >= :weekStart THEN 1 ELSE 0 END) AS optedOutWeek',
+                "SUM(CASE WHEN o.isOptedOut = true AND o.optedOutAt >= :weekStart AND o.optOutReason = 'Отписка из письма' THEN 1 ELSE 0 END) AS optedOutWeekByEmail",
+                'SUM(CASE WHEN o.isOptedOut = true AND o.optedOutAt >= :monthStart THEN 1 ELSE 0 END) AS optedOutMonth',
+                "SUM(CASE WHEN o.isOptedOut = true AND o.optedOutAt >= :monthStart AND o.optOutReason = 'Отписка из письма' THEN 1 ELSE 0 END) AS optedOutMonthByEmail",
+            )
+            ->setParameter('todayStart', $todayStart)
+            ->setParameter('weekStart', $weekStart)
+            ->setParameter('monthStart', $monthStart);
+
+        if (null !== $organizationIds) {
+            $qb->andWhere('o.id IN (:organizationIds)')
+                ->setParameter('organizationIds', $organizationIds);
+        }
+
+        $row = $qb->getQuery()->getSingleResult();
+
+        return [
+            'optedOutToday' => (int) $row['optedOutToday'],
+            'optedOutTodayByEmail' => (int) $row['optedOutTodayByEmail'],
+            'optedOutWeek' => (int) $row['optedOutWeek'],
+            'optedOutWeekByEmail' => (int) $row['optedOutWeekByEmail'],
+            'optedOutMonth' => (int) $row['optedOutMonth'],
+            'optedOutMonthByEmail' => (int) $row['optedOutMonthByEmail'],
+        ];
+    }
 }

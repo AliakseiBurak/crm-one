@@ -200,12 +200,12 @@ class Campaign
         return $this->fillTokens($this->previewText, $contact, $organization);
     }
 
-    public function renderBody(?Contact $contact, Organization $organization): string
+    public function renderBody(?Contact $contact, Organization $organization, string $unsubscribeUrl = ''): string
     {
-        return $this->fillTokens($this->body, $contact, $organization);
+        return $this->fillTokens($this->body, $contact, $organization, $unsubscribeUrl);
     }
 
-    private function fillTokens(string $template, ?Contact $contact, Organization $organization): string
+    private function fillTokens(string $template, ?Contact $contact, Organization $organization, string $unsubscribeUrl = ''): string
     {
         if (null !== $contact) {
             $greeting = 'Уважаемый(ая) ' . $contact->name;
@@ -214,8 +214,8 @@ class Campaign
         }
 
         return str_replace(
-            ['{{contact_name}}', '{{organization_name}}', '{{greeting}}'],
-            [$contact?->name ?? '', $organization->name, $greeting],
+            ['{{contact_name}}', '{{organization_name}}', '{{greeting}}', '{{unsubscribe_url}}'],
+            [$contact?->name ?? '', $organization->name, $greeting, $unsubscribeUrl],
             $template,
         );
     }

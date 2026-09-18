@@ -19,6 +19,7 @@ use App\Entity\OrgGroupMembership;
 use App\Entity\User;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class AppFixtures extends Fixture
@@ -82,7 +83,11 @@ class AppFixtures extends Fixture
         2 => 'Запись через приёмную',
     ];
 
-    public function __construct(private readonly UserPasswordHasherInterface $passwordHasher) {}
+    public function __construct(
+        private readonly UserPasswordHasherInterface $passwordHasher,
+        #[Autowire(param: 'kernel.project_dir')]
+        private readonly string $projectDir,
+    ) {}
 
     public function load(ObjectManager $manager): void
     {
@@ -126,6 +131,18 @@ class AppFixtures extends Fixture
         $organizations[0]->setAnnualPlan('Сентябрь 2026')->setDescription('Крупный ритейлер');
         $organizations[1]->setHasUsedServices(true);
         $organizations[2]->setDescription('Постоянный клиент');
+
+        // Примеры новых полей (change call-result-deal-and-optout):
+        // Горизонт (индекс 4) — isActive = false;
+        // Конкурент (индекс 3) — opted-out на прошлой неделе;
+        // Закат (индекс 5) — opted-out в текущем месяце.
+        $organizations[4]->setIsActive(false);
+        $organizations[3]->setIsOptedOut(true)
+            ->setOptOutReason('Перестал отвечать на звонки')
+            ->setOptedOutAt(new \DateTimeImmutable('-8 days'));
+        $organizations[5]->setIsOptedOut(true)
+            ->setOptOutReason('Не интересует сотрудничество')
+            ->setOptedOutAt(new \DateTimeImmutable('-20 days'));
 
         $manager->persist(new OrgGroupMembership($organizations[0], $group1));
         $manager->persist(new OrgGroupMembership($organizations[1], $group1));
@@ -315,14 +332,21 @@ class AppFixtures extends Fixture
 
         $manager->flush();
 
-        // Вложения кампании (файлы — метаданные, реальные файлы в storage).
+        // Вложения кампании — метаданные + реальные файлы в storage.
+        $storageDir = $this->projectDir . '/var/storage/campaign-attachments';
+        if (!is_dir($storageDir)) {
+            @mkdir($storageDir, 0775, true);
+        }
+
         $attachment1 = new CampaignAttachment($campaignLaunched, 'брошюра.pdf', 'fixture-broshure-001');
         $attachment1->setMimeType('application/pdf')->setSize(204800);
         $manager->persist($attachment1);
+        @file_put_contents($storageDir . '/fixture-broshure-001', 'fixture pdf content');
 
         $attachment2 = new CampaignAttachment($campaignLaunched, 'прайс.xlsx', 'fixture-price-002');
         $attachment2->setMimeType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')->setSize(51200);
         $manager->persist($attachment2);
+        @file_put_contents($storageDir . '/fixture-price-002', 'fixture xlsx content');
 
         // Ручные адресаты standalone-рассылки.
         $manager->persist(new CampaignRecipient($campaignStandalone, $organizations[0])); // Ромашка — вся организация
@@ -392,6 +416,15 @@ class AppFixtures extends Fixture
             ->setMadeBy($manager1)
             ->setIsDeal(true)
             ->setNotes('Договорились о курсе'));
+
+        // Отказ (Ромашка).
+        $manager->persist(new Call()
+            ->setOrganization($organizations[0])
+            ->setContact($contacts[0])
+            ->setMadeAt($today->modify('-2 days')->setTime(14, 30))
+            ->setMadeBy($manager1)
+            ->setIsRefusal(true)
+            ->setNotes('Отказались от сотрудничества'));
 
         $manager->flush();
     }

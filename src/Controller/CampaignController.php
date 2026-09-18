@@ -413,12 +413,18 @@ class CampaignController extends AbstractController
         $available = $this->availableOrganizations($campaign);
         $added = 0;
         $noEmail = 0;
+        $optedOut = 0;
         foreach ($available as $organization) {
             $exists = $this->em->getRepository(CampaignRecipient::class)->findOneBy([
                 'campaign' => $campaign,
                 'organization' => $organization,
             ]);
             if (null !== $exists) {
+                continue;
+            }
+            // Организации, отписанные от рассылок, пропускаются.
+            if ($organization->isOptedOut) {
+                ++$optedOut;
                 continue;
             }
             // Доменная проверка: организации без e-mail пропускаются.
@@ -431,7 +437,7 @@ class CampaignController extends AbstractController
         }
         $this->em->flush();
 
-        $this->addFlash('success', $this->bulkResultMessage($added, \count($available) - $added, $noEmail));
+        $this->addFlash('success', $this->bulkResultMessage($added, \count($available) - $added, $noEmail, $optedOut));
 
         if ($request->headers->get('X-Requested-With') === 'XMLHttpRequest') {
             return $this->json([
@@ -458,6 +464,12 @@ class CampaignController extends AbstractController
         $this->assertRecipientsEditable($campaign);
 
         $organization = $this->accessibleOrganizationForRecipient((int) $request->request->get('organization', 0));
+
+        if ($organization->isOptedOut) {
+            $this->addFlash('error', 'Организация отписана от рассылок');
+
+            return $this->redirectToRoute('app_campaign_recipients', ['id' => $campaign->id]);
+        }
 
         $contactId = $request->request->get('contact');
         $contact = null;
@@ -846,11 +858,18 @@ class CampaignController extends AbstractController
      * Сообщение о результате массового добавления адресатов: причины
      * пропуска раскрываются только когда они были (spec: campaigns).
      */
-    private function bulkResultMessage(int $added, int $skipped, int $noEmail): string
+    private function bulkResultMessage(int $added, int $skipped, int $noEmail, int $optedOut = 0): string
     {
         $message = \sprintf('Добавлено: %d, пропущено: %d', $added, $skipped);
+        $reasons = [];
+        if ($optedOut > 0) {
+            $reasons[] = \sprintf('отписаны: %d', $optedOut);
+        }
         if ($noEmail > 0) {
-            $message .= \sprintf(' (в том числе нет e-mail: %d)', $noEmail);
+            $reasons[] = \sprintf('нет e-mail: %d', $noEmail);
+        }
+        if ($reasons !== []) {
+            $message .= \sprintf(' (в том числе %s)', implode(', ', $reasons));
         }
 
         return $message;
@@ -946,7 +965,7 @@ class CampaignController extends AbstractController
             return $this->redirectToRoute('app_campaign_recipients', ['id' => $campaign->id]);
         }
 
-        $this->addFlash('success', $this->bulkResultMessage($result['added'], $result['skipped'], $result['no_email']));
+        $this->addFlash('success', $this->bulkResultMessage($result['added'], $result['skipped'], $result['no_email'], $result['opted_out']));
 
         return $this->redirectToRoute('app_campaign_recipients', ['id' => $campaign->id]);
     }

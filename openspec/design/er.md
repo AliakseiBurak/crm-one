@@ -63,6 +63,10 @@ erDiagram
         string annual_plan "nullable, годовой план обучения"
         text description "nullable, описание организации"
         boolean has_used_services "default false"
+        boolean is_active "default true"
+        boolean is_opted_out "default false"
+        text opt_out_reason "nullable, причина отписки"
+        datetime opted_out_at "nullable, когда отписалась"
         datetime created_at
         datetime updated_at
     }
@@ -88,6 +92,7 @@ erDiagram
         bigint made_by FK "факт звонка: кто"
         text notes
         boolean is_deal "результат: сделка"
+        boolean is_refusal "результат: отказ"
         boolean is_no_answer "результат: нет ответа"
         bigint next_call_id FK "self-ref: вновь созданный Call (0..1)"
         bigint campaign_id FK "последняя рассылка с звонка (0..1, ON DELETE SET NULL)"
@@ -99,7 +104,7 @@ erDiagram
         string name
         string subject "тема письма"
         string preview_text "nullable, прехедер"
-        text body "текст письма (токены {{greeting}}, {{contact_name}}, {{organization_name}})"
+        text body "текст письма (токены {{greeting}}, {{contact_name}}, {{organization_name}}, {{unsubscribe_url}})"
         enum status "draft|ready|launched|failed|archived, default draft"
         datetime launched_at "nullable; ручной запуск — кнопка «Запустить»"
         datetime failed_at "nullable; фиксируется при ошибке отправки"
@@ -210,7 +215,7 @@ flowchart TB
 
     subgraph Mailing ["MailingService"]
         MS["SMTP (Symfony Mailer)<br/>one email per org (TO+CC)"]
-        T["Token resolution<br/>{{greeting}}, {{contact_name}}, {{organization_name}}"]
+        T["Token resolution<br/>{{greeting}}, {{contact_name}}, {{organization_name}}, {{unsubscribe_url}}"]
     end
 
     subgraph UI ["UI"]

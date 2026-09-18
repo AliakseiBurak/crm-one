@@ -42,6 +42,16 @@
                     { figure: statsByOrg['overdue30'], caption: 'Просроченные: за 30 дней', bucket: 'overdue30' },
                 ],
             },
+            {
+                title: 'Отписки',
+                modifier: 'optout',
+                items: [
+                    { figure: optOutStats.optedOutToday, caption: 'Отписки: сегодня' },
+                    { figure: optOutStats.optedOutWeek, caption: 'Отписки: 7 дней' },
+                    { figure: optOutStats.optedOutMonth, caption: 'Отписки: за 30 дней' },
+                    { figure: statsByOrg['optoutEmail'], caption: 'Из письма', bucket: 'optoutEmail' },
+                ],
+            },
         ] %}
 
         <section class="stats-home">
@@ -57,7 +67,12 @@
                                     <div class="stats__item">
                                         <div class="stats__figure">{{ item.figure }}</div>
                                         <div class="stats__caption">{{ item.caption }}</div>
-                                        <a class="stats__orgs" href="{{ path('app_dashboard', { filter: item.bucket }) }}">По организациям: {{ statsByOrg[item.bucket] }}</a>
+                                        {% if item.subFigure is defined %}
+                                            <div class="stats__sub">{{ item.subCaption }}: {{ item.subFigure }}</div>
+                                        {% endif %}
+                                        {% if item.bucket is defined %}
+                                            <a class="stats__orgs" href="{{ path('app_dashboard', { filter: item.bucket }) }}">По организациям: {{ statsByOrg[item.bucket] }}</a>
+                                        {% endif %}
                                     </div>
                                 {% endfor %}
                             </div>

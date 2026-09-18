@@ -24,6 +24,7 @@ class CallRepository extends ServiceEntityRepository
         'called1', 'called7', 'called30',
         'waiting1', 'waiting7', 'waiting30',
         'overdue1', 'overdue7', 'overdue30',
+        'optoutEmail',
     ];
 
     public function __construct(ManagerRegistry $registry)
@@ -192,8 +193,21 @@ class CallRepository extends ServiceEntityRepository
 
         $counts = [];
         foreach (self::ORGANIZATION_BUCKETS as $bucket) {
-            $counts[$bucket] = (int) $row[$bucket];
+            $counts[$bucket] = (int) ($row[$bucket] ?? 0);
         }
+
+        // optoutEmail: count organizations with isOptedOut=true and optOutReason='Отписка из письма'
+        // This is organization-level data, not call-based, so we query separately.
+        $optoutSql = 'SELECT COUNT(DISTINCT id) AS cnt FROM organization WHERE is_opted_out = 1 AND opt_out_reason = :reason';
+        $optoutParams = ['reason' => 'Отписка из письма'];
+        $optoutTypes = [];
+        if (null !== $organizationIds) {
+            $optoutSql .= ' AND id IN (:organizationIds)';
+            $optoutParams['organizationIds'] = $organizationIds;
+            $optoutTypes['organizationIds'] = ArrayParameterType::INTEGER;
+        }
+        $optoutRow = $this->getEntityManager()->getConnection()->fetchAssociative($optoutSql, $optoutParams, $optoutTypes);
+        $counts['optoutEmail'] = (int) ($optoutRow['cnt'] ?? 0);
 
         return $counts;
     }
@@ -221,7 +235,7 @@ class CallRepository extends ServiceEntityRepository
         }
 
         $rows = $this->createQueryBuilder('c')
-            ->select('c.id', 'IDENTITY(c.organization) AS organizationId', 'IDENTITY(c.contact) AS contactId', 'COALESCE(c.madeAt, c.scheduledAt) AS callDate', 'c.notes', 'c.scheduledAt', 'c.madeAt', 'c.isDeal', 'c.isNoAnswer', 'IDENTITY(c.madeBy) AS madeById', 'IDENTITY(c.campaign) AS campaignId', 'camp.name AS campaignName', 'IDENTITY(c.nextCall) AS nextCallId', 'nc.scheduledAt AS nextCallScheduledAt')
+            ->select('c.id', 'IDENTITY(c.organization) AS organizationId', 'IDENTITY(c.contact) AS contactId', 'COALESCE(c.madeAt, c.scheduledAt) AS callDate', 'c.notes', 'c.scheduledAt', 'c.madeAt', 'c.isDeal', 'c.isRefusal', 'c.isNoAnswer', 'IDENTITY(c.madeBy) AS madeById', 'IDENTITY(c.campaign) AS campaignId', 'camp.name AS campaignName', 'IDENTITY(c.nextCall) AS nextCallId', 'nc.scheduledAt AS nextCallScheduledAt')
             ->leftJoin('c.campaign', 'camp')
             ->leftJoin('c.nextCall', 'nc')
             ->where('IDENTITY(c.organization) IN (:organizationIds)')
@@ -242,6 +256,7 @@ class CallRepository extends ServiceEntityRepository
                 'madeAt' => $row['madeAt'],
                 'madeById' => $row['madeById'] ? (int) $row['madeById'] : null,
                 'isDeal' => (bool) $row['isDeal'],
+                'isRefusal' => (bool) $row['isRefusal'],
                 'isNoAnswer' => (bool) $row['isNoAnswer'],
                 'campaignId' => $row['campaignId'] ? (int) $row['campaignId'] : null,
                 'campaignName' => $row['campaignName'],

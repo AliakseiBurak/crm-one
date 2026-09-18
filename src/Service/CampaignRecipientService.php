@@ -36,7 +36,7 @@ final class CampaignRecipientService
      * контактов (spec: campaigns — «Организация без e-mail не может стать
      * адресатом» распространяется на все пути создания адресатов).
      *
-     * @return array{added: int, skipped: int, no_email: int, total: int}
+     * @return array{added: int, skipped: int, no_email: int, total: int, opted_out: int}
      */
     public function bulkAddByGroup(Campaign $campaign, OrganizationGroup $group, User $user): array
     {
@@ -70,6 +70,7 @@ final class CampaignRecipientService
         $added = 0;
         $skipped = 0;
         $noEmail = 0;
+        $optedOut = 0;
 
         // Скрытые организации не становятся адресатами (ADR-0012): менеджеру
         // доступны только организации его области доступа; администратору —
@@ -96,6 +97,13 @@ final class CampaignRecipientService
                 continue;
             }
 
+            // Организации, отписанные от рассылок, пропускаются.
+            if ($organization->isOptedOut) {
+                ++$skipped;
+                ++$optedOut;
+                continue;
+            }
+
             // Доменная проверка: организация без e-mail адресатом не становится.
             if (!$this->organizationHasEmail($organization)) {
                 ++$skipped;
@@ -110,7 +118,7 @@ final class CampaignRecipientService
 
         $this->em->flush();
 
-        return ['added' => $added, 'skipped' => $skipped, 'no_email' => $noEmail, 'total' => $total];
+        return ['added' => $added, 'skipped' => $skipped, 'no_email' => $noEmail, 'total' => $total, 'opted_out' => $optedOut];
     }
 
     private function organizationHasEmail(Organization $organization): bool

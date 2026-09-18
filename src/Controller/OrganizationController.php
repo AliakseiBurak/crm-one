@@ -156,6 +156,7 @@ class OrganizationController extends AbstractController
                     'annualPlan' => $organization->annualPlan,
                     'description' => $organization->description,
                     'hasUsedServices' => $organization->hasUsedServices,
+                    'isActive' => $organization->isActive,
                 ],
             ]);
         }
@@ -202,6 +203,16 @@ class OrganizationController extends AbstractController
         $organization->setAnnualPlan($annualPlan !== null && $annualPlan !== '' ? trim((string) $annualPlan) : null);
         $description = $request->request->get('description');
         $organization->setDescription($description !== null && $description !== '' ? trim((string) $description) : null);
+        $organization->setIsActive((bool) $request->request->get('isActive', true));
+        $isOptedOut = (bool) $request->request->get('isOptedOut', false);
+        $organization->setIsOptedOut($isOptedOut);
+        // Decision 5 (call-result-deal-and-optout): при снятом отказе причина
+        // игнорируется, что бы ни пришло в запросе (setIsOptedOut(false)
+        // сбрасывает reason/date, но их могло перезаписать поле формы).
+        if ($isOptedOut) {
+            $optOutReason = $request->request->get('optOutReason');
+            $organization->setOptOutReason($optOutReason !== null && $optOutReason !== '' ? trim((string) $optOutReason) : null);
+        }
         $organization->setHasUsedServices((bool) $request->request->get('hasUsedServices', false));
 
         $violations = $validator->validate($organization);

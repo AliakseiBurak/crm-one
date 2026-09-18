@@ -41,6 +41,7 @@ class HomeController extends AbstractController
             'stats' => $callRepository->dashboardStats($organizationIds, $now),
             'statsByOrg' => $callRepository->organizationCounts($organizationIds, $now),
             'totalOrgs' => $totalOrgs,
+            'optOutStats' => $organizationRepository->optOutStats($organizationIds, $now),
         ]);
     }
 

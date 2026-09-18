@@ -109,10 +109,10 @@
                                                 <span class="campaign-recipients__status campaign-recipients__status--bounced">Отказ</span>
                                             {% endif %}
                                             {% if recipient.status.value == 'failed' %}
-                                                <form method="post" action="{{ path('app_campaign_recipient_reset', { id: recipient.campaign.id, recipientId: recipient.id }) }}" style="display:inline" onsubmit="return confirm('Сбросить статус получателя?')">
-                                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('campaign_recipient') }}">
-                                                    <button type="submit" class="campaign-recipients__reset-btn" title="Сбросить">✕</button>
-                                                </form>
+                                                <button type="button" class="campaign-recipients__reset-btn" title="Сбросить"
+                                                    data-action="reset-recipient"
+                                                    data-url="{{ path('app_campaign_recipient_reset', { id: recipient.campaign.id, recipientId: recipient.id }) }}"
+                                                    data-csrf="{{ csrf_token('campaign_recipient') }}">✕</button>
                                             {% elseif recipient.status.value == 'bounced' %}
                                                 <a href="{{ path('app_campaign_recipient_reset_confirm', { id: recipient.campaign.id, recipientId: recipient.id }) }}" class="campaign-recipients__reset-btn" title="Сбросить">✕</a>
                                             {% endif %}
@@ -160,4 +160,16 @@
             </form>
         </div>
     </section>
+
+    <script>
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action="reset-recipient"]');
+            if (!btn) return;
+            if (!confirm('Сбросить статус получателя?')) return;
+            fetch(btn.dataset.url, {
+                method: 'POST',
+                headers: { 'X-CSRF-Token': btn.dataset.csrf, 'X-Requested-With': 'XMLHttpRequest' }
+            }).then(() => btn.closest('tr')?.remove());
+        });
+    </script>
 {% endblock %}

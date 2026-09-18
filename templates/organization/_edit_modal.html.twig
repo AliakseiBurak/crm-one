@@ -44,6 +44,30 @@
 
             <div class="field">
                 <label class="field__label">
+                    <input type="hidden" name="isActive" value="0">
+                    <input type="checkbox" name="isActive" value="1"
+                           data-organization-field="isActive">
+                    Активна
+                </label>
+            </div>
+
+            <div class="field">
+                <label class="field__label">
+                    <input type="hidden" name="isOptedOut" value="0">
+                    <input type="checkbox" name="isOptedOut" value="1"
+                           data-organization-field="isOptedOut">
+                    Отказ от рассылки
+                </label>
+            </div>
+
+            <div class="field js-opt-out-reason" hidden>
+                <label class="field__label" for="modal-organization-optOutReason">Причина отказа</label>
+                <textarea class="field__input" id="modal-organization-optOutReason" name="optOutReason"
+                          rows="2" data-organization-field="optOutReason"></textarea>
+            </div>
+
+            <div class="field">
+                <label class="field__label">
                     <input type="hidden" name="hasUsedServices" value="0">
                     <input type="checkbox" name="hasUsedServices" value="1"
                            data-organization-field="hasUsedServices">

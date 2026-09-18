@@ -73,7 +73,7 @@
                         name="body"
                         rows="8"
                     >{{ campaign.body|default('') }}</textarea>
-                    <span class="field__hint">Токены: {{ '{{' }}greeting{{ '}}' }} — приветствие, {{ '{{' }}organization_name{{ '}}' }} — название организации, {{ '{{' }}contact_name{{ '}}' }} — имя контакта</span>
+                    <span class="field__hint">Токены: {{ '{{' }}greeting{{ '}}' }} — приветствие, {{ '{{' }}organization_name{{ '}}' }} — название организации, {{ '{{' }}contact_name{{ '}}' }} — имя контакта, {{ '{{' }}unsubscribe_url{{ '}}' }} — ссылка для отписки</span>
                     {% if errors.body is defined and errors.body %}
                         <span class="field__error" role="alert">{{ errors.body }}</span>
                     {% endif %}
@@ -147,6 +147,7 @@
                     headers: { 'X-CSRF-Token': csrf, 'X-Requested-With': 'XMLHttpRequest' }
                 }).then(() => btn.closest('li').remove());
             });
+
         })();
     </script>
 {% endblock %}

@@ -42,6 +42,9 @@ class Call
     #[ORM\Column(name: 'is_deal', type: 'boolean', options: ['default' => false])]
     public private(set) bool $isDeal = false;
 
+    #[ORM\Column(name: 'is_refusal', type: 'boolean', options: ['default' => false])]
+    public private(set) bool $isRefusal = false;
+
     #[ORM\Column(name: 'is_no_answer', type: 'boolean', options: ['default' => false])]
     public private(set) bool $isNoAnswer = false;
 
@@ -106,6 +109,13 @@ class Call
     public function setIsDeal(bool $isDeal): self
     {
         $this->isDeal = $isDeal;
+
+        return $this;
+    }
+
+    public function setIsRefusal(bool $isRefusal): self
+    {
+        $this->isRefusal = $isRefusal;
 
         return $this;
     }

@@ -38,6 +38,18 @@ class Organization
     #[ORM\Column(name: 'has_used_services', options: ['default' => false])]
     public private(set) bool $hasUsedServices = false;
 
+    #[ORM\Column(name: 'is_active', options: ['default' => true])]
+    public private(set) bool $isActive = true;
+
+    #[ORM\Column(name: 'is_opted_out', options: ['default' => false])]
+    public private(set) bool $isOptedOut = false;
+
+    #[ORM\Column(name: 'opt_out_reason', type: 'text', nullable: true)]
+    public private(set) ?string $optOutReason = null;
+
+    #[ORM\Column(name: 'opted_out_at', type: 'datetime_immutable', nullable: true)]
+    public private(set) ?\DateTimeImmutable $optedOutAt = null;
+
     #[ORM\Column(name: 'created_at', type: 'datetime_immutable')]
     public private(set) \DateTimeImmutable $createdAt;
 
@@ -90,6 +102,43 @@ class Organization
     public function setHasUsedServices(bool $hasUsedServices): self
     {
         $this->hasUsedServices = $hasUsedServices;
+
+        return $this;
+    }
+
+    public function setIsActive(bool $isActive): self
+    {
+        $this->isActive = $isActive;
+
+        return $this;
+    }
+
+    public function setIsOptedOut(bool $isOptedOut): self
+    {
+        if (!$isOptedOut && $this->isOptedOut) {
+            $this->optOutReason = null;
+            $this->optedOutAt = null;
+        }
+
+        if ($isOptedOut && !$this->isOptedOut) {
+            $this->optedOutAt = new \DateTimeImmutable();
+        }
+
+        $this->isOptedOut = $isOptedOut;
+
+        return $this;
+    }
+
+    public function setOptOutReason(?string $optOutReason): self
+    {
+        $this->optOutReason = $optOutReason;
+
+        return $this;
+    }
+
+    public function setOptedOutAt(?\DateTimeImmutable $optedOutAt): self
+    {
+        $this->optedOutAt = $optedOutAt;
 
         return $this;
     }

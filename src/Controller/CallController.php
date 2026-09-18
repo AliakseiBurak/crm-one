@@ -98,6 +98,7 @@ class CallController extends AbstractController
         }
 
         $this->em->persist($call);
+        $resultFlashes = $this->applyResultActions($call, $request, $resultInput);
         $this->em->flush();
 
         if ($ajax) {
@@ -106,6 +107,13 @@ class CallController extends AbstractController
 
         if (null === $call->organization->id) {
             throw new \LogicException('Call organization must be persisted');
+        }
+
+        if ($resultFlashes['optOutFlash']) {
+            $this->addFlash('notice', 'Организация отписана от рассылок');
+        }
+        if ($resultFlashes['inactiveFlash']) {
+            $this->addFlash('notice', 'Организация отмечена как неактивная');
         }
 
         return $this->redirectToRoute('app_dashboard', ['highlight' => $call->organization->id]);
@@ -164,11 +172,17 @@ class CallController extends AbstractController
 
         $hadNextCall = null !== $call->nextCall;
         // applyResultActions сам no-op без madeAt/madeBy (в т.ч. после режима «Будущий звонок»).
-        $resendFlash = $this->applyResultActions($call, $resultInput);
+        $resultFlashes = $this->applyResultActions($call, $request, $resultInput);
         $this->em->flush();
 
-        if ($resendFlash) {
+        if ($resultFlashes['resendFlash']) {
             $this->addFlash('notice', self::RESEND_FLASH);
+        }
+        if ($resultFlashes['optOutFlash']) {
+            $this->addFlash('notice', 'Организация отписана от рассылок');
+        }
+        if ($resultFlashes['inactiveFlash']) {
+            $this->addFlash('notice', 'Организация отмечена как неактивная');
         }
 
         if ($ajax) {
@@ -304,6 +318,7 @@ class CallController extends AbstractController
             }
 
             $call->setIsDeal(null !== $request->request->get('is_deal'));
+            $call->setIsRefusal(null !== $request->request->get('is_refusal'));
             $call->setIsNoAnswer(null !== $request->request->get('is_no_answer'));
 
             if ($this->hasResultActions($request, $resultInput)) {
@@ -327,13 +342,37 @@ class CallController extends AbstractController
 
     /**
      * @param array{mailingCampaignId: ?int, mailingContactId: ?int, nextCallDate: string} $resultInput
+     *
+     * @return array{resendFlash: bool, optOutFlash: bool, inactiveFlash: bool}
      */
-    private function applyResultActions(Call $call, array $resultInput): bool
+    private function applyResultActions(Call $call, Request $request, array $resultInput): array
     {
         $resendFlash = false;
+        $optOutFlash = false;
+        $inactiveFlash = false;
 
         if (null === $call->madeAt || null === $call->madeBy) {
-            return false;
+            return ['resendFlash' => false, 'optOutFlash' => false, 'inactiveFlash' => false];
+        }
+
+        // Auto-opt-out on refusal
+        if ($call->isRefusal) {
+            $org = $call->organization;
+            $markInactive = '1' === $request->request->get('refusal_mark_inactive');
+            $markOptOut = '1' === $request->request->get('refusal_mark_opt_out');
+
+            if ($markInactive) {
+                $org->setIsActive(false);
+                $inactiveFlash = true;
+            }
+            if ($markOptOut) {
+                $optOutReason = $this->optionalField($request, 'refusal_opt_out_reason');
+                $org->setIsOptedOut(true);
+                if (null !== $optOutReason) {
+                    $org->setOptOutReason($optOutReason);
+                }
+                $optOutFlash = true;
+            }
         }
 
         $mailingCampaignId = $resultInput['mailingCampaignId'];
@@ -361,7 +400,7 @@ class CallController extends AbstractController
             }
         }
 
-        return $resendFlash;
+        return ['resendFlash' => $resendFlash, 'optOutFlash' => $optOutFlash, 'inactiveFlash' => $inactiveFlash];
     }
 
     /**
@@ -408,7 +447,7 @@ class CallController extends AbstractController
         if (null !== $resultInput['mailingCampaignId']) {
             return true;
         }
-        if (null !== $request->request->get('is_deal') || null !== $request->request->get('is_no_answer')) {
+        if (null !== $request->request->get('is_deal') || null !== $request->request->get('is_refusal') || null !== $request->request->get('is_no_answer')) {
             return true;
         }
 
@@ -627,7 +666,7 @@ class CallController extends AbstractController
     /**
      * @return array{id: int|null, organizationId: int|null, contactId: int, date: ?\DateTimeImmutable,
      *     scheduledAt: ?\DateTimeImmutable, madeAt: ?\DateTimeImmutable, madeById: ?int,
-     *     isDeal: bool, isNoAnswer: bool, campaignId: ?int, campaignName: ?string,
+     *     isDeal: bool, isRefusal: bool, isNoAnswer: bool, campaignId: ?int, campaignName: ?string,
      *     nextCallId: ?int, nextCallScheduledAt: ?\DateTimeImmutable, notes: ?string}
      */
     private function rowOf(Call $call): array
@@ -641,6 +680,7 @@ class CallController extends AbstractController
             'madeAt' => $call->madeAt,
             'madeById' => $call->madeBy?->id,
             'isDeal' => $call->isDeal,
+            'isRefusal' => $call->isRefusal,
             'isNoAnswer' => $call->isNoAnswer,
             'campaignId' => $call->campaign?->id,
             'campaignName' => $call->campaign?->name,

@@ -57,6 +57,27 @@
 
                 <div class="field">
                     <label class="field__label">
+                        <input type="hidden" name="isActive" value="0">
+                        <input type="checkbox" name="isActive" value="1" {% if not organization or organization.isActive %}checked{% endif %}>
+                        Активна
+                    </label>
+                </div>
+
+                <div class="field">
+                    <label class="field__label">
+                        <input type="hidden" name="isOptedOut" value="0">
+                        <input type="checkbox" name="isOptedOut" value="1" {% if organization.isOptedOut|default(false) %}checked{% endif %}>
+                        Отказ от рассылки
+                    </label>
+                </div>
+
+                <div class="field js-opt-out-reason" {% if not organization.isOptedOut|default(false) %}hidden{% endif %}>
+                    <label class="field__label" for="organization-optOutReason">Причина отказа</label>
+                    <textarea class="field__input" id="organization-optOutReason" name="optOutReason" rows="3">{{ organization.optOutReason|default('') }}</textarea>
+                </div>
+
+                <div class="field">
+                    <label class="field__label">
                         <input type="hidden" name="hasUsedServices" value="0">
                         <input type="checkbox" name="hasUsedServices" value="1" {% if organization.hasUsedServices|default(false) %}checked{% endif %}>
                         Пользовались услугами
@@ -133,10 +154,10 @@
                                                     <span class="campaign-recipients__status campaign-recipients__status--bounced">Отказ</span>
                                                 {% endif %}
                                                 {% if recipient.status.value == 'failed' %}
-                                                    <form method="post" action="{{ path('app_campaign_recipient_reset', { id: recipient.campaign.id, recipientId: recipient.id }) }}" style="display:inline" onsubmit="return confirm('Сбросить статус получателя?')">
-                                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('campaign_recipient') }}">
-                                                        <button type="submit" class="campaign-recipients__reset-btn" title="Сбросить">✕</button>
-                                                    </form>
+                                                    <button type="button" class="campaign-recipients__reset-btn" title="Сбросить"
+                                                        data-action="reset-recipient"
+                                                        data-url="{{ path('app_campaign_recipient_reset', { id: recipient.campaign.id, recipientId: recipient.id }) }}"
+                                                        data-csrf="{{ csrf_token('campaign_recipient') }}">✕</button>
                                                 {% elseif recipient.status.value == 'bounced' %}
                                                     <a href="{{ path('app_campaign_recipient_reset_confirm', { id: recipient.campaign.id, recipientId: recipient.id }) }}" class="campaign-recipients__reset-btn" title="Сбросить">✕</a>
                                                 {% endif %}
@@ -195,4 +216,36 @@
             </form>
         </div>
     </section>
+
+    <script>
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action="reset-recipient"]');
+            if (!btn) return;
+            if (!confirm('Сбросить статус получателя?')) return;
+            fetch(btn.dataset.url, {
+                method: 'POST',
+                headers: { 'X-CSRF-Token': btn.dataset.csrf, 'X-Requested-With': 'XMLHttpRequest' }
+            }).then(() => btn.closest('tr')?.remove());
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkbox = document.querySelector('input[name="isOptedOut"]');
+            const reasonContainer = document.querySelector('.js-opt-out-reason');
+            if (checkbox && reasonContainer) {
+                checkbox.addEventListener('change', () => {
+                    if (!checkbox.checked) {
+                        if (!confirm('Восстановить организацию в рассылках?')) {
+                            checkbox.checked = true;
+                            return;
+                        }
+                        const reasonField = document.getElementById('organization-optOutReason');
+                        if (reasonField) {
+                            reasonField.value = '';
+                        }
+                    }
+                    reasonContainer.hidden = !checkbox.checked;
+                });
+            }
+        });
+    </script>
 {% endblock %}

@@ -30,6 +30,44 @@ const bindFutureCallToggle = (root) => {
     return { toggle, sync };
 };
 
+const bindRefusalToggle = (root) => {
+    const toggle = root.querySelector('[data-call-refusal-toggle]');
+    if (!toggle) {
+        return null;
+    }
+
+    const sync = () => {
+        const checked = toggle.checked;
+        root.querySelectorAll('[data-call-refusal-options]').forEach((el) => {
+            el.hidden = !checked;
+        });
+        // Also sync the opt-out reason visibility
+        const optOutToggle = root.querySelector('[data-call-refusal-optout-toggle]');
+        if (optOutToggle) {
+            root.querySelectorAll('[data-call-refusal-optout-reason]').forEach((el) => {
+                el.hidden = !optOutToggle.checked;
+            });
+        }
+    };
+
+    const syncOptOutReason = () => {
+        const optOutToggle = root.querySelector('[data-call-refusal-optout-toggle]');
+        if (optOutToggle) {
+            root.querySelectorAll('[data-call-refusal-optout-reason]').forEach((el) => {
+                el.hidden = !optOutToggle.checked;
+            });
+        }
+    };
+
+    toggle.addEventListener('change', sync);
+    const optOutToggle = root.querySelector('[data-call-refusal-optout-toggle]');
+    if (optOutToggle) {
+        optOutToggle.addEventListener('change', syncOptOutReason);
+    }
+    sync();
+    return { sync };
+};
+
 const pad = (n) => String(n).padStart(2, '0');
 
 const formatNow = () => {
@@ -43,12 +81,14 @@ const modal = modalRoot?.querySelector('.modal');
 if (modal && modalRoot) {
     const form = modal.querySelector('[data-call-edit-form]');
     const futureMode = bindFutureCallToggle(form);
+    const refusalMode = bindRefusalToggle(form);
     const fields = {
         scheduled_at: modal.querySelector('[data-call-field="scheduled_at"]'),
         contact: modal.querySelector('[data-call-field="contact"]'),
         made_at: modal.querySelector('[data-call-field="made_at"]'),
         made_by: modal.querySelector('[data-call-field="made_by"]'),
         is_deal: modal.querySelector('[data-call-field="is_deal"]'),
+        is_refusal: modal.querySelector('[data-call-field="is_refusal"]'),
         is_no_answer: modal.querySelector('[data-call-field="is_no_answer"]'),
         mailing_campaign: modal.querySelector('[data-call-field="mailing_campaign"]'),
         mailing_contact: modal.querySelector('[data-call-field="mailing_contact"]'),
@@ -166,9 +206,13 @@ if (modal && modalRoot) {
             fields.made_by.value = row.dataset.callMadeBy ?? '';
         }
         fields.is_deal.checked = row.dataset.callIsDeal === '1';
+        if (fields.is_refusal) {
+            fields.is_refusal.checked = row.dataset.callIsRefusal === '1';
+        }
         if (fields.is_no_answer) {
             fields.is_no_answer.checked = row.dataset.callIsNoAnswer === '1';
         }
+        refusalMode?.sync();
         if (fields.mailing_campaign) {
             fields.mailing_campaign.value = '';
         }
@@ -264,6 +308,7 @@ const callForm = document.querySelector('[data-call-form]');
 
 if (callForm) {
     bindFutureCallToggle(callForm);
+    bindRefusalToggle(callForm);
 
     const organizationSelect = callForm.querySelector('[data-call-organization]');
     const contactSelect = callForm.querySelector('[data-call-contact-select]');

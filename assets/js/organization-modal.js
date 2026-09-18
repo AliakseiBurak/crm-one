@@ -16,6 +16,9 @@ if (modal) {
         description: modal.querySelector('[data-organization-field="description"]'),
     };
     const hasUsedServicesCheckbox = modal.querySelector('[data-organization-field="hasUsedServices"]');
+    const isActiveCheckbox = modal.querySelector('[data-organization-field="isActive"]');
+    const isOptedOutCheckbox = modal.querySelector('[data-organization-field="isOptedOut"]');
+    const optOutReasonContainer = modal.querySelector('.js-opt-out-reason');
     const deleteLink = modal.querySelector('[data-organization-delete-link]');
     let activeRow = null;
 
@@ -35,6 +38,13 @@ if (modal) {
         if (hasUsedServicesCheckbox) {
             hasUsedServicesCheckbox.checked = row.dataset.orgHasusedservices === '1';
         }
+        if (isActiveCheckbox) {
+            isActiveCheckbox.checked = row.dataset.orgIsactive !== '0';
+        }
+        if (isOptedOutCheckbox) {
+            isOptedOutCheckbox.checked = row.dataset.orgIsoptedout === '1';
+            toggleOptOutReason();
+        }
         modal.querySelectorAll('[data-organization-error]').forEach((span) => {
             span.hidden = true;
             span.textContent = '';
@@ -47,6 +57,28 @@ if (modal) {
         modal.hidden = true;
         activeRow = null;
     };
+
+    const toggleOptOutReason = () => {
+        if (optOutReasonContainer) {
+            optOutReasonContainer.hidden = !isOptedOutCheckbox || !isOptedOutCheckbox.checked;
+        }
+    };
+
+    if (isOptedOutCheckbox) {
+        isOptedOutCheckbox.addEventListener('change', () => {
+            if (!isOptedOutCheckbox.checked) {
+                if (!confirm('Восстановить организацию в рассылках?')) {
+                    isOptedOutCheckbox.checked = true;
+                    return;
+                }
+                const reasonField = modal.querySelector('[data-organization-field="optOutReason"]');
+                if (reasonField) {
+                    reasonField.value = '';
+                }
+            }
+            toggleOptOutReason();
+        });
+    }
 
     // Открытие: делегирование, кнопка внутри строки организации.
     document.addEventListener('click', (event) => {
@@ -109,6 +141,7 @@ if (modal) {
             activeRow.dataset.orgAnnualplan = payload.organization.annualPlan ?? '';
             activeRow.dataset.orgDescription = payload.organization.description ?? '';
             activeRow.dataset.orgHasusedservices = payload.organization.hasUsedServices ? '1' : '0';
+            activeRow.dataset.orgIsactive = payload.organization.isActive ? '1' : '0';
             activeRow.querySelectorAll('[data-organization-cell]').forEach((cell) => {
                 cell.textContent = payload.organization[cell.dataset.organizationCell] ?? cell.textContent;
             });
