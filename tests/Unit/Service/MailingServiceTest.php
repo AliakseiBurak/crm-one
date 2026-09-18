@@ -28,8 +28,13 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 final class MailingServiceTest extends TestCase
 {
+    private const BASE_URL = 'https://b2b-crm.local';
+
     /** @var list<Email> */
     private array $sent = [];
+
+    /** @var array<string, list<string>> */
+    private array $generated = [];
 
     private MailerInterface&MockObject $mailer;
 
@@ -46,6 +51,7 @@ final class MailingServiceTest extends TestCase
     protected function setUp(): void
     {
         $this->sent = [];
+        $this->generated = [];
         $this->mailer = $this->createMock(MailerInterface::class);
 
         $this->em = $this->createMock(EntityManagerInterface::class);
@@ -75,7 +81,28 @@ final class MailingServiceTest extends TestCase
         $html = (string) $this->sent[0]->getHtmlBody();
         self::assertStringContainsString('Уважаемый(ая) Алиса', $html);
         self::assertStringContainsString('mso-hide:all', $html);
-        self::assertStringContainsString('https://b2b-crm.local/t/' . $recipient->trackingToken . '.png', $html);
+        self::assertStringContainsString($this->generated['app_tracking_pixel'][0], $html);
+        self::assertSame(RecipientStatus::Delivered, $recipient->status);
+    }
+
+    public function testUnsubscribeUrlTokenIsResolvedPerRecipient(): void
+    {
+        $this->captureSentMail();
+        $campaign = $this->campaign();
+        $campaign->setBody('Отписаться: {{unsubscribe_url}}');
+        $org = $this->organization();
+        $this->contact($org, 'Алиса', 'alice@example.ru');
+        $recipient = new CampaignRecipient($campaign, $org);
+
+        $this->service->processRecipient($recipient);
+
+        self::assertCount(1, $this->sent);
+        $html = (string) $this->sent[0]->getHtmlBody();
+        self::assertStringContainsString(
+            $this->generated['app_unsubscribe'][0],
+            $html,
+        );
+        self::assertStringNotContainsString('{{unsubscribe_url}}', $html);
         self::assertSame(RecipientStatus::Delivered, $recipient->status);
     }
 
@@ -327,7 +354,14 @@ final class MailingServiceTest extends TestCase
 
         $urls = $this->createMock(UrlGeneratorInterface::class);
         $urls->method('generate')->willReturnCallback(
-            static fn(string $name, array $params): string => 'https://b2b-crm.local/t/' . $params['trackingToken'] . '.png',
+            function (string $name, array $params): string {
+                $url = 'app_unsubscribe' === $name
+                    ? self::BASE_URL . '/unsubscribe/' . $params['trackingToken']
+                    : self::BASE_URL . '/t/' . $params['trackingToken'] . '.png';
+                $this->generated[$name][] = $url;
+
+                return $url;
+            },
         );
 
         return new MailingService(

@@ -573,4 +573,166 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
     {
         return $this->em()->getRepository(Organization::class)->findOneBy(['name' => $name]);
     }
+
+    // --- isActive / opt-out tests ---
+
+    public function testCreateOrganizationWithIsActiveFalse(): void
+    {
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $crawler = $this->open('/organizations/new');
+        $token = $crawler->filter('input[name="_csrf_token"]')->attr('value');
+
+        $this->client->request('POST', '/organizations/new', [
+            '_csrf_token' => $token,
+            'name' => 'ООО Неактивная',
+            'industry' => 'IT',
+            'isActive' => '0',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+        $organization = $this->findOrganization('ООО Неактивная');
+        self::assertNotNull($organization);
+        self::assertFalse($organization->isActive);
+    }
+
+    public function testEditOrganizationTogglesIsActive(): void
+    {
+        $organization = new Organization()
+            ->setName('ООО Ромашка')
+            ->setIndustry('IT')
+            ->setIsActive(false);
+        $this->em()->persist($organization);
+        $this->em()->flush();
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->open('/organizations/' . $organization->id . '/edit');
+        $this->submitFormByButton('Сохранить', [
+            'name' => 'ООО Ромашка',
+            'industry' => 'IT',
+            'isActive' => true,
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+        $reloaded = $this->findOrganization('ООО Ромашка');
+        self::assertNotNull($reloaded);
+        self::assertTrue($reloaded->isActive);
+    }
+
+    public function testEditOrganizationWithOptOutTrueAndReasonSaved(): void
+    {
+        $organization = new Organization()
+            ->setName('ООО Ромашка')
+            ->setIndustry('IT');
+        $this->em()->persist($organization);
+        $this->em()->flush();
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+
+        $crawler = $this->open('/organizations/' . $organization->id . '/edit');
+        $token = $crawler->filter('input[name="_csrf_token"]')->attr('value');
+
+        $this->client->request('POST', '/organizations/' . $organization->id . '/edit', [
+            '_csrf_token' => $token,
+            'name' => 'ООО Ромашка',
+            'industry' => 'IT',
+            'isOptedOut' => '1',
+            'optOutReason' => 'Неинтересно',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+        $reloaded = $this->findOrganization('ООО Ромашка');
+        self::assertNotNull($reloaded);
+        self::assertTrue($reloaded->isOptedOut);
+        self::assertSame('Неинтересно', $reloaded->optOutReason);
+        self::assertNotNull($reloaded->optedOutAt);
+    }
+
+    public function testEditOrganizationToRemoveOptOutResetsFields(): void
+    {
+        $organization = new Organization()
+            ->setName('ООО Ромашка')
+            ->setIndustry('IT');
+        $this->em()->persist($organization);
+        $this->em()->flush();
+
+        // First opt-in
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $crawler = $this->open('/organizations/' . $organization->id . '/edit');
+        $token = $crawler->filter('input[name="_csrf_token"]')->attr('value');
+
+        $this->client->request('POST', '/organizations/' . $organization->id . '/edit', [
+            '_csrf_token' => $token,
+            'name' => 'ООО Ромашка',
+            'industry' => 'IT',
+            'isOptedOut' => '1',
+            'optOutReason' => 'Спам',
+        ]);
+        $this->assertResponseRedirects();
+
+        // Now remove opt-out
+        $this->em()->clear();
+        $crawler = $this->open('/organizations/' . $organization->id . '/edit');
+        $token = $crawler->filter('input[name="_csrf_token"]')->attr('value');
+
+        $this->client->request('POST', '/organizations/' . $organization->id . '/edit', [
+            '_csrf_token' => $token,
+            'name' => 'ООО Ромашка',
+            'industry' => 'IT',
+            'isOptedOut' => '0',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+        $reloaded = $this->findOrganization('ООО Ромашка');
+        self::assertNotNull($reloaded);
+        self::assertFalse($reloaded->isOptedOut);
+        self::assertNull($reloaded->optOutReason);
+        self::assertNull($reloaded->optedOutAt);
+    }
+
+    public function testEditOrganizationUncheckOptOutIgnoresSubmittedReason(): void
+    {
+        $organization = new Organization()
+            ->setName('ООО Ромашка')
+            ->setIndustry('IT');
+        $this->em()->persist($organization);
+        $this->em()->flush();
+
+        // First opt-in with a reason
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $crawler = $this->open('/organizations/' . $organization->id . '/edit');
+        $token = $crawler->filter('input[name="_csrf_token"]')->attr('value');
+
+        $this->client->request('POST', '/organizations/' . $organization->id . '/edit', [
+            '_csrf_token' => $token,
+            'name' => 'ООО Ромашка',
+            'industry' => 'IT',
+            'isOptedOut' => '1',
+            'optOutReason' => 'Спам',
+        ]);
+        $this->assertResponseRedirects();
+
+        // Uncheck: hidden textarea still submits its old value
+        $this->em()->clear();
+        $crawler = $this->open('/organizations/' . $organization->id . '/edit');
+        $token = $crawler->filter('input[name="_csrf_token"]')->attr('value');
+
+        $this->client->request('POST', '/organizations/' . $organization->id . '/edit', [
+            '_csrf_token' => $token,
+            'name' => 'ООО Ромашка',
+            'industry' => 'IT',
+            'isOptedOut' => '0',
+            'optOutReason' => 'Старая причина',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+        $reloaded = $this->findOrganization('ООО Ромашка');
+        self::assertNotNull($reloaded);
+        self::assertFalse($reloaded->isOptedOut);
+        self::assertNull($reloaded->optOutReason);
+        self::assertNull($reloaded->optedOutAt);
+    }
 }

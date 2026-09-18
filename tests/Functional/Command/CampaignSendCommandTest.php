@@ -125,4 +125,50 @@ final class CampaignSendCommandTest extends DatabaseWebTestCase
         self::assertSame(1, $persisted->retryCount);
         self::assertCount(1, $sent);
     }
+
+    public function testOptedOutOrganizationResultsInFailedRecipient(): void
+    {
+        $sent = [];
+        $mailer = $this->createMock(MailerInterface::class);
+        $mailer->method('send')->willReturnCallback(
+            static function (Email $email) use (&$sent): void {
+                $sent[] = $email;
+            },
+        );
+        static::getContainer()->set(MailerInterface::class, $mailer);
+
+        $campaign = new Campaign()
+            ->setName('Рассылка отписанным')
+            ->setSubject('Предложение')
+            ->setBody('{{greeting}}!')
+            ->launch();
+        $organization = new Organization()
+            ->setName('ООО Отписана')
+            ->setIndustry('IT');
+        $organization->setIsOptedOut(true);
+        $contact = new Contact()
+            ->setOrganization($organization)
+            ->setName('Ольга')
+            ->setEmail('olga@example.ru');
+        $recipient = new CampaignRecipient($campaign, $organization, $contact);
+
+        $this->em()->persist($campaign);
+        $this->em()->persist($organization);
+        $this->em()->persist($contact);
+        $this->em()->persist($recipient);
+        $this->em()->flush();
+        $recipientId = $recipient->id;
+
+        $application = new Application($this->client->getKernel());
+        $tester = new CommandTester($application->find('app:campaign:send'));
+
+        self::assertSame(Command::SUCCESS, $tester->execute([]));
+
+        $this->em()->clear();
+        $persisted = $this->em()->find(CampaignRecipient::class, $recipientId);
+        self::assertNotNull($persisted);
+        self::assertSame(RecipientStatus::Failed, $persisted->status);
+        self::assertSame('Организация отписана от рассылок', $persisted->errorMessage);
+        self::assertCount(0, $sent);
+    }
 }

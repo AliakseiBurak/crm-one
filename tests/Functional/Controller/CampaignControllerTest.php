@@ -853,6 +853,84 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         self::assertCount(1, $this->findCampaign('Рассылка')->recipients);
     }
 
+    // --- Opt-out filtering tests (tasks 10.3-10.4) ---
+
+    public function testManualAddOptedOutOrganizationShowsFlashAndDoesNotAdd(): void
+    {
+        $org = $this->persistOrganizationWithEmail('ООО Отписана', 'optout@example.com');
+        $org->setIsOptedOut(true);
+        $this->em()->flush();
+        $campaign = $this->persistCampaign('Рассылка');
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+
+        $token = $this->formToken($campaign->id);
+        $this->client->request('POST', '/campaigns/' . $campaign->id . '/recipients', [
+            'organization' => $org->id,
+            '_csrf_token' => $token,
+        ]);
+        $this->assertResponseRedirects();
+        $this->client->followRedirect();
+        $this->assertSelectorTextContains('.alert', 'Организация отписана от рассылок');
+
+        $this->em()->clear();
+        self::assertCount(0, $this->findCampaign('Рассылка')->recipients);
+    }
+
+    public function testBulkAddSkipsOptedOutOrganizations(): void
+    {
+        $withEmail = $this->persistOrganizationWithEmail('ООО Ромашка', 'romashka@example.com');
+        $optedOut = $this->persistOrganizationWithEmail('ООО Отписана', 'optout@example.com');
+        $optedOut->setIsOptedOut(true);
+        $this->em()->flush();
+        $campaign = $this->persistCampaign('Рассылка');
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+
+        $token = $this->formToken($campaign->id);
+        $this->client->request('POST', '/campaigns/' . $campaign->id . '/recipients/bulk', [
+            '_csrf_token' => $token,
+        ]);
+        $this->assertResponseRedirects();
+        $this->client->followRedirect();
+        $this->assertSelectorTextContains('.alert', 'Добавлено: 1, пропущено: 1');
+        self::assertStringContainsString('отписаны: 1', (string) $this->client->getResponse()->getContent());
+
+        $this->em()->clear();
+        $recipients = $this->findCampaign('Рассылка')->recipients;
+        self::assertCount(1, $recipients);
+        self::assertSame('ООО Ромашка', $recipients->first()->organization->name);
+    }
+
+    public function testBulkAddByGroupSkipsOptedOutOrganizations(): void
+    {
+        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $group = (new OrganizationGroup())->setName('Группа А')->setCreatedBy($manager);
+        $this->em()->persist($group);
+
+        $withEmail = $this->persistOrganizationWithEmail('ООО Ромашка', 'romashka@example.com');
+        $optedOut = $this->persistOrganizationWithEmail('ООО Отписана', 'optout@example.com');
+        $optedOut->setIsOptedOut(true);
+        $this->em()->persist(new OrgGroupMembership($withEmail, $group));
+        $this->em()->persist(new OrgGroupMembership($optedOut, $group));
+        $this->em()->flush();
+
+        $campaign = $this->persistCampaign('Рассылка');
+        $campaignId = $campaign->id;
+        $this->login($manager);
+
+        $token = $this->campaignToken($campaignId);
+        $this->client->request('POST', '/campaigns/' . $campaignId . '/recipients/bulk-by-group', [
+            '_csrf_token' => $token,
+            'group_id' => $group->id,
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+
+        $recipients = $this->findCampaign('Рассылка')->recipients;
+        self::assertCount(1, $recipients);
+        self::assertSame('ООО Ромашка', $recipients->first()->organization->name);
+    }
+
     private function storage(): CampaignAttachmentStorage
     {
         /** @var CampaignAttachmentStorage $storage */
