@@ -13,7 +13,7 @@
 ## Requirements
 
 ### Requirement: Сущность звонка
-The system SHALL store a call with an organization, an optional contact, a scheduled date, the fact of the call (who made it and when), optional notes, optional deal and no-answer marks, an optional reference to the last mailing campaign chosen from this call, and an optional reference to the last next call created from this call.
+The system SHALL store a call with an organization, an optional contact, a scheduled date, the fact of the call (who made it and when), optional notes, optional deal and no-answer marks, an optional reference to the last mailing campaign chosen from this call, an optional reference to the last next call created from this call, and an optional refusal mark.
 
 #### Scenario: Запланированный звонок
 - **WHEN** в системе существует организация «ООО Ромашка» и контакт «Иван Петров»
@@ -24,6 +24,25 @@ The system SHALL store a call with an organization, an optional contact, a sched
 - **WHEN** менеджер «Иван Петров» провёл звонок контакту организации «ООО Ромашка»
 - **AND** отмечает дату и время звонка
 - **THEN** в истории звонков организации отображается, что звонок осуществил менеджер «Иван Петров» в указанные дату и время
+
+#### Scenario: Результат — сделка
+- **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
+- **AND** отмечает «сделка совершена»
+- **THEN** в карточке звонка отображается отметка о совершённой сделке
+
+#### Scenario: Отказ с автоотпиской
+- **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
+- **AND** отмечает «отказ»
+- **AND** отмечает «отметить отказ организации от рассылок»
+- **THEN** в карточке звонка отображается отметка об отказе
+- **AND** у организации «ООО Ромашка» устанавливается isOptedOut = true
+
+#### Scenario: Отказ без автоотписки
+- **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
+- **AND** отмечает «отказ»
+- **AND** не отмечает чекбокс «отметить отказ организации от рассылок»
+- **THEN** в карточке звонка отображается отметка об отказе
+- **AND** у организации «ООО Ромашка» isOptedOut не изменяется
 
 ### Requirement: Будущие звонки и напоминание
 A call SHALL be considered a future call when its scheduled date is in the
@@ -65,7 +84,7 @@ then move to the next organization.
 - **THEN** система переходит к следующей организации в списке обзвона
 
 ### Requirement: Результат звонка
-The call result SHALL be a combination of independent actions: at most one mailing campaign per save (see `campaigns`) which creates or replaces a recipient for any non-archived campaign, a deal mark, a no-answer mark, and a next call created from a submitted date; a call MAY have none of them, recording only the fact of the call. Mailing and next call MAY be combined. Deal and no-answer SHALL NOT prevent mailing. The call result SHALL NOT remove an organization from a campaign (refusal); recipients are managed on the campaign recipients page.
+The call result SHALL be a combination of independent actions: at most one mailing campaign per save (see `campaigns`) which creates or replaces a recipient for any non-archived campaign, a deal mark with an optional course selection, a no-answer mark, a refusal mark, and a next call created from a submitted date; a call MAY have none of them, recording only the fact of the call. Mailing and next call MAY be combined. Deal and no-answer SHALL NOT prevent mailing. When refusal is marked and the manager selects «отметить отказ организации от рассылок» on the full call form, the system SHALL set Organization.isOptedOut = true. The call result SHALL NOT remove an organization from a campaign (refusal); recipients are managed on the campaign recipients page.
 
 #### Scenario: Результат — рассылка
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
@@ -76,6 +95,27 @@ The call result SHALL be a combination of independent actions: at most one maili
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
 - **AND** отмечает «сделка совершена»
 - **THEN** в карточке звонка отображается отметка о совершённой сделке
+
+#### Scenario: Результат — сделка с курсом
+- **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
+- **AND** отмечает «сделка совершена»
+- **AND** выбирает курс «Python для анализа данных»
+- **THEN** в карточке звонка отображается отметка о совершённой сделке
+- **AND** звонок связан с курсом «Python для анализа данных»
+
+#### Scenario: Результат — сделка без курса
+- **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
+- **AND** отмечает «сделка совершена»
+- **AND** не выбирает курс
+- **THEN** в карточке звонка отображается отметка о совершённой сделке
+- **AND** курс не указан
+
+#### Scenario: Результат — отказ с автоотпиской
+- **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
+- **AND** отмечает «отказ»
+- **AND** отмечает «отметить отказ организации от рассылок»
+- **THEN** в карточке звонка отображается отметка об отказе
+- **AND** у организации «ООО Ромашка» isOptedOut устанавливается в true
 
 #### Scenario: Результат — нет ответа
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
@@ -90,12 +130,12 @@ The call result SHALL be a combination of independent actions: at most one maili
 
 #### Scenario: Комбинация результатов
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
-- **AND** одновременно выбирает рассылку «Осенняя рассылка», отмечает сделку, «нет ответа» и назначает следующий звонок
+- **AND** одновременно отмечает сделку с курсом, «нет ответа», отказ и назначает следующий звонок
 - **THEN** все выбранные действия выполняются вместе со звонком
 
 #### Scenario: Звонок без результата
 - **WHEN** менеджер завершает звонок по организации «ООО Ромашка»
-- **AND** не выбирает рассылку, сделку, «нет ответа» и следующий звонок
+- **AND** не выбирает рассылку, сделку, отказ, «нет ответа» и следующий звонок
 - **THEN** фиксируется только факт звонка (кто и когда)
 
 ### Requirement: Доступ к звонкам ограничен областью доступа
@@ -119,6 +159,12 @@ calls of organizations outside it with HTTP 403.
 - **AND** менеджер пытается зафиксировать результат звонка этой организации
 - **THEN** система отклоняет запрос с ошибкой 403
 - **AND** результат звонка не сохраняется
+
+#### Scenario: Менеджер не может отписать недоступную организацию
+- **WHEN** в системе существует организация "ООО Конкурент", отсутствующая в области доступа менеджера
+- **AND** менеджер отправляет POST /organizations/{id}/opt-out
+- **THEN** система отклоняет запрос с ошибкой 403
+- **AND** isOptedOut организации не изменяется
 
 ### Requirement: Завершение обзвона и запуск рассылки
 When the manager finishes the session (all organizations called or early

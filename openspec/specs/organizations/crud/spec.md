@@ -5,7 +5,7 @@ CRUD-операции с организациями: создание, реда�
 ## Requirements
 
 ### Requirement: Администратор создаёт организацию
-The system SHALL let the administrator create an organization with name through a form, and SHALL validate required fields. Organization SHALL accept optional fields: industry, annualPlan, description, hasUsedServices. Industry SHALL be optional.
+The system SHALL let the administrator create an organization with name and optional fields (industry, annualPlan, description, hasUsedServices, isActive, isOptedOut, optOutReason) through a form, and SHALL validate required fields. Industry SHALL be optional. The optOutReason field SHALL be shown in the form only when isOptedOut is selected.
 
 #### Scenario: Успешное создание организации
 - **WHEN** администратор открывает форму создания организации
@@ -17,16 +17,28 @@ The system SHALL let the administrator create an organization with name through 
 
 #### Scenario: Успешное создание организации со всеми полями
 - **WHEN** администратор открывает форму создания организации
-- **AND** вводит название "ООО Ромашка", отрасль "IT", годовой план "100 млн", описание "Крупная IT-компания", и отмечает "Пользовались услугами"
+- **AND** вводит название "ООО Ромашка" и отрасль "IT"
+- **AND** заполняет годовой план "Сентябрь 2026"
+- **AND** заполняет описание "Крупный клиент"
+- **AND** отмечает "пользовались услугами"
 - **AND** нажимает кнопку "Создать"
 - **THEN** организация "ООО Ромашка" сохраняется в системе со всеми указанными полями
 - **AND** администратор перенаправляется на панель
+- **AND** созданная организация подсвечена в таблице организаций
+
+#### Scenario: Успешное создание организации с isActive
+- **WHEN** администратор открывает форму создания организации
+- **AND** вводит название "ООО Ромашка" и отрасль "IT"
+- **AND** снимает отметку "Активна" (isActive)
+- **AND** нажимает кнопку "Создать"
+- **THEN** организация "ООО Ромашка" сохраняется с isActive = false
 
 #### Scenario: Создание организации без отрасли
 - **WHEN** администратор открывает форму создания организации
-- **AND** вводит название "ООО Ромашка" и не указывает отрасль
+- **AND** вводит название "ООО Ромашка"
+- **AND** оставляет поле "Отрасль" пустым
 - **AND** нажимает кнопку "Создать"
-- **THEN** организация "ООО Ромашка" сохраняется с пустым значением отрасли
+- **THEN** организация "ООО Ромашка" сохраняется с пустой отраслью
 
 #### Scenario: Ошибка валидации при создании
 - **WHEN** администратор открывает форму создания организации
@@ -35,10 +47,13 @@ The system SHALL let the administrator create an organization with name through 
 - **THEN** форма отображает ошибку "Название обязательно для заполнения"
 - **AND** организация не сохраняется
 
+#### Scenario: Поле причины отказа скрыто при создании
+- **WHEN** администратор открывает форму создания организации
+- **THEN** поле "Причина отказа" не отображается в форме
+- **AND** поле "Отказ от рассылки" не отмечено по умолчанию
+
 ### Requirement: Менеджер создаёт организацию с выбором групп
-The system SHALL let the manager create an organization and select the groups
-available to them (`created_by` + assigned) via checkboxes. If no group is
-selected, the organization SHALL exist ungrouped.
+The system SHALL let the manager create an organization with name and optional fields (industry, annualPlan, description, hasUsedServices, isActive, isOptedOut, optOutReason), and select the groups available to them (`created_by` + assigned) via checkboxes. If no group is selected, the organization SHALL exist ungrouped.
 
 #### Scenario: Менеджер создаёт организацию
 - **WHEN** менеджер открывает форму создания организации
@@ -47,17 +62,18 @@ selected, the organization SHALL exist ungrouped.
 - **AND** нажимает кнопку "Создать"
 - **THEN** организация "ООО Ромашка" сохраняется в системе
 - **AND** организация добавляется в отмеченные группы
+- **AND** isActive по умолчанию true
 
 #### Scenario: Менеджер создаёт организацию с новыми полями
 - **WHEN** менеджер открывает форму создания организации
-- **AND** вводит название "ООО Ромашка", годовой план "100 млн", описание "Крупная IT-компания"
+- **AND** вводит название "ООО Ромашка" и описание "Новый клиент"
 - **AND** отмечает доступную группу
 - **AND** нажимает кнопку "Создать"
-- **THEN** организация "ООО Ромашка" сохраняется с указанными годовым планом и описанием
+- **THEN** организация "ООО Ромашка" сохраняется в системе с указанным описанием
 - **AND** организация добавляется в отмеченные группы
 
 ### Requirement: Администратор редактирует организацию
-The system SHALL let the administrator update organization name through a form. Organization SHALL accept optional fields: industry, annualPlan, description, hasUsedServices.
+The system SHALL let the administrator update organization name and optional fields (industry, annualPlan, description, hasUsedServices, isActive, isOptedOut, optOutReason) through a form. The optOutReason SHALL be visible in the edit form only when isOptedOut is true.
 
 #### Scenario: Успешное редактирование организации
 - **WHEN** администратор открывает форму редактирования организации "ООО Ромашка"
@@ -69,9 +85,23 @@ The system SHALL let the administrator update organization name through a form. 
 
 #### Scenario: Успешное редактирование организации с новыми полями
 - **WHEN** администратор открывает форму редактирования организации "ООО Ромашка"
-- **AND** изменяет годовой план на "150 млн", описание на "Новое описание", и отмечает "Пользовались услугами"
+- **AND** изменяет отрасль на "Маркетинг"
+- **AND** заполняет описание "Новое описание"
+- **AND** отмечает "пользовались услугами"
 - **AND** нажимает кнопку "Сохранить"
-- **THEN** годовой план, описание и флаг "Пользовались услугами" обновляются
+- **THEN** отрасль организации становится "Маркетинг"
+- **AND** описание становится "Новое описание"
+- **AND** hasUsedServices установлен в true
+- **AND** администратор перенаправляется на панель
+- **AND** отредактированная организация подсвечена в таблице организаций
+
+#### Scenario: Успешное редактирование с isActive
+- **WHEN** администратор открывает форму редактирования организации "ООО Ромашка"
+- **AND** изменяет отрасль на "Маркетинг"
+- **AND** снимает отметку "Активна"
+- **AND** нажимает кнопку "Сохранить"
+- **THEN** отрасль организации становится "Маркетинг"
+- **AND** isActive организации становится false
 
 #### Scenario: Ошибка валидации при редактировании
 - **WHEN** администратор открывает форму редактирования организации "ООО Ромашка"
@@ -79,6 +109,33 @@ The system SHALL let the administrator update organization name through a form. 
 - **AND** нажимает кнопку "Сохранить"
 - **THEN** форма отображает ошибку "Название обязательно для заполнения"
 - **AND** организация не обновляется
+
+#### Scenario: Причина отказа появляется при выборе отказа
+- **WHEN** администратор открывает форму редактирования организации "ООО Ромашка"
+- **AND** отмечает "отказ от рассылки"
+- **THEN** поле "Причина отказа" становится видимым в форме
+- **AND** администратор может ввести причину отказа
+
+#### Scenario: Причина отказа скрыта при снятии отказа
+- **WHEN** у организации "ООО Ромашка" isOptedOut установлен и optOutReason заполнен
+- **AND** администратор открывает форму редактирования
+- **AND** снимает отметку "отказ от рассылки"
+- **THEN** поле "Причина отказа" скрывается
+- **AND** значение optOutReason сбрасывается при сохранении
+
+#### Scenario: Причина отказа по умолчанию скрыта
+- **WHEN** администратор открывает форму редактирования организации без отметки отказа
+- **THEN** поле "Причина отказа" не отображается
+- **AND** чекбокс "Отказ от рассылки" не отмечен
+
+#### Scenario: Подтверждение восстановления в рассылках
+- **WHEN** у организации "ООО Ромашка" isOptedOut установлен в true
+- **AND** администратор открывает форму редактирования
+- **AND** снимает отметку "отказ от рассылки"
+- **THEN** отображается диалог подтверждения "Восстановить организацию в рассылках?"
+- **AND** при подтверждении isOptedOut становится false
+- **AND** optOutReason и optedOutAt сбрасываются в null
+- **AND** при отмене отметка "отказ от рассылки" остаётся
 
 ### Requirement: Менеджер редактирует видимую организацию
 The system SHALL let the manager update only the organizations visible to them (groups they created (`created_by`) + assigned groups).
@@ -89,6 +146,14 @@ The system SHALL let the manager update only the organizations visible to them (
 - **AND** изменяет отрасль на "Маркетинг"
 - **AND** нажимает кнопку "Сохранить"
 - **THEN** отрасль организации становится "Маркетинг"
+
+#### Scenario: Менеджер отмечает отказ от рассылки
+- **WHEN** менеджер открывает форму редактирования организации "ООО Ромашка"
+- **AND** организация видима менеджеру
+- **AND** отмечает "отказ от рассылки" и заполняет причину
+- **AND** нажимает кнопку "Сохранить"
+- **THEN** isOptedOut организации становится true
+- **AND** optOutReason сохраняется
 
 #### Scenario: Менеджер не может редактировать невидимую организацию
 - **WHEN** менеджер пытается открыть форму редактирования организации "ООО Завод"
