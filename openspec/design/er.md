@@ -79,6 +79,7 @@ erDiagram
         string email
         string position
         text notes
+        boolean is_main "default false, основной контакт организации (один на организацию)"
         datetime created_at
         datetime updated_at
     }

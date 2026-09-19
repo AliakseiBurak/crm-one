@@ -31,26 +31,31 @@ The system SHALL store a boolean flag `isMain` on the contact, defaulting to fal
 - **AND** контакт "Иван Петров" отмечен как isMain
 - **THEN** рядом с именем контакта "Иван Петров" отображается метка "Основной"
 
-### Requirement: Основной контакт отображается первым в списке
-The system SHALL display the effective main contact of the organization — the contact with `isMain = true`, or the contact with the smallest ID when no main contact is set — first in all contact lists (dashboard, organization edit form). Remaining contacts SHALL be sorted alphabetically by name. The effective main contact SHALL be visually highlighted with a light red background tint: on the dashboard — the contact card background, on the organization edit page — the contact name background. The «Основной» badge SHALL be shown only for a contact with `isMain = true`, and SHALL NOT be shown for the ID-based fallback contact.
+### Requirement: Основной контакт подсвечен в списках
+The system SHALL display contacts of an organization ordered by ID (insertion order) in all contact lists (dashboard, organization edit form). The effective main contact of the organization — the contact with `isMain = true`, or the contact with the smallest ID when no main contact is set — SHALL be visually highlighted with a very light orange background tint (light shade of the button color), regardless of its position in the list: on the dashboard — the contact card background, on the organization edit page — the contact name background. On the dashboard, hovering a contact card SHALL highlight it with a light orange background tint, slightly more saturated than the main contact tint. The «Основной» badge SHALL be shown only for a contact with `isMain = true`, and SHALL NOT be shown for the ID-based fallback contact. On the dashboard the badge SHALL be positioned in the top-right corner of the contact card; on the organization edit page — next to the contact name.
 
-#### Scenario: Основной контакт первый на дашборде
+#### Scenario: Подсветка основного контакта на дашборде
 - **WHEN** у организации "ООО Ромашка" есть контакты "Мария Смирнова" (isMain) и "Иван Петров"
 - **AND** пользователь открывает дашборд
-- **THEN** контакт "Мария Смирнова" отображается первым в списке контактов организации
-- **AND** карточка контакта "Мария Смирнова" имеет светло-красный оттенок фона
+- **THEN** контакты отображаются в порядке ID (порядок добавления)
+- **AND** карточка контакта "Мария Смирнова" имеет светло-оранжевый оттенок фона
+- **AND** бейдж "Основной" находится в правом верхнем углу карточки "Марии Смирновой"
 
-#### Scenario: Основной контакт первый в форме организации
+#### Scenario: Подсветка основного контакта в форме организации
 - **WHEN** администратор открывает форму редактирования организации "ООО Ромашка"
 - **AND** у организации есть контакты "Алексей Сидоров", "Мария Смирнова" (isMain), "Иван Петров"
-- **THEN** в списке контактов "Мария Смирнова" отображается первой с меткой "Основной"
-- **AND** остальные контакты отображаются в алфавитном порядке
-- **AND** фон имени "Марии Смирновой" имеет светло-красный оттенок
+- **THEN** контакты отображаются в порядке ID (порядок добавления)
+- **AND** у "Марии Смирновой" отображается метка "Основной"
+- **AND** фон имени "Марии Смирновой" имеет светло-оранжевый оттенок
 
-#### Scenario: Без флага главным отображается минимальный по ID
+#### Scenario: Без флага подсвечивается минимальный по ID
 - **WHEN** пользователь открывает дашборд или форму редактирования организации "ООО Ромашка"
 - **AND** у организации нет ни одного контакта с isMain
 - **AND** минимальный ID среди контактов организации — у "Алексея Сидорова"
-- **THEN** "Алексей Сидоров" отображается первым в списке контактов
-- **AND** он подсвечен светло-красным оттенком как главный контакт
+- **THEN** "Алексей Сидоров" подсвечен светло-оранжевым оттенком как главный контакт
 - **AND** метка "Основной" у него отсутствует (флаг isMain не установлен)
+
+#### Scenario: Подсветка карточки при наведении на дашборде
+- **WHEN** пользователь открывает дашборд
+- **AND** наводит курсор на карточку любого контакта организации
+- **THEN** карточка подсвечивается светло-оранжевым оттенком фона, чуть насыщеннее подложки главного контакта
