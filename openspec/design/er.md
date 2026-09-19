@@ -27,7 +27,10 @@ erDiagram
 
     USER {
         bigint id PK
-        string email UK
+        string login UK
+        string email UK "nullable"
+        string name "nullable"
+        string surname "nullable"
         string password_hash
         enum role "admin|manager"
         datetime created_at

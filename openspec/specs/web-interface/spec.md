@@ -222,8 +222,9 @@ only by a downward caret. The create dropdown SHALL show short labels:
 Организацию, Контакт, Звонок, Рассылку; Группу for `ROLE_MANAGER`;
 Пользователя for `ROLE_ADMIN`. A user dropdown SHALL show the label
 «Профиль» with a caret; its menu SHALL contain as the first item the
-user's name and surname (if present) and email, followed by the «Выйти»
-link. All dropdowns SHALL open on click and close when clicking outside.
+user's login, name and surname (if present), and email (if present),
+followed by the «Выйти» link. All dropdowns SHALL open on click and close
+when clicking outside.
 On screens ≤768px, the header SHALL collapse navigation into a hamburger
 button (☰) that opens a slide-in sidebar from the left. The footer SHALL
 render on the green gradient `#55964a → #478540` with white text: only the
@@ -265,7 +266,9 @@ copyright line «© YYYY B2B Call CRM» centered.
 - **WHEN** вошедший пользователь открывает страницу с шапкой
 - **THEN** справа отображается кнопка «Профиль» с символом ▾
 - **AND** при нажатии на кнопку открывается выпадающий список
-- **AND** первым пунктом списка отображаются имя и фамилия пользователя (если указаны) и email
+- **AND** первым пунктом списка отображается логин пользователя
+- **AND** вторым пунктом отображаются имя и фамилия пользователя (если указаны)
+- **AND** третьим пунктом отображается email пользователя (если указан)
 - **AND** в списке отображается ссылка «Выйти»
 
 #### Scenario: Закрытие выпадающего списка пользователя

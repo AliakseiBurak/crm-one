@@ -1,28 +1,74 @@
 ## MODIFIED Requirements
 
 ### Requirement: Вход через форму (session-based auth)
-The system SHALL authenticate UI users through `form_login` with session-based cookies; the login form SHALL accept username and password, and successful authentication SHALL start a server-side session. The system SHALL use `username` field as the user identifier for authentication; `email` SHALL remain stored but SHALL NOT be used for login.
+The system SHALL authenticate UI users through `form_login` with session-based cookies; the login form SHALL accept login and password, and successful authentication SHALL start a server-side session. The system SHALL use `login` field as the user identifier for authentication; `email` SHALL remain stored (optional, nullable) but SHALL NOT be used for login. The label for the login field SHALL be «Логин».
 
 #### Scenario: Успешный вход через форму
 - **WHEN** незалогиненный пользователь открывает страницу входа
-- **AND** вводит корректные имя пользователя и пароль
+- **AND** вводит корректные логин и пароль
 - **THEN** пользователь оказывается аутентифицированным
 - **AND** в браузере устанавливается session cookie
 
 #### Scenario: Успешный вход через форму после смены email
 - **WHEN** пользователь изменил email в профиле
-- **AND** входит по своему неизменному имени пользователя
+- **AND** входит по своему неизменному логину
 - **THEN** пользователь оказывается аутентифицированным
 
 #### Scenario: Ошибка при неверном пароле
 - **WHEN** незалогиненный пользователь вводит неверный пароль
-- **THEN** система возвращает ошибку аутентификации «Неверное имя пользователя или пароль»
+- **THEN** система возвращает ошибку аутентификации «Неверный логин или пароль»
 - **AND** сессия пользователя не создаётся
 
-#### Scenario: Ошибка при неверном имени пользователя
-- **WHEN** незалогиненный пользователь вводит несуществующее имя пользователя
-- **THEN** система возвращает ошибку аутентификации «Неверное имя пользователя или пароль»
+#### Scenario: Ошибка при неверном логине
+- **WHEN** незалогиненный пользователь вводит несуществующий логин
+- **THEN** система возвращает ошибку аутентификации «Неверный логин или пароль»
 - **AND** сессия пользователя не создаётся
+
+### Requirement: Установка пароля новым пользователем
+The password setup form on the login page SHALL use `login` instead
+of `email` to identify the user. The form SHALL contain fields: `login`
+(required), `new_password`, `confirm_password`. The system SHALL find
+the user by login and verify no password is set.
+
+#### Scenario: Успешная установка пароля по логину
+- **WHEN** новый пользователь указывает свой логин и вводит пароль
+- **THEN** система находит пользователя по логину и устанавливает пароль
+
+#### Scenario: Ошибка — логин не найден
+- **WHEN** пользователь указывает несуществующий логин
+- **THEN** система возвращает ошибку «Пользователь не найден или пароль уже установлен»
+
+### Requirement: User entity — поле login и nullable email
+The User entity SHALL have a `login` field (string, length=180, unique, not null, min=5) used as the login identifier. The `email` field SHALL be nullable (optional). The fields `name` and `surname` SHALL be placed after `email` in the entity definition.
+
+#### Scenario: Создание пользователя с логином и без email
+- **WHEN** создаётся новый пользователь с логином «ivanov» и без email
+- **THEN** пользователь сохраняется с login="ivanov" и email=null
+
+#### Scenario: Отклонение создания с коротким логином
+- **WHEN** создаётся новый пользователь с логином «abc» (менее 5 символов)
+- **THEN** система отклоняет создание с ошибкой валидации «не менее 5 символов»
+
+#### Scenario: Список пользователей показывает логин первым
+- **WHEN** администратор открывает список пользователей на `/admin/users`
+- **THEN** первым полем в таблице отображается «Логин» (login)
+
+### Requirement: Профиль пользователя в шапке
+The header user dropdown («Профиль») SHALL display the user's login
+as the first line, name and surname (if present) as the second line, and email
+(if present) as the third line, followed by the «Выйти» link. The sidebar
+(mobile view) SHALL display the same information.
+
+#### Scenario: Профиль отображает логин, имя и email
+- **WHEN** вошедший пользователь открывает выпадающее меню «Профиль»
+- **THEN** первым пунктом отображается логин пользователя
+- **AND** вторым пунктом отображаются имя и фамилия (если указаны)
+- **AND** третьим пунктом отображается email (если указан)
+
+#### Scenario: Профиль без имени и email
+- **WHEN** вошедший пользователь с пустыми name, surname и email открывает меню «Профиль»
+- **THEN** отображается только логин пользователя
+- **AND** строки имени и email отсутствуют
 
 ### Requirement: Remember me
 The system SHALL support `remember_me` to keep the user authenticated after the

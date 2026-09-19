@@ -24,14 +24,15 @@ access the user list.
 - **THEN** система перенаправляет на страницу входа
 
 ### Requirement: Список показывает ключевые данные пользователя
-The user list SHALL display for each user: email, name (if set), surname
-(if set), and role. The list SHALL include a delete button for each user
-except the current administrator.
+The user list SHALL display for each user: login as the first column,
+email (if set, otherwise "—"), name (if set), surname (if set), and role.
+The list SHALL include a delete button for each user except the current
+administrator.
 
 #### Scenario: Отображение данных пользователя в списке
 - **WHEN** администратор открывает список пользователей
-- **THEN** каждый пользователь отображается с email, именем (если задано),
-  фамилией (если задана) и ролью
+- **THEN** каждый пользователь отображается с логином (первым полем), email
+  (если задан, иначе «—»), именем (если задано), фамилией (если задана) и ролью
 
 #### Scenario: Кнопка удаления отсутствует для текущего пользователя
 - **WHEN** администратор открывает список пользователей

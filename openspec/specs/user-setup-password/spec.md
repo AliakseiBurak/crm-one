@@ -9,7 +9,7 @@
 ### Requirement: Чекбокс «Новый пользователь» переключает форму
 The login page SHALL display a "Новый пользователь" checkbox below the
 login form. When checked, the login form is hidden and replaced with
-a password setup form containing email, new password, and confirm
+a password setup form containing login, new password, and confirm
 password fields.
 
 #### Scenario: Чекбокс переключает форму
@@ -22,22 +22,22 @@ password fields.
 
 ### Requirement: Пароль устанавливается через POST /setup-password
 The system SHALL accept POST requests to `/setup-password` with fields
-`email`, `new_password`, `confirm_password`, and `_csrf_token`. The
-system SHALL find the user by email, verify the user has no password
+`login`, `new_password`, `confirm_password`, and `_csrf_token`. The
+system SHALL find the user by login, verify the user has no password
 set (empty hash), validate the new password, hash it, and persist.
 
 #### Scenario: Успешная установка пароля
-- **WHEN** пользователь указывает email существующего пользователя без пароля,
+- **WHEN** пользователь указывает логин существующего пользователя без пароля,
   вводит пароль не менее 8 символов и подтверждение
 - **THEN** система хеширует пароль, сохраняет его и перенаправляет на `/login`
   с сообщением об успехе
 
 #### Scenario: Ошибка — пользователь не найден
-- **WHEN** пользователь указывает email, который не зарегистрирован в системе
+- **WHEN** пользователь указывает логин, который не зарегистрирован в системе
 - **THEN** система перенаправляет на `/login` с сообщением об ошибке
 
 #### Scenario: Ошибка — пароль уже установлен
-- **WHEN** пользователь указывает email пользователя, у которого уже есть пароль
+- **WHEN** пользователь указывает логин пользователя, у которого уже есть пароль
 - **THEN** система перенаправляет на `/login` с сообщением об ошибке
 
 #### Scenario: Ошибка — пароль слишком короткий
@@ -49,10 +49,10 @@ set (empty hash), validate the new password, hash it, and persist.
 - **THEN** система перенаправляет на `/login` с сообщением об ошибке
 
 #### Scenario: Ошибка — пустые поля
-- **WHEN** пользователь отправляет форму с пустыми полями email или пароля
+- **WHEN** пользователь отправляет форму с пустыми полями логина или пароля
 - **THEN** система перенаправляет на `/login` с сообщением об ошибке
 
-#### Scenario: Введённый email сохраняется при ошибке
-- **WHEN** пользователь отправил форму установки пароля с непустым email и система вернула ошибку валидации
+#### Scenario: Введённый логин сохраняется при ошибке
+- **WHEN** пользователь отправил форму установки пароля с непустым логином и система вернула ошибку валидации
 - **THEN** после перезагрузки страницы `/login` форма установки пароля отображается открытой
-- **AND** введённый email сохранён в поле формы
+- **AND** введённый логин сохранён в поле формы

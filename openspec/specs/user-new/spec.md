@@ -22,19 +22,40 @@ Managers and anonymous users SHALL NOT be permitted to create users.
 - **WHEN** неаутентифицированный пользователь пытается выполнить запрос создания пользователя
 - **THEN** система возвращает ошибку аутентификации
 
-### Requirement: Email обязателен при создании пользователя
-The system SHALL require the `email` field when creating a user and SHALL
-reject creation with a missing or invalid email. The email SHALL be unique
-across all users. The user will set their password later via password
-reset; no password is set during creation.
+### Requirement: Логин обязателен при создании пользователя
+The system SHALL require the `login` field when creating a user and
+SHALL reject creation with a missing login. The login SHALL be unique
+across all users. The login is used for authentication. The login MUST
+be at least 5 characters long.
+
+#### Scenario: Создание пользователя с логином
+- **WHEN** администратор создаёт пользователя с указанием логина
+- **THEN** пользователь создаётся с указанным логином
+
+#### Scenario: Отклонение создания без логина
+- **WHEN** администратор создаёт пользователя и не указывает логин
+- **THEN** система отклоняет создание с ошибкой валидации
+
+#### Scenario: Отклонение создания с коротким логином
+- **WHEN** администратор создаёт пользователя с логином короче 5 символов
+- **THEN** система отклоняет создание с ошибкой валидации «не менее 5 символов»
+
+#### Scenario: Отклонение создания с существующим логином
+- **WHEN** администратор создаёт пользователя с логином, который уже существует в системе
+- **THEN** система отклоняет создание с ошибкой уникальности
+
+### Requirement: Email необязателен при создании пользователя
+The system SHALL accept the `email` field as optional when creating a user.
+If provided, the email SHALL be valid and unique across all users. The email
+is used for communications, not for authentication.
 
 #### Scenario: Создание пользователя с email
 - **WHEN** администратор создаёт пользователя с указанием email
 - **THEN** пользователь создаётся с указанным email
 
-#### Scenario: Отклонение создания без email
-- **WHEN** администратор создаёт пользователя и не указывает email
-- **THEN** система отклоняет создание с ошибкой валидации
+#### Scenario: Создание пользователя без email
+- **WHEN** администратор создаёт пользователя без указания email
+- **THEN** пользователь создаётся с пустым email
 
 #### Scenario: Отклонение создания с существующим email
 - **WHEN** администратор создаёт пользователя с email, который уже существует в системе
