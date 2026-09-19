@@ -77,11 +77,73 @@ final class MailingServiceTest extends TestCase
         self::assertCount(1, $this->sent);
         self::assertSame(['alice@example.ru'], $this->addresses($this->sent[0]->getTo()));
         self::assertSame(['boris@example.ru'], $this->addresses($this->sent[0]->getCc()));
+        self::assertSame('Алиса', $this->sent[0]->getTo()[0]->getName());
         self::assertSame('Для ООО Ромашка', $this->sent[0]->getSubject());
         $html = (string) $this->sent[0]->getHtmlBody();
         self::assertStringContainsString('Уважаемый(ая) Алиса', $html);
         self::assertStringContainsString('mso-hide:all', $html);
         self::assertStringContainsString($this->generated['app_tracking_pixel'][0], $html);
+        self::assertSame(RecipientStatus::Delivered, $recipient->status);
+    }
+
+    public function testWithoutSpecifiedContactEmailGoesToMainContactWithCcAndOrgDisplayName(): void
+    {
+        $this->captureSentMail();
+        $org = $this->organization();
+        $alice = $this->contact($org, 'Алиса', 'alice@example.ru');
+        $this->setId($alice, 2);
+        $alice->setIsMain(true);
+        $boris = $this->contact($org, 'Борис', 'boris@example.ru');
+        $this->setId($boris, 1);
+        $recipient = $this->recipient($org);
+
+        $this->service->processRecipient($recipient);
+
+        self::assertCount(1, $this->sent);
+        self::assertSame(['alice@example.ru'], $this->addresses($this->sent[0]->getTo()));
+        self::assertSame(['boris@example.ru'], $this->addresses($this->sent[0]->getCc()));
+        self::assertSame('ООО Ромашка', $this->sent[0]->getTo()[0]->getName());
+        self::assertSame(RecipientStatus::Delivered, $recipient->status);
+    }
+
+    public function testWithoutMainContactEmailGoesToSmallestIdContactWithOrgDisplayName(): void
+    {
+        $this->captureSentMail();
+        $org = $this->organization();
+        $alice = $this->contact($org, 'Алиса', 'alice@example.ru');
+        $this->setId($alice, 3);
+        $boris = $this->contact($org, 'Борис', 'boris@example.ru');
+        $this->setId($boris, 1);
+        $recipient = $this->recipient($org);
+
+        $this->service->processRecipient($recipient);
+
+        self::assertCount(1, $this->sent);
+        self::assertSame(['boris@example.ru'], $this->addresses($this->sent[0]->getTo()));
+        self::assertSame(['alice@example.ru'], $this->addresses($this->sent[0]->getCc()));
+        self::assertSame('ООО Ромашка', $this->sent[0]->getTo()[0]->getName());
+        self::assertSame(RecipientStatus::Delivered, $recipient->status);
+    }
+
+    public function testSpecifiedContactWithoutEmailFallsBackToMainContactWithSpecifiedDisplayName(): void
+    {
+        $this->captureSentMail();
+        $org = $this->organization();
+        $noEmail = $this->contact($org, 'Без почты', null);
+        $this->setId($noEmail, 3);
+        $main = $this->contact($org, 'Алиса', 'alice@example.ru');
+        $this->setId($main, 1);
+        $main->setIsMain(true);
+        $boris = $this->contact($org, 'Борис', 'boris@example.ru');
+        $this->setId($boris, 2);
+        $recipient = $this->recipient($org, $noEmail);
+
+        $this->service->processRecipient($recipient);
+
+        self::assertCount(1, $this->sent);
+        self::assertSame(['alice@example.ru'], $this->addresses($this->sent[0]->getTo()));
+        self::assertSame(['boris@example.ru'], $this->addresses($this->sent[0]->getCc()));
+        self::assertSame('Без почты', $this->sent[0]->getTo()[0]->getName());
         self::assertSame(RecipientStatus::Delivered, $recipient->status);
     }
 

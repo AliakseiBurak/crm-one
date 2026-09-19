@@ -67,6 +67,87 @@ final class ContactControllerTest extends DatabaseWebTestCase
         self::assertSame('ООО Ромашка', $contact->organization->name);
     }
 
+    public function testAdminCreatesContactWithIsMain(): void
+    {
+        $organization = $this->makeOrganization('ООО Ромашка');
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->open('/contacts/new');
+        $this->submitFormByButton('Создать', [
+            'organization' => (string) $organization->id,
+            'name' => 'Иван Петров',
+            'isMain' => '1',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+        $contact = $this->findContact('Иван Петров');
+        self::assertNotNull($contact);
+        self::assertTrue($contact->isMain);
+    }
+
+    public function testCreatingMainContactResetsPreviousMainContact(): void
+    {
+        $organization = $this->makeOrganization('ООО Ромашка');
+        $previous = $this->makeContact($organization, 'Мария Смирнова');
+        $previous->setIsMain(true);
+        $this->em()->flush();
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->open('/contacts/new');
+        $this->submitFormByButton('Создать', [
+            'organization' => (string) $organization->id,
+            'name' => 'Иван Петров',
+            'isMain' => '1',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+        self::assertTrue($this->findContact('Иван Петров')->isMain);
+        self::assertFalse($this->em()->find(Contact::class, $previous->id)->isMain);
+    }
+
+    public function testEditingContactAssignsMainAndResetsPreviousMain(): void
+    {
+        $organization = $this->makeOrganization('ООО Ромашка');
+        $previous = $this->makeContact($organization, 'Мария Смирнова');
+        $previous->setIsMain(true);
+        $candidate = $this->makeContact($organization, 'Иван Петров');
+        $this->em()->flush();
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->open('/contacts/' . $candidate->id . '/edit');
+        $this->submitFormByButton('Сохранить', ['name' => 'Иван Петров', 'isMain' => '1']);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+        self::assertTrue($this->em()->find(Contact::class, $candidate->id)->isMain);
+        self::assertFalse($this->em()->find(Contact::class, $previous->id)->isMain);
+    }
+
+    public function testSavingContactAutoResetsExtraIsMainKeepingSmallestId(): void
+    {
+        $organization = $this->makeOrganization('ООО Ромашка');
+        $first = $this->makeContact($organization, 'Мария Смирнова');
+        $first->setIsMain(true);
+        $second = $this->makeContact($organization, 'Иван Петров');
+        $second->setIsMain(true);
+        $third = $this->makeContact($organization, 'Алексей Сидоров');
+        $this->em()->flush();
+        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+
+        // Сохранение любого контакта организации нормализует аномалию:
+        // isMain остаётся только у контакта с минимальным ID.
+        $this->open('/contacts/' . $third->id . '/edit');
+        $this->submitFormByButton('Сохранить', ['name' => 'Алексей Сидоров']);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+        self::assertTrue($this->em()->find(Contact::class, $first->id)->isMain);
+        self::assertFalse($this->em()->find(Contact::class, $second->id)->isMain);
+        self::assertFalse($this->em()->find(Contact::class, $third->id)->isMain);
+    }
+
     public function testManagerCannotCreateContactInInaccessibleOrganization(): void
     {
         [$manager1, , , $zavod] = $this->makeTwoManagersWithOrganizations();

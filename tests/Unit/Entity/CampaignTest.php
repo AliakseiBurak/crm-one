@@ -67,6 +67,21 @@ final class CampaignTest extends TestCase
         self::assertSame('Мария Ивановна, здравствуйте.', $rendered);
     }
 
+    public function testRenderBodyWithoutContactUsesOrganizationNameEvenWithMainContact(): void
+    {
+        $campaign = new Campaign()
+            ->setBody('{{greeting}}! {{contact_name}}, добро пожаловать.');
+
+        $org = new Organization()->setName('ООО Ромашка');
+        // isMain не влияет на токены: при отсутствии адресата {{contact_name}}
+        // и {{greeting}} подставляются названием организации.
+        new Contact()->setOrganization($org)->setName('Мария Смирнова')->setIsMain(true);
+
+        $rendered = $campaign->renderBody(null, $org);
+
+        self::assertSame('Уважаемые сотрудники ООО Ромашка! ООО Ромашка, добро пожаловать.', $rendered);
+    }
+
     public function testRenderBodyAllTokensCombined(): void
     {
         $campaign = new Campaign()
