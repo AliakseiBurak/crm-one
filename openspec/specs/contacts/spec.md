@@ -64,3 +64,63 @@ the groups they created (`created_by`) and assigned groups.
 - **AND** менеджер открывает список контактов
 - **THEN** он видит контакты организации "ООО Ромашка"
 - **AND** он не видит контакты организации "ООО Конкурент"
+
+### Requirement: Контакт может быть основным (isMain)
+The system SHALL store a boolean flag `isMain` on the contact, defaulting to false. Only one contact per organization SHALL have `isMain = true`. Setting `isMain = true` on a contact SHALL automatically set `isMain = false` on the previous main contact of the same organization. The `isMain` flag SHALL be editable by administrators and managers with access to the organization. The `isMain` flag SHALL be optional: an organization MAY have no main contact. The effective main contact of an organization SHALL be the contact with `isMain = true`, or — when the organization has no such contact, or when several contacts have it (invalid state) — the contact with the smallest ID. When any contact of an organization is saved while multiple contacts have `isMain = true`, the system SHALL automatically set `isMain = false` on all such contacts except the one with the smallest ID.
+
+#### Scenario: Установка основного контакта
+- **WHEN** администратор редактирует контакт "Иван Петров" организации "ООО Ромашка"
+- **AND** отмечает "Основной контакт"
+- **THEN** у контакта "Иван Петров" isMain установлен в true
+
+#### Scenario: Только один основной контакт в организации
+- **WHEN** у организации "ООО Ромашка" есть контакт "Мария Смирнова" с isMain = true
+- **AND** администратор отмечает "Основной контакт" у контакта "Иван Петров"
+- **THEN** isMain контакта "Мария Смирнова" становится false
+- **AND** isMain контакта "Иван Петров" становится true
+
+#### Scenario: Снятие основного контакта
+- **WHEN** у контакта "Иван Петров" установлен isMain
+- **AND** администратор снимает отметку "Основной контакт"
+- **THEN** у контакта "Иван Петров" isMain становится false
+- **AND** у организации "ООО Ромашка" нет основного контакта
+
+#### Scenario: Аномалия: несколько основных контактов — автосброс
+- **WHEN** у организации "ООО Ромашка" два контакта с isMain = true: "Иван Петров" (ID 5) и "Мария Смирнова" (ID 9)
+- **AND** администратор сохраняет любого контакта этой организации
+- **THEN** isMain = true сохраняется только у "Ивана Петрова" (минимальный ID)
+- **AND** isMain контакта "Мария Смирнова" становится false
+
+#### Scenario: Отображение основного контакта в списке
+- **WHEN** администратор открывает список контактов организации "ООО Ромашка"
+- **AND** контакт "Иван Петров" отмечен как isMain
+- **THEN** рядом с именем контакта "Иван Петров" отображается метка "Основной"
+
+### Requirement: Основной контакт подсвечен в списках
+The system SHALL display contacts of an organization ordered by ID (insertion order) in all contact lists (dashboard, organization edit form). The effective main contact of the organization — the contact with `isMain = true`, or the contact with the smallest ID when no main contact is set — SHALL be visually highlighted with a very light orange background tint (light shade of the button color), regardless of its position in the list: on the dashboard — the contact card background, on the organization edit page — the contact name background. On the dashboard, hovering a contact card SHALL highlight it with a light orange background tint, slightly more saturated than the main contact tint. The «Основной» badge SHALL be shown only for a contact with `isMain = true`, and SHALL NOT be shown for the ID-based fallback contact. On the dashboard the badge SHALL be positioned in the top-right corner of the contact card; on the organization edit page — next to the contact name.
+
+#### Scenario: Подсветка основного контакта на дашборде
+- **WHEN** у организации "ООО Ромашка" есть контакты "Мария Смирнова" (isMain) и "Иван Петров"
+- **AND** пользователь открывает дашборд
+- **THEN** контакты отображаются в порядке ID (порядок добавления)
+- **AND** карточка контакта "Марии Смирновой" имеет светло-оранжевый оттенок фона
+- **AND** бейдж "Основной" находится в правом верхнем углу карточки "Марии Смирновой"
+
+#### Scenario: Подсветка основного контакта в форме организации
+- **WHEN** администратор открывает форму редактирования организации "ООО Ромашка"
+- **AND** у организации есть контакты "Алексей Сидоров", "Мария Смирнова" (isMain), "Иван Петров"
+- **THEN** контакты отображаются в порядке ID (порядок добавления)
+- **AND** у "Марии Смирновой" отображается метка "Основной"
+- **AND** фон имени "Марии Смирновой" имеет светло-оранжевый оттенок
+
+#### Scenario: Без флага подсвечивается минимальный по ID
+- **WHEN** пользователь открывает дашборд или форму редактирования организации "ООО Ромашка"
+- **AND** у организации нет ни одного контакта с isMain
+- **AND** минимальный ID среди контактов организации — у "Алексея Сидорова"
+- **THEN** "Алексей Сидоров" подсвечен светло-оранжевым оттенком как главный контакт
+- **AND** метка "Основной" у него отсутствует (флаг isMain не установлен)
+
+#### Scenario: Подсветка карточки при наведении на дашборде
+- **WHEN** пользователь открывает дашборд
+- **AND** наводит курсор на карточку любого контакта организации
+- **THEN** карточка подсвечивается светло-оранжевым оттенком фона, чуть насыщеннее подложки главного контакта

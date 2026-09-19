@@ -7,7 +7,7 @@ CRUD-операции с контактами: создание, редакти�
 ## Requirements
 
 ### Requirement: Администратор создаёт контакт
-The system SHALL let the administrator create a contact with all fields through a form, and SHALL validate required fields.
+The system SHALL let the administrator create a contact with all fields through a form, and SHALL validate required fields. The form SHALL include an optional «Основной контакт» checkbox.
 
 #### Scenario: Успешное создание контакта
 - **WHEN** администратор открывает форму создания контакта
@@ -16,6 +16,14 @@ The system SHALL let the administrator create a contact with all fields through 
 - **AND** нажимает кнопку "Создать"
 - **THEN** контакт "Иван Петров" сохраняется в системе
 - **AND** администратор перенаправляется на панель (дашборд) с подсветкой организации
+
+#### Scenario: Успешное создание основного контакта
+- **WHEN** администратор открывает форму создания контакта
+- **AND** выбирает организацию "ООО Ромашка"
+- **AND** вводит имя "Иван Петров"
+- **AND** отмечает "Основной контакт"
+- **AND** нажимает кнопку "Создать"
+- **THEN** контакт "Иван Петров" сохраняется с isMain = true
 
 #### Scenario: Ошибка валидации при создании
 - **WHEN** администратор открывает форму создания контакта
@@ -41,7 +49,7 @@ The system SHALL let the manager create a contact only in organizations visible 
 - **THEN** система отклоняет запрос с ошибкой доступа
 
 ### Requirement: Администратор редактирует контакт
-The system SHALL let the administrator update contact fields through a form.
+The system SHALL let the administrator update contact fields through a form, including the «Основной контакт» checkbox.
 
 #### Scenario: Успешное редактирование контакта
 - **WHEN** администратор открывает форму редактирования контакта "Иван Петров"
@@ -49,6 +57,13 @@ The system SHALL let the administrator update contact fields through a form.
 - **AND** нажимает кнопку "Сохранить"
 - **THEN** телефон контакта становится "+7-900-111-11-11"
 - **AND** администратор перенаправляется на панель (дашборд) с подсветкой организации
+
+#### Scenario: Назначение основным при редактировании
+- **WHEN** администратор открывает форму редактирования контакта "Иван Петров"
+- **AND** отмечает "Основной контакт"
+- **AND** нажимает кнопку "Сохранить"
+- **THEN** isMain контакта становится true
+- **AND** isMain предыдущего основного контакта становится false
 
 #### Scenario: Ошибка валидации при редактировании
 - **WHEN** администратор открывает форму редактирования контакта "Иван Петров"
