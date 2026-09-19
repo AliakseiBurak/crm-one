@@ -17,7 +17,8 @@ The system SHALL authenticate UI users through `form_login` with session-based
 cookies; the login form SHALL accept login and password, and successful
 authentication SHALL start a server-side session. The system SHALL use `login`
 field as the user identifier for authentication; `email` SHALL remain stored
-(optional) but SHALL NOT be used for login.
+(optional, nullable) but SHALL NOT be used for login.
+The label for the login field SHALL be «Логин».
 
 #### Scenario: Успешный вход через форму
 - **WHEN** незалогиненный пользователь открывает страницу входа
