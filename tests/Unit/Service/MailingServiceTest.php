@@ -64,7 +64,7 @@ final class MailingServiceTest extends TestCase
         $this->service = $this->createService($this->em);
     }
 
-    public function testSpecifiedContactWithEmailIsSoleToAndDelivered(): void
+    public function testSpecifiedContactWithEmailIsToWithOthersInCcAndDelivered(): void
     {
         $this->captureSentMail();
         $org = $this->organization();
@@ -76,7 +76,7 @@ final class MailingServiceTest extends TestCase
 
         self::assertCount(1, $this->sent);
         self::assertSame(['alice@example.ru'], $this->addresses($this->sent[0]->getTo()));
-        self::assertSame([], $this->addresses($this->sent[0]->getCc()));
+        self::assertSame(['boris@example.ru'], $this->addresses($this->sent[0]->getCc()));
         self::assertSame('Для ООО Ромашка', $this->sent[0]->getSubject());
         $html = (string) $this->sent[0]->getHtmlBody();
         self::assertStringContainsString('Уважаемый(ая) Алиса', $html);

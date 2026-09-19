@@ -1,0 +1,18 @@
+{#
+    Сетка карточек контактов организации на дашборде (change
+    contact-ismain-email-routing): контакты в порядке ID (порядок добавления);
+    карточка эффективного главного контакта (isMain; при его отсутствии или
+    нескольких — минимальный ID) подсвечивается независимо от позиции.
+    Используется в таблице панели и в AJAX-ответе редактирования контакта
+    (замена сетки целиком без перезагрузки страницы).
+    Ожидает: contacts (Contact[]), bouncedContactIds (array<int, true>),
+    effectiveMainId (?int).
+#}
+<div class="org-contacts__grid">
+    {% for contact in contacts %}
+        {% include 'contact/_card.html.twig' with {
+            hasBounced: bouncedContactIds[contact.id]|default(false),
+            isEffectiveMain: contact.id == effectiveMainId|default(null),
+        } %}
+    {% endfor %}
+</div>

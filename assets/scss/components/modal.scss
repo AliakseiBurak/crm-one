@@ -82,6 +82,39 @@
     margin-bottom: 12px;
 }
 
+// Список контактов на форме организации: главный контакт (isMain или
+// минимальный ID) первым, фон имени — светло-оранжевый (оттенок кнопок);
+// метка «Основной» — только при установленном флаге isMain.
+.organization-contacts__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+
+    li {
+        padding: 4px 0;
+    }
+}
+
+.organization-contacts__name {
+    display: inline-block;
+    padding: 0 0.35em;
+}
+
+.organization-contacts__name--main {
+    background: $color-main-contact-bg;
+}
+
+.organization-contacts__badge {
+    display: inline-block;
+    font-size: 0.8rem;
+    line-height: 1;
+    padding: 0.35em 0.6em;
+    margin-left: 0.5em;
+    border-radius: $radius-pill;
+    background: $color-main-contact-bg;
+    color: $color-action-orange;
+}
+
 .organization-form__hides {
     margin-top: 24px;
 }

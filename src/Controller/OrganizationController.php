@@ -10,6 +10,7 @@ use App\Entity\OrganizationGroup;
 use App\Entity\OrgGroupMembership;
 use App\Entity\User;
 use App\Repository\CampaignRecipientRepository;
+use App\Repository\ContactRepository;
 use App\Repository\OrganizationGroupRepository;
 use App\Repository\OrganizationHideRepository;
 use App\Repository\OrganizationRepository;
@@ -29,6 +30,7 @@ class OrganizationController extends AbstractController
         private readonly OrganizationRepository $organizations,
         private readonly OrganizationGroupRepository $groups,
         private readonly CampaignRecipientRepository $campaignRecipients,
+        private readonly ContactRepository $contacts,
         private readonly OrganizationHideRepository $hides,
         private readonly OrganizationHideService $hideService,
         private readonly EntityManagerInterface $em,
@@ -85,11 +87,15 @@ class OrganizationController extends AbstractController
         );
 
         $hides = $this->hides->findForOrganization($organization);
+        $contacts = $this->contacts->findByOrganization($organization);
+        $effectiveMain = $this->contacts->findEffectiveMainAmong($contacts);
 
         return $this->render('organization/form.html.twig', [
             'organization' => $organization,
             'errors' => [],
             'errorRecipients' => $this->campaignRecipients->findErrorRecipientsForOrganization($organization),
+            'contacts' => $contacts,
+            'effectiveMainId' => $effectiveMain?->id,
             'groups' => $groups,
             'groupIds' => $groupIds,
             'hides' => $hides,
@@ -130,11 +136,16 @@ class OrganizationController extends AbstractController
                 return $this->json(['ok' => false, 'errors' => $errors], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
+            $contacts = $organization->id ? $this->contacts->findByOrganization($organization) : [];
+            $effectiveMain = [] !== $contacts ? $this->contacts->findEffectiveMainAmong($contacts) : null;
+
             return $this->render('organization/form.html.twig', [
                 'organization' => $organization,
                 'errors' => $errors,
                 'groups' => $this->availableGroupsFor($this->getUser()),
                 'groupIds' => $selectedGroupIds,
+                'contacts' => $contacts,
+                'effectiveMainId' => $effectiveMain?->id,
                 'hides' => $organization->id ? $this->hides->findForOrganization($organization) : [],
             ], new Response(null, Response::HTTP_UNPROCESSABLE_ENTITY));
         }

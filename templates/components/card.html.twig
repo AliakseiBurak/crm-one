@@ -5,6 +5,7 @@
 #}
 {% set card_phone = phone|default('')|replace({' ': '', '(': '', ')': '', '-': ''}) %}
 <article class="card">
+    {% block card_badge %}{% endblock %}
     <h3 class="card__name">{{ name }}</h3>
     {% if card_phone %}
         <a class="card__phone" href="tel:{{ card_phone }}">{{ phone }}</a>

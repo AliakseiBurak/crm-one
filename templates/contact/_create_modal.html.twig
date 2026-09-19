@@ -61,6 +61,14 @@
                     <span class="field__error" role="alert" data-contact-error="notes" hidden></span>
                 </div>
 
+                <div class="field">
+                    <label class="field__label">
+                        <input type="hidden" name="isMain" value="0">
+                        <input type="checkbox" name="isMain" value="1" data-contact-field="isMain">
+                        Основной контакт
+                    </label>
+                </div>
+
                 <div class="organization-form__actions">
                     {{ include('components/button.html.twig', { variant: 'primary', text: 'Создать', sm: true }) }}
                     {{ include('components/button.html.twig', {

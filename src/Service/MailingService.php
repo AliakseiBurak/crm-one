@@ -116,28 +116,76 @@ readonly class MailingService
     }
 
     /**
-     * Одно письмо на организацию: контакт с email — только TO;
-     * иначе первый email организации TO, остальные CC.
-     * Email организации = уникальные email её контактов.
+     * Одно письмо на организацию: контакт с email — TO этому контакту, CC —
+     * остальные контакты организации с email; контакт без email или без
+     * указания контакта — TO эффективному главному контакту (isMain; при его
+     * отсутствии или нескольких — минимальный ID), CC — остальные контакты с
+     * email. Имя получателя/токены — выбранный контакт (если указан) или
+     * организация. Нет контактов с email — письмо не отправляется (null).
      *
      * @return array{0: Contact|null, 1: string, 2: list<string>}|null
      */
     private function resolveEmailTargets(CampaignRecipient $recipient): ?array
     {
         $specified = $recipient->contact;
+        $organization = $recipient->organization;
+
+        $orgEmails = $this->organizationEmails($organization);
 
         if (null !== $specified && null !== $specified->email && '' !== $specified->email) {
-            return [$specified, $specified->email, []];
+            return [$specified, $specified->email, $this->ccEmails($orgEmails, $specified->email)];
         }
 
-        $orgEmails = $this->organizationEmails($recipient->organization);
-        if ([] === $orgEmails) {
-            return null;
+        $main = $this->effectiveMainContact($organization);
+        $mainEmail = null !== $main && null !== $main->email && '' !== $main->email ? $main->email : null;
+        if (null === $mainEmail) {
+            // Главный контакт без email: письмо уходит на первый email
+            // организации (существующее поведение), если адреса есть.
+            if ([] === $orgEmails) {
+                return null;
+            }
+
+            $mainEmail = $orgEmails[0];
         }
 
-        $to = array_shift($orgEmails);
+        return [$specified, $mainEmail, $this->ccEmails($orgEmails, $mainEmail)];
+    }
 
-        return [$specified, $to, $orgEmails];
+    /**
+     * Эффективный главный контакт: isMain = true; при отсутствии такого
+     * контакта или при нескольких — контакт с минимальным ID.
+     */
+    private function effectiveMainContact(Organization $organization): ?Contact
+    {
+        $mains = [];
+        foreach ($organization->contacts as $contact) {
+            if ($contact->isMain) {
+                $mains[] = $contact;
+            }
+        }
+
+        $candidates = [] !== $mains ? $mains : $organization->contacts->toArray();
+        $main = null;
+        foreach ($candidates as $contact) {
+            if (null === $main || ($contact->id ?? PHP_INT_MAX) < ($main->id ?? PHP_INT_MAX)) {
+                $main = $contact;
+            }
+        }
+
+        return $main;
+    }
+
+    /**
+     * @param list<string> $orgEmails
+     *
+     * @return list<string>
+     */
+    private function ccEmails(array $orgEmails, string $toEmail): array
+    {
+        return array_values(array_filter(
+            $orgEmails,
+            static fn(string $email): bool => strtolower($email) !== strtolower($toEmail),
+        ));
     }
 
     /**
@@ -175,9 +223,13 @@ readonly class MailingService
             . $campaign->renderBody($contact, $organization, $unsubscribeUrl)
             . $this->trackingPixelMarkup($recipient);
 
+        // Имя получателя: выбранный контакт (даже без email), иначе —
+        // название организации.
+        $displayName = null !== $contact ? $contact->name : $organization->name;
+
         $email = new Email()
             ->from(new Address($this->fromEmail, $this->fromName))
-            ->to($toEmail)
+            ->to(new Address($toEmail, $displayName))
             ->subject($campaign->renderSubject($contact, $organization))
             ->html($body);
 

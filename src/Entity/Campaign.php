@@ -184,7 +184,9 @@ class Campaign
     /**
      * Подстановка токенов {{greeting}}, {{contact_name}}, {{organization_name}}
      * в тему, превью и текст: приветствие «Уважаемый(ая) Имя» при контакте,
-     * иначе «Уважаемые сотрудники Название организации».
+     * иначе «Уважаемые сотрудники Название организации»; {{contact_name}} при
+     * отсутствии контакта подставляется названием организации. isMain в
+     * токенах не участвует (только в маршрутизации TO/CC MailingService).
      */
     public function renderSubject(?Contact $contact, Organization $organization): string
     {
@@ -215,7 +217,7 @@ class Campaign
 
         return str_replace(
             ['{{contact_name}}', '{{organization_name}}', '{{greeting}}', '{{unsubscribe_url}}'],
-            [$contact?->name ?? '', $organization->name, $greeting, $unsubscribeUrl],
+            [$contact?->name ?? $organization->name, $organization->name, $greeting, $unsubscribeUrl],
             $template,
         );
     }

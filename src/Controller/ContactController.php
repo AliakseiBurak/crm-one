@@ -70,6 +70,10 @@ class ContactController extends AbstractController
             ], new Response(null, Response::HTTP_UNPROCESSABLE_ENTITY));
         }
 
+        // Уникальность isMain на организацию + нормализация аномалии
+        // «несколько основных» (before flush: DQL UPDATE выполняется сразу).
+        $this->normalizeIsMain($contact);
+
         $this->em->persist($contact);
         $this->em->flush();
 
@@ -121,14 +125,34 @@ class ContactController extends AbstractController
             ], new Response(null, Response::HTTP_UNPROCESSABLE_ENTITY));
         }
 
+        // Уникальность isMain на организацию + нормализация аномалии
+        // «несколько основных» (before flush: DQL UPDATE выполняется сразу).
+        $this->normalizeIsMain($contact);
+
         // Сохранение изменений — updatedAt обновляется вручную.
         $contact->touch();
         $this->em->flush();
 
         if ($ajax) {
+            // Возвращается вся сетка контактов организации: при смене isMain
+            // подсветка главного и бейдж обновляются у всех карточек без
+            // перезагрузки страницы (порядок контактов — по ID).
+            $contacts = $this->contacts->findByOrganization($contact->organization);
+            $bouncedContactIds = [];
+            foreach ($contacts as $organizationContact) {
+                if ($this->campaignRecipients->hasBouncedForContact($organizationContact)) {
+                    $bouncedContactIds[(int) $organizationContact->id] = true;
+                }
+            }
+            $effectiveMain = $this->contacts->findEffectiveMainAmong($contacts);
+
             return $this->json([
                 'ok' => true,
-                'card' => $this->renderView('contact/_card.html.twig', ['contact' => $contact]),
+                'grid' => $this->renderView('contact/_grid.html.twig', [
+                    'contacts' => $contacts,
+                    'bouncedContactIds' => $bouncedContactIds,
+                    'effectiveMainId' => $effectiveMain?->id,
+                ]),
             ]);
         }
 
@@ -170,6 +194,7 @@ class ContactController extends AbstractController
         $contact->setEmail($this->optionalField($request, 'email'));
         $contact->setPosition($this->optionalField($request, 'position'));
         $contact->setNotes($this->optionalField($request, 'notes'));
+        $contact->setIsMain((bool) $request->request->get('isMain', false));
 
         $violations = $validator->validate($contact);
 
@@ -189,6 +214,28 @@ class ContactController extends AbstractController
         $value = trim((string) $request->request->get($field, ''));
 
         return '' === $value ? null : $value;
+    }
+
+    /**
+     * Уникальность isMain в рамках организации: при установке флага у
+     * сохраняемого контакта сбрасывается предыдущий основной. Если флаг
+     * снят/не установлен, а у организации несколько isMain = true (аномалия) —
+     * оставляется контакт с минимальным ID, остальные сбрасываются.
+     */
+    private function normalizeIsMain(Contact $contact): void
+    {
+        $organization = $contact->organization;
+
+        if ($contact->isMain) {
+            $this->contacts->resetIsMainForOrganization($organization, $contact);
+
+            return;
+        }
+
+        $mains = $this->contacts->findIsMainContacts($organization);
+        if (\count($mains) > 1) {
+            $this->contacts->resetIsMainForOrganization($organization, $mains[0]);
+        }
     }
 
     /**

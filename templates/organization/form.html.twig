@@ -110,11 +110,14 @@
                 {% if isEdit %}
                     <div class="organization-form__contacts">
                         <h2 class="organization-section-title">Контакты</h2>
-                        {% if organization.contacts is not empty %}
+                        {% set contacts = contacts|default(organization.contacts) %}
+                        {% if contacts is not empty %}
                             <ul class="organization-contacts__list">
-                                {% for contact in organization.contacts %}
+                                {% for contact in contacts %}
                                     <li>
-                                        <a href="{{ path('app_contact_edit', { id: contact.id }) }}">{{ contact.name }}</a>
+                                        <a href="{{ path('app_contact_edit', { id: contact.id }) }}"
+                                           {% if contact.id == effectiveMainId|default(null) %}class="organization-contacts__name organization-contacts__name--main"{% endif %}>{{ contact.name }}</a>
+                                        {% if contact.isMain %}<span class="organization-contacts__badge">Основной</span>{% endif %}
                                         {% if contact.email %} — {{ contact.email }}{% endif %}
                                     </li>
                                 {% endfor %}

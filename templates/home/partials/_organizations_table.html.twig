@@ -117,11 +117,11 @@
                                         <a class="btn btn--secondary btn--sm org-contacts__add" href="{{ path('app_contact_new', { organization: organization.id }) }}" data-contact-create data-org-id="{{ organization.id }}">Добавить контакт</a>
                                         {% if contacts|length > 0 %}
                                             <div class="org-contacts">
-                                                <div class="org-contacts__grid">
-                                                    {% for contact in contacts %}
-                                                        {% include 'contact/_card.html.twig' with { hasBounced: bouncedContactIds[contact.id]|default(false) } %}
-                                                    {% endfor %}
-                                                </div>
+                                                {{ include('contact/_grid.html.twig', {
+                                                    contacts: contacts,
+                                                    bouncedContactIds: bouncedContactIds,
+                                                    effectiveMainId: effectiveMainByOrganization[organization.id]|default(null),
+                                                }) }}
                                             </div>
                                         {% endif %}
                                     </details>

@@ -78,6 +78,17 @@ class HomeController extends AbstractController
             $contactById[(int) $contact->id] = $contact;
         }
 
+        // Эффективный главный контакт каждой организации (isMain; при его
+        // отсутствии или нескольких — минимальный ID): подсветка карточки,
+        // порядок контактов не меняется (по ID).
+        $effectiveMainByOrganization = [];
+        foreach ($contactsByOrganization as $organizationId => $organizationContacts) {
+            $main = $contactRepository->findEffectiveMainAmong($organizationContacts);
+            if (null !== $main && null !== $main->id) {
+                $effectiveMainByOrganization[$organizationId] = (int) $main->id;
+            }
+        }
+
         // Отметка bounced для карточек контактов на дашборде.
         $bouncedContactIds = [];
         foreach ($contacts as $contact) {
@@ -90,6 +101,7 @@ class HomeController extends AbstractController
             'organizationRows' => $organizationRows,
             'organizations' => $organizationRepository->findAccessibleOrganizations($user),
             'contactsByOrganization' => $contactsByOrganization,
+            'effectiveMainByOrganization' => $effectiveMainByOrganization,
             'contactById' => $contactById,
             'bouncedContactIds' => $bouncedContactIds,
             'callsByOrganization' => $callRepository->findAllCallsByOrganizations($ids),

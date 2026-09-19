@@ -15,6 +15,7 @@ if (modal) {
         email: modal.querySelector('[data-contact-field="email"]'),
         position: modal.querySelector('[data-contact-field="position"]'),
         notes: modal.querySelector('[data-contact-field="notes"]'),
+        isMain: modal.querySelector('[data-contact-field="isMain"]'),
     };
     const deleteLink = modal.querySelector('[data-contact-delete-link]');
     let activeRow = null;
@@ -36,7 +37,12 @@ if (modal) {
             if (!input) {
                 return;
             }
-            input.value = row.dataset[`contact${key[0].toUpperCase()}${key.slice(1)}`] ?? '';
+            const value = row.dataset[`contact${key[0].toUpperCase()}${key.slice(1)}`] ?? '';
+            if (input.type === 'checkbox') {
+                input.checked = value === '1';
+            } else {
+                input.value = value;
+            }
         });
         clearErrors();
         modal.hidden = false;
@@ -100,10 +106,12 @@ if (modal) {
             return;
         }
 
-        // Обновление карточки на дашборде без перезагрузки страницы:
-        // сервер возвращает отрисованную карточку целиком.
-        if (payload.card && activeRow.parentNode) {
-            activeRow.outerHTML = payload.card;
+        // Обновление карточек организации на дашборде без перезагрузки
+        // страницы: сервер возвращает отрисованную сетку контактов целиком —
+        // при смене «Основной контакт» подсветка, бейдж и порядок обновляются
+        // у всех карточек организации.
+        if (payload.grid && activeRow.parentNode) {
+            activeRow.parentNode.outerHTML = payload.grid;
         }
 
         close();

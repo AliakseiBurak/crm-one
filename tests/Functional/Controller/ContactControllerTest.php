@@ -240,7 +240,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
         );
     }
 
-    public function testAjaxUpdateReturnsJsonCardAndPersistsChanges(): void
+    public function testAjaxUpdateReturnsJsonGridAndPersistsChanges(): void
     {
         $contact = $this->makeContactWithOrganization(phone: '+7-900-000-00-00');
         $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
@@ -259,10 +259,12 @@ final class ContactControllerTest extends DatabaseWebTestCase
 
         $payload = json_decode((string) $this->client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
         self::assertTrue($payload['ok']);
-        // Сервер возвращает отрисованную карточку целиком для замены без перезагрузки страницы.
-        self::assertStringContainsString('data-contact-card-wrap="' . $contact->id . '"', $payload['card']);
-        self::assertStringContainsString('+7-900-111-11-11', $payload['card']);
-        self::assertStringContainsString('Важный клиент', $payload['card']);
+        // Сервер возвращает отрисованную сетку контактов организации целиком
+        // для замены без перезагрузки страницы.
+        self::assertStringContainsString('org-contacts__grid', $payload['grid']);
+        self::assertStringContainsString('data-contact-card-wrap="' . $contact->id . '"', $payload['grid']);
+        self::assertStringContainsString('+7-900-111-11-11', $payload['grid']);
+        self::assertStringContainsString('Важный клиент', $payload['grid']);
 
         $this->em()->clear();
         $reloaded = $this->em()->find(Contact::class, $contact->id);

@@ -39,6 +39,9 @@ class Contact
     #[Assert\Length(max: 255, maxMessage: 'Должность не должна превышать {{ limit }} символов')]
     public private(set) ?string $position = null;
 
+    #[ORM\Column(name: 'is_main', options: ['default' => false])]
+    public private(set) bool $isMain = false;
+
     #[ORM\Column(type: 'text', nullable: true)]
     public private(set) ?string $notes = null;
 
@@ -86,6 +89,13 @@ class Contact
     public function setPosition(?string $position): self
     {
         $this->position = $position;
+
+        return $this;
+    }
+
+    public function setIsMain(bool $isMain): self
+    {
+        $this->isMain = $isMain;
 
         return $this;
     }

@@ -3,16 +3,19 @@
     data-атрибутами контакта для модального окна быстрого редактирования
     и кнопка «Изменить» (открывает модальное окно, без перехода).
     Используется в таблице панели и в AJAX-ответе обновления (HTML карточки).
-    Ожидает: contact (Contact), hasBounced (?bool — есть ли bounced в неархивной рассылке).
+    Ожидает: contact (Contact), hasBounced (?bool — есть ли bounced в
+    неархивной рассылке), isEffectiveMain (bool — эффективный главный
+    контакт организации: isMain или минимальный ID при его отсутствии).
 #}
-<div class="org-contacts__card-wrap"
+<div class="org-contacts__card-wrap{% if isEffectiveMain|default(false) %} org-contacts__card-wrap--main{% endif %}"
      data-contact-card-wrap="{{ contact.id }}"
      data-contact-id="{{ contact.id }}"
      data-contact-name="{{ contact.name }}"
      data-contact-phone="{{ contact.phone|default('') }}"
      data-contact-email="{{ contact.email|default('') }}"
      data-contact-position="{{ contact.position|default('') }}"
-     data-contact-notes="{{ contact.notes|default('') }}">
+     data-contact-notes="{{ contact.notes|default('') }}"
+     data-contact-is-main="{{ contact.isMain ? '1' : '0' }}">
     {% embed 'components/card.html.twig' with {
         name: contact.name,
         phone: contact.phone,
@@ -20,6 +23,12 @@
         position: contact.position,
         note: contact.notes,
     } %}
+        {% block card_badge %}
+            {% if contact.isMain %}
+                <span class="card__badge card__badge--primary">Основной</span>
+            {% endif %}
+        {% endblock %}
+
         {% block card_footer %}
             <div class="card__footer">
                 {% if hasBounced|default(false) %}

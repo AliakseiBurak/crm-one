@@ -270,16 +270,28 @@
         height: 100%;
         transition: background-color 0.15s ease;
 
-        // При наведении — дымка зелёного семейства (отличается от зебры
-        // таблицы: в таблице hover-подсветки нет вовсе).
+        // При наведении — светло-оранжевая (рыжая) подсветка, чуть
+        // насыщеннее подложки главного контакта (в таблице hover-подсветки
+        // нет вовсе).
         &:hover {
-            background: #e7f3dd;
+            background: $color-contact-hover-bg;
         }
     }
 
     .org-contacts__edit {
         align-self: flex-start;
     }
+}
+
+// Главный контакт организации (isMain или минимальный ID): очень светлый
+// оттенок фона карточки (светлее, чем hover); при наведении — та же рыжая
+// подсветка, что и у остальных карточек.
+.org-contacts__card-wrap--main .card {
+    background: $color-main-contact-bg;
+}
+
+.org-contacts__card-wrap--main .card:hover {
+    background: $color-contact-hover-bg;
 }
 
 .org-contacts__add {

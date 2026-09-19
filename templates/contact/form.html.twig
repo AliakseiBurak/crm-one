@@ -87,6 +87,14 @@
                     <textarea class="field__input" id="notes" name="notes" rows="3">{{ contact.notes|default('') }}</textarea>
                 </div>
 
+                <div class="field">
+                    <label class="field__label">
+                        <input type="hidden" name="isMain" value="0">
+                        <input type="checkbox" name="isMain" value="1" {% if contact.isMain|default(false) %}checked{% endif %}>
+                        Основной контакт
+                    </label>
+                </div>
+
                 {% if isEdit and errorRecipients is defined and errorRecipients|length > 0 %}
                     <div class="contact-form__errors">
                         <h2>Ошибки доставки рассылок</h2>
