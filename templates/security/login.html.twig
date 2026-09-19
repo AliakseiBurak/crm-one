@@ -6,14 +6,14 @@
     <section class="section section--white">
         <div class="container">
             {% if error %}
-                <div class="alert alert--error" role="alert">Неверный email или пароль</div>
+                <div class="alert alert--error" role="alert">Неверный логин или пароль</div>
             {% endif %}
 
             <h1>Вход</h1>
 
             {# --- Форма входа --- #}
             <form id="login-form" method="post" action="{{ path('app_login') }}">
-                {{ include('components/form_field.html.twig', { name: '_username', label: 'Email', type: 'email', value: last_username|default(''), required: true, autofocus: true }, with_context = false) }}
+                {{ include('components/form_field.html.twig', { name: '_login', label: 'Логин', type: 'text', value: last_login|default(''), required: true, autofocus: true }, with_context = false) }}
                 {{ include('components/form_field.html.twig', { name: '_password', label: 'Пароль', type: 'password', required: true }, with_context = false) }}
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
                 <label class="field__consent">
@@ -29,7 +29,7 @@
 
             {# --- Форма установки пароля --- #}
             <form id="setup-password-form" method="post" action="{{ path('app_setup_password') }}" style="display:none">
-                {{ include('components/form_field.html.twig', { name: 'email', label: 'Email', type: 'email', value: setup_email|default(''), required: true }, with_context = false) }}
+                {{ include('components/form_field.html.twig', { name: 'login', label: 'Логин', type: 'text', value: setup_login|default(''), required: true }, with_context = false) }}
                 {{ include('components/form_field.html.twig', { name: 'new_password', label: 'Новый пароль', type: 'password', required: true }, with_context = false) }}
                 {{ include('components/form_field.html.twig', { name: 'confirm_password', label: 'Повторите пароль', type: 'password', required: true }, with_context = false) }}
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('setup-password') }}">
@@ -48,15 +48,15 @@
             var toggleBack = document.getElementById('new-user-toggle-back');
             var loginForm = document.getElementById('login-form');
             var setupForm = document.getElementById('setup-password-form');
-            var loginEmail = loginForm.querySelector('input[name="_username"]');
-            var setupEmail = setupForm.querySelector('input[name="email"]');
+            var loginLogin = loginForm.querySelector('input[name="_login"]');
+            var setupLogin = setupForm.querySelector('input[name="login"]');
 
-            function syncEmail(from, to) {
+            function syncLogin(from, to) {
                 if (from.value) { to.value = from.value; }
             }
 
             function showLogin() {
-                syncEmail(setupEmail, loginEmail);
+                syncLogin(setupLogin, loginLogin);
                 loginForm.style.display = '';
                 setupForm.style.display = 'none';
                 toggle.checked = false;
@@ -64,7 +64,7 @@
             }
 
             function showSetup() {
-                syncEmail(loginEmail, setupEmail);
+                syncLogin(loginLogin, setupLogin);
                 loginForm.style.display = 'none';
                 setupForm.style.display = '';
                 toggle.checked = true;
@@ -79,9 +79,7 @@
                 if (this.checked) { showSetup(); } else { showLogin(); }
             });
 
-            {# После ошибки установки пароля форма возвращается открытой
-               с сохранённым email (last_username не перезаписывает его). #}
-            {% if setup_email|default('') is not empty %}
+            {% if setup_login|default('') is not empty %}
             loginForm.style.display = 'none';
             setupForm.style.display = '';
             toggle.checked = true;

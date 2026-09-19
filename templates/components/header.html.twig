@@ -55,10 +55,13 @@
                         </button>
                         <div class="header-user__menu" data-header-user-menu hidden>
                             <div class="header-user__info">
+                                <span class="header-user__info-username">{{ user.login }}</span>
                                 {% if user.name or user.surname %}
                                     <span class="header-user__info-name">{{ [user.name, user.surname]|filter(v => v)|join(' ') }}</span>
                                 {% endif %}
-                                <span class="header-user__info-email">{{ user.email }}</span>
+                                {% if user.email %}
+                                    <span class="header-user__info-email">{{ user.email }}</span>
+                                {% endif %}
                             </div>
                             <a class="header-user__item" href="{{ path('app_logout') }}">Выйти</a>
                         </div>
@@ -92,7 +95,13 @@
                 </div>
             </div>
             <div class="header__sidebar-user">
-                <span class="header__sidebar-user-name">{{ user.name ?? user.email }}</span>
+                <span class="header__sidebar-user-name">{{ user.login }}</span>
+                {% if user.name or user.surname %}
+                    <span class="header__sidebar-user-fullname">{{ [user.name, user.surname]|filter(v => v)|join(' ') }}</span>
+                {% endif %}
+                {% if user.email %}
+                    <span class="header__sidebar-user-email">{{ user.email }}</span>
+                {% endif %}
                 <a class="header__sidebar-logout" href="{{ path('app_logout') }}">Выйти</a>
             </div>
         </div>

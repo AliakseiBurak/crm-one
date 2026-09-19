@@ -6,7 +6,7 @@ security:
         app_user_provider:
             entity:
                 class: App\Entity\User
-                property: email
+                property: login
 
     firewalls:
         dev:
@@ -18,6 +18,8 @@ security:
             form_login:
                 login_path: app_login
                 check_path: app_login
+                username_parameter: _login
+                password_parameter: _password
                 enable_csrf: true
                 default_target_path: app_home
             remember_me:

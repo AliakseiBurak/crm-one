@@ -27,20 +27,18 @@ class SecurityController extends AbstractController
         }
 
         $error = $authenticationUtils->getLastAuthenticationError();
-        $lastUsername = $authenticationUtils->getLastUsername();
+        $lastLogin = $authenticationUtils->getLastUsername();
 
-        // Email, введённый в форме установки пароля: сохраняется при
-        // редиректе на /login после ошибки валидации (PRG).
         $session = $request->getSession();
-        $setupEmail = $session->has('setup_password_email')
-            ? (string) $session->get('setup_password_email')
+        $setupLogin = $session->has('setup_password_login')
+            ? (string) $session->get('setup_password_login')
             : '';
-        $session->remove('setup_password_email');
+        $session->remove('setup_password_login');
 
         return $this->render('security/login.html.twig', [
-            'last_username' => $lastUsername,
+            'last_login' => $lastLogin,
             'error' => $error,
-            'setup_email' => $setupEmail,
+            'setup_login' => $setupLogin,
         ]);
     }
 
@@ -50,19 +48,19 @@ class SecurityController extends AbstractController
         UserPasswordHasherInterface $passwordHasher,
         EntityManagerInterface $em,
     ): Response {
-        $email = trim((string) $request->request->get('email', ''));
+        $login = trim((string) $request->request->get('login', ''));
         $newPassword = (string) $request->request->get('new_password', '');
         $confirmPassword = (string) $request->request->get('confirm_password', '');
 
         $errors = [];
 
-        if ('' === $email) {
-            $errors[] = 'Введите email';
+        if ('' === $login) {
+            $errors[] = 'Введите логин';
         }
 
         $user = null;
-        if ('' !== $email) {
-            $user = $this->users->findOneByEmailWithNoPassword($email);
+        if ('' !== $login) {
+            $user = $this->users->findOneByLoginWithNoPassword($login);
             if (null === $user) {
                 $errors[] = 'Пользователь не найден или пароль уже установлен';
             }
@@ -81,8 +79,8 @@ class SecurityController extends AbstractController
         }
 
         if ([] !== $errors) {
-            if ('' !== $email) {
-                $request->getSession()->set('setup_password_email', $email);
+            if ('' !== $login) {
+                $request->getSession()->set('setup_password_login', $login);
             }
             $this->addFlash('error', implode(' ', $errors));
 

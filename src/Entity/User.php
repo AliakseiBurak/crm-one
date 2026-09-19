@@ -11,6 +11,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
@@ -21,20 +22,25 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     public private(set) ?int $id = null;
 
-    #[ORM\Column(length: 255, unique: true)]
-    public private(set) string $email;
+    #[ORM\Column(length: 180, unique: true)]
+    #[Assert\NotBlank(message: 'Логин обязателен для заполнения')]
+    #[Assert\Length(min: 5, max: 180, minMessage: 'Логин должен содержать не менее {{ limit }} символов', maxMessage: 'Логин не должен превышать {{ limit }} символов')]
+    public private(set) string $login;
 
-    #[ORM\Column(name: 'password_hash', length: 255)]
-    public private(set) string $passwordHash;
-
-    #[ORM\Column(type: 'string', enumType: UserRole::class)]
-    public private(set) UserRole $role;
+    #[ORM\Column(length: 255, unique: true, nullable: true)]
+    public private(set) ?string $email = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     public private(set) ?string $name = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     public private(set) ?string $surname = null;
+
+    #[ORM\Column(name: 'password_hash', length: 255)]
+    public private(set) string $passwordHash;
+
+    #[ORM\Column(type: 'string', enumType: UserRole::class)]
+    public private(set) UserRole $role;
 
     #[ORM\Column(name: 'created_at', type: 'datetime_immutable')]
     public private(set) \DateTimeImmutable $createdAt;
@@ -48,7 +54,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->groupAssignments = new ArrayCollection();
     }
 
-    public function setEmail(string $email): self
+    public function setLogin(string $login): self
+    {
+        $this->login = $login;
+
+        return $this;
+    }
+
+    public function getLogin(): string
+    {
+        return $this->login;
+    }
+
+    public function setEmail(?string $email): self
     {
         $this->email = $email;
 
@@ -85,7 +103,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getUserIdentifier(): string
     {
-        return $this->email;
+        return $this->login;
     }
 
     public function getPassword(): string

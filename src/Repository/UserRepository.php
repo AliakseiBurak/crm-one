@@ -67,17 +67,12 @@ class UserRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /**
-     * Находит пользователя по email, у которого не установлен пароль
-     * (пароль — пустая строка). Используется для установки пароля
-     * при первом входе.
-     */
-    public function findOneByEmailWithNoPassword(string $email): ?User
+    public function findOneByLoginWithNoPassword(string $login): ?User
     {
         return $this->createQueryBuilder('u')
-            ->where('u.email = :email')
+            ->where('u.login = :login')
             ->andWhere('u.passwordHash = :empty')
-            ->setParameter('email', $email)
+            ->setParameter('login', $login)
             ->setParameter('empty', '')
             ->getQuery()
             ->getOneOrNullResult();

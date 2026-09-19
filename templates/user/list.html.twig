@@ -26,6 +26,7 @@
                 <table class="table">
                     <thead>
                         <tr>
+                            <th>Логин</th>
                             <th>Email</th>
                             <th>Имя</th>
                             <th>Фамилия</th>
@@ -36,7 +37,8 @@
                     <tbody>
                         {% for user in users %}
                             <tr data-user-row>
-                                <td>{{ user.email }}</td>
+                                <td>{{ user.login }}</td>
+                                <td>{{ user.email|default('—') }}</td>
                                 <td>{{ user.name|default('—') }}</td>
                                 <td>{{ user.surname|default('—') }}</td>
                                 <td>{{ user.role.value == 'admin' ? 'Администратор' : 'Менеджер' }}</td>

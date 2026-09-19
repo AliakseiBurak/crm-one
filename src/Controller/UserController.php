@@ -52,6 +52,7 @@ class UserController extends AbstractController
         $this->assertCsrfToken($request);
 
         $createRequest = new CreateUserRequest();
+        $createRequest->login = trim((string) $request->request->get('login', ''));
         $createRequest->email = trim((string) $request->request->get('email', ''));
         $createRequest->name = trim((string) $request->request->get('name', '')) ?: null;
         $createRequest->surname = trim((string) $request->request->get('surname', '')) ?: null;
@@ -63,18 +64,21 @@ class UserController extends AbstractController
             $errors[$violation->getPropertyPath()] ??= $violation->getMessage();
         }
 
-        if (null === $createRequest->email || '' === $createRequest->email) {
-            $errors['email'] ??= 'Email обязателен для заполнения';
-        }
-
         if (null === $createRequest->role || '' === $createRequest->role) {
             $errors['role'] ??= 'Роль обязательна для заполнения';
         }
 
         if ([] === $errors) {
-            $existing = $this->users->findOneBy(['email' => $createRequest->email]);
-            if (null !== $existing) {
-                $errors['email'] = 'Пользователь с таким email уже существует';
+            $existingLogin = $this->users->findOneBy(['login' => $createRequest->login]);
+            if (null !== $existingLogin) {
+                $errors['login'] = 'Пользователь с таким логином уже существует';
+            }
+
+            if (null !== $createRequest->email && '' !== $createRequest->email) {
+                $existing = $this->users->findOneBy(['email' => $createRequest->email]);
+                if (null !== $existing) {
+                    $errors['email'] = 'Пользователь с таким email уже существует';
+                }
             }
         }
 
@@ -88,8 +92,10 @@ class UserController extends AbstractController
         $role = UserRole::from($createRequest->role);
 
         $this->em->wrapInTransaction(function () use ($createRequest, $role): void {
+            $email = '' === $createRequest->email ? null : $createRequest->email;
             $user = new User()
-                ->setEmail($createRequest->email)
+                ->setLogin($createRequest->login)
+                ->setEmail($email)
                 ->setRole($role);
             $user->setPassword(''); // Пароль не задаётся при создании
 

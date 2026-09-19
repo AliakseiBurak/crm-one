@@ -431,7 +431,9 @@ class AppFixtures extends Fixture
 
     private function makeUser(ObjectManager $manager, string $email, string $password, UserRole $role): User
     {
+        $login = explode('@', $email)[0];
         $user = new User()
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword($this->passwordHasher->hashPassword($user, $password));

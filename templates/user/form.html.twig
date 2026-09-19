@@ -1,6 +1,6 @@
 {#
     Форма создания пользователя (change add-new-user).
-    Поля: email (обязательное), name, surname (необязательные), role (обязательное).
+    Поля: login (обязательное), email (необязательное), name, surname (необязательные), role (обязательное).
     Ожидает: request (CreateUserRequest), errors (array<string, string>).
 #}
 {% extends 'base.html.twig' %}
@@ -20,12 +20,20 @@
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('user') }}">
 
                 {{ include('components/form_field.html.twig', {
+                    name: 'login',
+                    type: 'text',
+                    label: 'Логин',
+                    value: request.login|default(''),
+                    error: errors.login|default(null),
+                    required: true,
+                }) }}
+
+                {{ include('components/form_field.html.twig', {
                     name: 'email',
                     type: 'email',
                     label: 'Email',
                     value: request.email|default(''),
                     error: errors.email|default(null),
-                    required: true,
                 }) }}
 
                 {{ include('components/form_field.html.twig', {
