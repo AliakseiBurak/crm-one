@@ -14,8 +14,9 @@ function uniqueName(prefix: string) {
 }
 
 async function login(page: Page, email: string, password: string) {
+  const login = email.split('@')[0];
   await page.goto('/login');
-  await page.fill('input[name="_username"]', email);
+  await page.fill('input[name="_login"]', login);
   await page.fill('input[name="_password"]', password);
   await page.click(loginSubmit);
   await expect(page.locator('.header__menu-link', { hasText: 'Панель' })).toBeVisible();
@@ -318,6 +319,8 @@ test('admin can delete manager with group reassign/delete choices', async ({ pag
   // Админ создаёт одноразового менеджера
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await page.goto('/admin/users/new');
+  const victimLogin = victimEmail.split('@')[0];
+  await page.fill('input[name="login"]', victimLogin);
   await page.fill('input[name="email"]', victimEmail);
   await page.selectOption('select[name="role"]', 'manager');
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();
@@ -329,7 +332,7 @@ test('admin can delete manager with group reassign/delete choices', async ({ pag
   const csrf = await page.locator('#setup-password-form input[name="_csrf_token"]').inputValue();
   const setupResponse = await page.request.post('/setup-password', {
     form: {
-      email: victimEmail,
+      login: victimLogin,
       new_password: victimPassword,
       confirm_password: victimPassword,
       _csrf_token: csrf,
@@ -347,7 +350,7 @@ test('admin can delete manager with group reassign/delete choices', async ({ pag
   // Админ удаляет жертву: A — переназначить, B — удалить
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await page.goto('/admin/users');
-  const victimRow = page.locator('[data-user-row]', { hasText: victimEmail }).first();
+  const victimRow = page.locator('[data-user-row]', { hasText: victimLogin }).first();
   await expect(victimRow).toBeVisible();
   await victimRow.locator('a:has-text("Удалить")').click();
 
@@ -361,7 +364,7 @@ test('admin can delete manager with group reassign/delete choices', async ({ pag
 
   await page.locator('button:has-text("Удалить")').click();
   await expect(page).toHaveURL(/\/admin\/users$/);
-  await expect(page.locator('[data-user-row]', { hasText: victimEmail })).toHaveCount(0);
+  await expect(page.locator('[data-user-row]', { hasText: victimLogin })).toHaveCount(0);
 
   // A досталась админу и видна в списке, B удалена
   await page.goto('/groups');
@@ -383,7 +386,7 @@ test('admin cannot delete manager without selecting group action', async ({ page
   await page.goto('/admin/users');
   
   // Менеджер с созданными группами (fixture manager2 владеет «Клиенты Вектор»)
-  const managerRow = page.locator('[data-user-row]', { hasText: 'manager2@b2b-crm.loc' }).first();
+  const managerRow = page.locator('[data-user-row]', { hasText: 'manager2' }).first();
   await expect(managerRow).toBeVisible();
   await managerRow.locator('a:has-text("Удалить")').click();
   
@@ -396,5 +399,5 @@ test('admin cannot delete manager without selecting group action', async ({ page
 
   // Менеджер по-прежнему существует
   await page.goto('/admin/users');
-  await expect(page.locator('[data-user-row]', { hasText: 'manager2@b2b-crm.loc' })).toBeVisible();
+  await expect(page.locator('[data-user-row]', { hasText: 'manager2' })).toBeVisible();
 });

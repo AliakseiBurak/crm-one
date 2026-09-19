@@ -69,9 +69,10 @@ final class UnsubscribeControllerTest extends DatabaseWebTestCase
         self::assertSame('Ранее отписаны', $org->optOutReason);
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = new User()
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');

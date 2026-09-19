@@ -21,8 +21,8 @@ final class OrganizationHidingIntegrationTest extends DatabaseWebTestCase
 {
     public function testDeletingManagerRemovesTheirHideRows(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $hide = new OrganizationHide($org, $manager);
         $this->em()->persist($hide);
@@ -44,8 +44,8 @@ final class OrganizationHidingIntegrationTest extends DatabaseWebTestCase
 
     public function testDeletingOrganizationRemovesItsHideRows(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $hide = new OrganizationHide($org, $manager);
         $this->em()->persist($hide);
@@ -67,7 +67,7 @@ final class OrganizationHidingIntegrationTest extends DatabaseWebTestCase
 
     public function testHideThenUnhideFullFlow(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $this->em()->flush();
 
@@ -101,8 +101,8 @@ final class OrganizationHidingIntegrationTest extends DatabaseWebTestCase
 
     public function testHideFromAllManagersSparesFutureManagers(): void
     {
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Внутренняя');
         $this->em()->flush();
 
@@ -122,6 +122,7 @@ final class OrganizationHidingIntegrationTest extends DatabaseWebTestCase
 
         // Новый менеджер не затрагивается скрытием «от всех» (default-open).
         $newManager = (new User())
+            ->setLogin('manager3')
             ->setEmail('manager3@b2b-crm.loc')
             ->setRole(UserRole::Manager);
         $newManager->setPassword('test-password-hash');
@@ -132,9 +133,10 @@ final class OrganizationHidingIntegrationTest extends DatabaseWebTestCase
         self::assertSame(1, $crawler->filter('#org-' . $org->id)->count());
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = (new User())
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');

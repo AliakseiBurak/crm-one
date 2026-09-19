@@ -15,7 +15,7 @@ const HOVER_TRANSITION_MS = 350; // transition: background-color 0.15s
 
 async function login(page: Page) {
   await page.goto('/login');
-  await page.fill('input[name="_username"]', 'admin@b2b-crm.loc');
+  await page.fill('input[name="_login"]', 'admin');
   await page.fill('input[name="_password"]', 'admin123');
   await page.click(loginSubmit);
   await expect(page.locator('.header__menu-link', { hasText: 'Панель' })).toBeVisible();

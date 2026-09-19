@@ -44,10 +44,10 @@ final class OrganizationHideServiceTest extends DatabaseWebTestCase
 
     public function testHideFromAllManagersCreatesRowPerCurrentManager(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $org = $this->makeOrganization('ООО Ромашка');
-        $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
 
         $created = $this->service()->hideFromAllManagers($org);
@@ -62,8 +62,8 @@ final class OrganizationHideServiceTest extends DatabaseWebTestCase
     public function testHideFromAllManagersExcludesAlreadyHiddenPairs(): void
     {
         $org = $this->makeOrganization('ООО Ромашка');
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
 
         $this->service()->hide($org, [$manager1]);
@@ -94,8 +94,8 @@ final class OrganizationHideServiceTest extends DatabaseWebTestCase
 
     public function testValidateHideTargetsReturnsEmptyForValidManagerIds(): void
     {
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
 
         $invalid = $this->service()->validateHideTargets([$manager1->id, $manager2->id]);
@@ -105,7 +105,7 @@ final class OrganizationHideServiceTest extends DatabaseWebTestCase
 
     public function testValidateHideTargetsReturnsInvalidIds(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $this->em()->flush();
 
         $invalid = $this->service()->validateHideTargets([$admin->id]);
@@ -146,16 +146,17 @@ final class OrganizationHideServiceTest extends DatabaseWebTestCase
     private function seed(): array
     {
         $org = $this->makeOrganization('ООО Ромашка');
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
 
         return [$org, $manager1, $manager2];
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = (new User())
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');

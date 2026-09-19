@@ -90,8 +90,8 @@ final class OrganizationHideRepositoryTest extends DatabaseWebTestCase
      */
     private function seed(): array
     {
-        $manager = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $otherManager = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $otherManager = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $otherOrg = $this->makeOrganization('ООО Вектор');
         $this->em()->flush();
@@ -99,9 +99,10 @@ final class OrganizationHideRepositoryTest extends DatabaseWebTestCase
         return [$manager, $otherManager, $org, $otherOrg];
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = (new User())
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');

@@ -16,8 +16,9 @@ function uniqueName(prefix: string) {
 }
 
 async function login(page: Page, email: string, password: string) {
+  const login = email.split('@')[0];
   await page.goto('/login');
-  await page.fill('input[name="_username"]', email);
+  await page.fill('input[name="_login"]', login);
   await page.fill('input[name="_password"]', password);
   await page.click(loginSubmit);
   await expect(page.locator('.header__menu-link', { hasText: 'Панель' })).toBeVisible();
@@ -165,6 +166,8 @@ test('в списке пользователей «Назначить» есть
 
   // Временный администратор: его строка — эталон «нет кнопки».
   await page.goto('/admin/users/new');
+  const login = email.split('@')[0];
+  await page.fill('input[name="login"]', login);
   await page.fill('input[name="email"]', email);
   await page.fill('input[name="name"]', '');
   await page.fill('input[name="surname"]', '');
@@ -172,11 +175,11 @@ test('в списке пользователей «Назначить» есть
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/\/admin\/users$/);
 
-  const adminRow = page.locator('[data-user-row]', { hasText: email }).first();
+  const adminRow = page.locator('[data-user-row]', { hasText: login }).first();
   await expect(adminRow).toBeVisible();
   await expect(adminRow.locator('a:has-text("Назначить")')).toHaveCount(0);
 
-  const managerRow = page.locator('[data-user-row]', { hasText: 'manager2@b2b-crm.loc' }).first();
+  const managerRow = page.locator('[data-user-row]', { hasText: 'manager2' }).first();
   await expect(managerRow.locator('a:has-text("Назначить")')).toBeVisible();
 
   // Уборка: удаляем временного администратора (групп у него нет).
@@ -184,5 +187,5 @@ test('в списке пользователей «Назначить» есть
   await expect(page.locator('h1', { hasText: 'Удаление пользователя' })).toBeVisible();
   await page.getByRole('button', { name: 'Удалить' }).last().click();
   await expect(page).toHaveURL(/\/admin\/users$/);
-  await expect(page.locator('[data-user-row]', { hasText: email })).toHaveCount(0);
+  await expect(page.locator('[data-user-row]', { hasText: login })).toHaveCount(0);
 });

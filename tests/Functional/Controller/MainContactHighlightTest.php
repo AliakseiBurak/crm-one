@@ -26,7 +26,7 @@ final class MainContactHighlightTest extends DatabaseWebTestCase
         $main = $this->makeContact($organization, 'Иван Петров');
         $main->setIsMain(true);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/dashboard');
 
@@ -58,7 +58,7 @@ final class MainContactHighlightTest extends DatabaseWebTestCase
         $smallest = $this->makeContact($organization, 'Алексей Сидоров');
         $this->makeContact($organization, 'Мария Смирнова');
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/dashboard');
 
@@ -75,7 +75,7 @@ final class MainContactHighlightTest extends DatabaseWebTestCase
         $main = $this->makeContact($organization, 'Мария Смирнова');
         $main->setIsMain(true);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/organizations/' . $organization->id . '/edit');
 
@@ -94,9 +94,9 @@ final class MainContactHighlightTest extends DatabaseWebTestCase
         self::assertSame('Мария Смирнова', $items->eq(1)->filter('.organization-contacts__name--main')->first()->text());
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
-        $user = new User()->setEmail($email)->setRole($role);
+        $user = new User()->setLogin($login)->setEmail($email)->setRole($role);
         $user->setPassword('test-password-hash');
         $this->em()->persist($user);
         $this->em()->flush();

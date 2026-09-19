@@ -10,15 +10,18 @@ function uniqueEmail(prefix: string): string {
 }
 
 async function login(page: Page, email: string, password: string) {
+  const login = email.split('@')[0];
   await page.goto('/login');
-  await page.fill('input[name="_username"]', email);
+  await page.fill('input[name="_login"]', login);
   await page.fill('input[name="_password"]', password);
   await page.click(loginSubmit);
   await expect(page.locator('.header__menu-link', { hasText: 'Панель' })).toBeVisible();
 }
 
 async function createUser(page: Page, email: string, role: string, name = '', surname = '') {
+  const login = email.split('@')[0];
   await page.goto('/admin/users/new');
+  await page.fill('input[name="login"]', login);
   await page.fill('input[name="email"]', email);
   await page.fill('input[name="name"]', name);
   await page.fill('input[name="surname"]', surname);
@@ -68,6 +71,7 @@ test('администратор открывает форму создания 
   await page.goto('/admin/users/new');
 
   await expect(page.getByRole('heading', { name: 'Новый пользователь' })).toBeVisible();
+  await expect(page.locator('input[name="login"]')).toBeVisible();
   await expect(page.locator('input[name="email"]')).toBeVisible();
   await expect(page.locator('input[name="name"]')).toBeVisible();
   await expect(page.locator('input[name="surname"]')).toBeVisible();
@@ -80,7 +84,7 @@ test('администратор создаёт пользователя с им
   await createUser(page, email, 'manager', 'Мария', 'Смирнова');
 
   await expect(page).toHaveURL(/\/admin\/users/);
-  const row = page.locator('tr', { hasText: email });
+  const row = page.locator('tr', { hasText: email.split('@')[0] });
   await expect(row).toBeVisible();
   await expect(row).toContainText('Мария');
   await expect(row).toContainText('Смирнова');
@@ -92,15 +96,16 @@ test('администратор создаёт пользователя без 
   await createUser(page, email, 'admin');
 
   await expect(page).toHaveURL(/\/admin\/users/);
-  const row = page.locator('tr', { hasText: email });
+  const row = page.locator('tr', { hasText: email.split('@')[0] });
   await expect(row).toBeVisible();
 });
 
-test('ошибка при создании без email', async ({ page }) => {
+test('ошибка при создании без логина', async ({ page }) => {
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await page.goto('/admin/users/new');
 
-  await page.fill('input[name="email"]', '');
+  await page.fill('input[name="login"]', '');
+  await page.fill('input[name="email"]', 'test@example.com');
   await page.selectOption('select[name="role"]', 'manager');
   // Убираем HTML5 required для тестирования серверной валидации
   await page.evaluate(() => {
@@ -116,6 +121,7 @@ test('ошибка при создании с существующим email', a
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await page.goto('/admin/users/new');
 
+  await page.fill('input[name="login"]', 'dup-login-test');
   await page.fill('input[name="email"]', 'admin@b2b-crm.loc');
   await page.selectOption('select[name="role"]', 'manager');
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();
@@ -131,11 +137,11 @@ test('администратор подтверждает удаление по�
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await createUser(page, email, 'manager');
 
-  const row = page.locator('tr', { hasText: email });
+  const row = page.locator('tr', { hasText: email.split('@')[0] });
   await row.getByRole('link', { name: 'Удалить' }).click();
 
   await expect(page.getByRole('heading', { name: 'Удаление пользователя' })).toBeVisible();
-  await expect(page.locator('.user-delete__warning')).toContainText(email);
+  await expect(page.locator('.user-delete__warning')).toContainText(email.split('@')[0]);
 });
 
 test('администратор удаляет пользователя через подтверждение', async ({ page }) => {
@@ -143,20 +149,20 @@ test('администратор удаляет пользователя чер�
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await createUser(page, email, 'manager');
 
-  const row = page.locator('tr', { hasText: email });
+  const row = page.locator('tr', { hasText: email.split('@')[0] });
   await row.getByRole('link', { name: 'Удалить' }).click();
   await page.getByRole('button', { name: 'Удалить' }).last().click();
   await page.waitForLoadState('networkidle');
 
   await expect(page).toHaveURL(/\/admin\/users/);
-  await expect(page.locator('tr', { hasText: email })).toHaveCount(0);
+  await expect(page.locator('tr', { hasText: email.split('@')[0] })).toHaveCount(0);
 });
 
 test('кнопка удаления отсутствует для текущего администратора', async ({ page }) => {
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await page.goto('/admin/users');
 
-  const row = page.locator('tr', { hasText: 'admin@b2b-crm.loc' });
+  const row = page.locator('tr', { hasText: 'admin' });
   await expect(row.getByRole('link', { name: 'Удалить' })).toHaveCount(0);
 });
 
@@ -165,10 +171,10 @@ test('отмена удаления возвращает к списку', async
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await createUser(page, email, 'manager');
 
-  const row = page.locator('tr', { hasText: email });
+  const row = page.locator('tr', { hasText: email.split('@')[0] });
   await row.getByRole('link', { name: 'Удалить' }).click();
   await page.getByRole('link', { name: 'Отмена' }).click();
 
   await expect(page).toHaveURL(/\/admin\/users/);
-  await expect(page.locator('tr', { hasText: email })).toBeVisible();
+  await expect(page.locator('tr', { hasText: email.split('@')[0] })).toBeVisible();
 });

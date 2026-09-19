@@ -17,7 +17,7 @@ final class HeaderTest extends DatabaseWebTestCase
 {
     public function testAdminHeader(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin, 'Ада Админова'));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin, 'Ада Админова'));
 
         $crawler = $this->client->request('GET', '/dashboard');
         $this->assertResponseIsSuccessful();
@@ -30,8 +30,9 @@ final class HeaderTest extends DatabaseWebTestCase
         $this->assertSelectorExists('.header__actions .header-admin__toggle');
         self::assertSame(2, $crawler->filter('.header__actions .header-admin__menu .header-admin__item')->count());
 
-        // Выпадающий список пользователя: «Профиль», первый пункт — имя/email, затем «Выйти».
+        // Выпадающий список пользователя: «Профиль», первый пункт — логин, затем имя/email, затем «Выйти».
         $this->assertSelectorTextContains('.header__actions .header-user__toggle', 'Профиль');
+        $this->assertSelectorTextContains('.header-user__info', 'admin');
         $this->assertSelectorTextContains('.header-user__info', 'Ада Админова');
         $this->assertSelectorTextContains('.header-user__info', 'admin@b2b-crm.loc');
         self::assertSame(1, $crawler->filter('.header__actions .header-user__menu a[href="/logout"]')->count());
@@ -58,7 +59,7 @@ final class HeaderTest extends DatabaseWebTestCase
 
     public function testManagerHeader(): void
     {
-        $this->login($this->makeUser('manager@b2b-crm.loc', UserRole::Manager, 'Пётр Сидоров'));
+        $this->login($this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager, 'Пётр Сидоров'));
 
         $crawler = $this->client->request('GET', '/dashboard');
         $this->assertResponseIsSuccessful();
@@ -86,21 +87,25 @@ final class HeaderTest extends DatabaseWebTestCase
         $this->assertSelectorTextContains('.header__nav', 'Войти');
     }
 
-    public function testUserDropdownFallsBackToEmailWhenNameMissing(): void
+    public function testUserDropdownShowsLoginWhenNameMissing(): void
     {
-        $this->login($this->makeUser('noname@b2b-crm.loc', UserRole::Manager));
+        $this->login($this->makeUser('noname', 'noname@b2b-crm.loc', UserRole::Manager));
 
         $this->client->request('GET', '/dashboard');
         $this->assertResponseIsSuccessful();
         $this->assertSelectorTextContains('.header-user__toggle', 'Профиль');
-        // Без имени/фамилии — только email, без строки имени.
+        // Логин отображается всегда
+        $this->assertSelectorTextContains('.header-user__info', 'noname');
+        // Без имени/фамилии — строка имени отсутствует
         $this->assertSelectorNotExists('.header-user__info-name');
+        // Email отображается если указан
         $this->assertSelectorTextContains('.header-user__info-email', 'noname@b2b-crm.loc');
     }
 
-    private function makeUser(string $email, UserRole $role, ?string $name = null): User
+    private function makeUser(string $login, string $email, UserRole $role, ?string $name = null): User
     {
         $user = (new User())
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         if ($name !== null) {

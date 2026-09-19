@@ -23,7 +23,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
 {
     public function testAdminCreatesOrganizationAndRedirectsToDashboard(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $this->open('/organizations/new');
         $this->submitFormByButton('Создать', [
             'name' => 'ООО Ромашка',
@@ -50,7 +50,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
 
     public function testManagerCreatesOrgWithoutGroupSelectionStaysUngrouped(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
         $this->login($manager);
 
@@ -73,7 +73,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
 
     public function testManagerCreatesOrgWithSelectedGroupAddsToGroup(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup($manager);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -100,8 +100,8 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotAddInaccessibleGroupOnOrgCreate(): void
     {
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $otherGroup = $this->makeGroup($manager2);
         $this->em()->persist($otherGroup);
         $this->em()->flush();
@@ -136,7 +136,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
 
     public function testManagerCanAssignGroupViaEditPage(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup($manager);
         $anotherGroup = (new OrganizationGroup())
             ->setName('Другая группа')
@@ -173,7 +173,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
 
     public function testManagerCanRemoveGroupViaEditPage(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup($manager);
         $org = new Organization()->setName('ООО Ромашка')->setIndustry('IT');
         $this->em()->persist($group);
@@ -206,8 +206,8 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
 
     public function testAdminCanAssignAnyGroupViaEditPage(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup($manager);
         $org = new Organization()->setName('ООО Ромашка')->setIndustry('IT');
         $this->em()->persist($group);
@@ -236,7 +236,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
 
     public function testCreateWithBlankNameShowsRussianErrorAndDoesNotSave(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $this->open('/organizations/new');
         $this->submitFormByButton('Создать', [
             'name' => '',
@@ -252,7 +252,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
 
     public function testCreateOrganizationWithoutIndustrySavesWithNullIndustry(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $this->open('/organizations/new');
         $this->submitFormByButton('Создать', [
             'name' => 'ООО Без Отрасли',
@@ -270,7 +270,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
 
     public function testCreateOrganizationWithAllNewFieldsSavesCorrectly(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $this->open('/organizations/new');
         $this->submitFormByButton('Создать', [
             'name' => 'ООО Полная',
@@ -301,7 +301,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
             ->setHasUsedServices(true);
         $this->em()->persist($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/edit');
         $this->submitFormByButton('Сохранить', [
@@ -390,7 +390,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         $organization = new Organization()->setName('ООО Ромашка')->setIndustry('IT');
         $this->em()->persist($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/edit');
         $this->submitFormByButton('Сохранить', [
@@ -413,7 +413,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         $organization = new Organization()->setName('ООО Ромашка')->setIndustry('IT');
         $this->em()->persist($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $url = '/organizations/' . $organization->id . '/edit';
         $this->submitOrganizationAjax($url, $url, [
@@ -438,7 +438,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         $organization = new Organization()->setName('ООО Ромашка')->setIndustry('IT');
         $this->em()->persist($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $url = '/organizations/' . $organization->id . '/edit';
         $this->submitOrganizationAjax($url, $url, [
@@ -461,7 +461,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         $organization = new Organization()->setName('ООО Ромашка')->setIndustry('IT');
         $this->em()->persist($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/delete');
 
@@ -484,7 +484,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         $this->em()->persist($contact);
         $this->em()->persist($call);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/delete');
         $this->submitFormByButton('Удалить', []);
@@ -503,7 +503,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         $organization = new Organization()->setName('ООО Ромашка')->setIndustry('IT');
         $this->em()->persist($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/delete');
 
@@ -528,8 +528,8 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
     private function makeTwoManagersWithOrganizations(): array
     {
         $em = $this->em();
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $em->flush();
 
         $personal1 = $this->makeGroup($manager1);
@@ -549,9 +549,10 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         return [$manager1, $manager2];
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = new User()
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');
@@ -578,7 +579,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
 
     public function testCreateOrganizationWithIsActiveFalse(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $crawler = $this->open('/organizations/new');
         $token = $crawler->filter('input[name="_csrf_token"]')->attr('value');
 
@@ -604,7 +605,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
             ->setIsActive(false);
         $this->em()->persist($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/edit');
         $this->submitFormByButton('Сохранить', [
@@ -627,7 +628,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
             ->setIndustry('IT');
         $this->em()->persist($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/organizations/' . $organization->id . '/edit');
         $token = $crawler->filter('input[name="_csrf_token"]')->attr('value');
@@ -658,7 +659,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         $this->em()->flush();
 
         // First opt-in
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $crawler = $this->open('/organizations/' . $organization->id . '/edit');
         $token = $crawler->filter('input[name="_csrf_token"]')->attr('value');
 
@@ -701,7 +702,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         $this->em()->flush();
 
         // First opt-in with a reason
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $crawler = $this->open('/organizations/' . $organization->id . '/edit');
         $token = $crawler->filter('input[name="_csrf_token"]')->attr('value');
 

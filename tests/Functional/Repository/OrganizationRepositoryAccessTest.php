@@ -99,8 +99,8 @@ final class OrganizationRepositoryAccessTest extends DatabaseWebTestCase
      */
     private function seed(bool $withOtherOrg = false): array
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $otherOrg = $withOtherOrg ? $this->makeOrganization('ООО Вектор') : $org;
 
@@ -114,9 +114,9 @@ final class OrganizationRepositoryAccessTest extends DatabaseWebTestCase
      */
     private function seedTwoManagers(): array
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $otherManager = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $otherManager = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $otherOrg = $this->makeOrganization('ООО Вектор');
 
@@ -125,9 +125,10 @@ final class OrganizationRepositoryAccessTest extends DatabaseWebTestCase
         return [$admin, $manager, $otherManager, $org, $otherOrg];
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = (new User())
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');

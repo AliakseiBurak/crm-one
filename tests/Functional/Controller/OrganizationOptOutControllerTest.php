@@ -22,7 +22,7 @@ final class OrganizationOptOutControllerTest extends DatabaseWebTestCase
     public function testAdminOptOutOrganization(): void
     {
         $organization = $this->makeOrganization('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->client->request(
             'POST',
@@ -50,7 +50,7 @@ final class OrganizationOptOutControllerTest extends DatabaseWebTestCase
     public function testOptOutWithoutReason(): void
     {
         $organization = $this->makeOrganization('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->client->request(
             'POST',
@@ -113,7 +113,7 @@ final class OrganizationOptOutControllerTest extends DatabaseWebTestCase
 
     public function testOptOutNonexistentOrganization(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->client->request(
             'POST',
@@ -130,7 +130,7 @@ final class OrganizationOptOutControllerTest extends DatabaseWebTestCase
     public function testOptOutIsIdempotent(): void
     {
         $organization = $this->makeOrganization('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->client->request(
             'POST',
@@ -159,7 +159,7 @@ final class OrganizationOptOutControllerTest extends DatabaseWebTestCase
     public function testCallWithRefusalMarksOrganizationOptedOut(): void
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/calls/new');
         $this->submitFormByButton('Создать', [
@@ -183,7 +183,7 @@ final class OrganizationOptOutControllerTest extends DatabaseWebTestCase
     public function testCallWithRefusalMarkInactiveOnly(): void
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/calls/new');
         $this->submitFormByButton('Создать', [
@@ -205,7 +205,7 @@ final class OrganizationOptOutControllerTest extends DatabaseWebTestCase
     public function testCallWithRefusalBothCheckboxes(): void
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/calls/new');
         $this->submitFormByButton('Создать', [
@@ -230,7 +230,7 @@ final class OrganizationOptOutControllerTest extends DatabaseWebTestCase
     public function testCallWithRefusalWithoutMadeAtDoesNotOptOut(): void
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/calls/new');
         $this->submitFormByButton('Создать', [
@@ -252,7 +252,7 @@ final class OrganizationOptOutControllerTest extends DatabaseWebTestCase
     public function testCallWithRefusalOnlyRecordsCallWithoutOrganizationChanges(): void
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/calls/new');
         $this->submitFormByButton('Создать', [
@@ -290,7 +290,7 @@ final class OrganizationOptOutControllerTest extends DatabaseWebTestCase
         $this->em()->persist($campaign);
         $this->em()->flush();
 
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/calls/new');
         $this->submitFormByButton('Создать', [
@@ -323,9 +323,10 @@ final class OrganizationOptOutControllerTest extends DatabaseWebTestCase
         self::assertSame($campaign->id, $call->campaign->id);
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = new User()
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');
@@ -364,7 +365,8 @@ final class OrganizationOptOutControllerTest extends DatabaseWebTestCase
      */
     private function makeManagerWithOrganization(string $email): array
     {
-        $manager = $this->makeUser($email, UserRole::Manager);
+        $login = explode('@', $email)[0];
+        $manager = $this->makeUser($login, $email, UserRole::Manager);
         $group = new OrganizationGroup()
             ->setName('Группа ' . $email)
             ->setCreatedBy($manager);

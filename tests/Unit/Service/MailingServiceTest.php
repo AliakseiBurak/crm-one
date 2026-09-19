@@ -369,7 +369,7 @@ final class MailingServiceTest extends TestCase
     public function testAllUndeliverableEscalatesCampaignAndNotifiesAdmin(): void
     {
         $this->captureSentMail();
-        $admin = new User()->setEmail('admin@b2b-crm.loc');
+        $admin = new User()->setLogin('admin')->setEmail('admin@b2b-crm.loc');
         $this->users->method('findAdmins')->willReturn([$admin]);
 
         $org = $this->organization();

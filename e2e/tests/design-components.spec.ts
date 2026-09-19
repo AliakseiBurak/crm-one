@@ -5,7 +5,7 @@ import { expect, test } from '@playwright/test';
 
 async function loginAsAdmin(page: import('@playwright/test').Page) {
   await page.goto('/login');
-  await page.fill('input[name="_username"]', 'admin@b2b-crm.loc');
+  await page.fill('input[name="_login"]', 'admin');
   await page.fill('input[name="_password"]', 'admin123');
   await page.click('form[action="/login"] button[type="submit"]');
   await expect(page.locator('.header__menu-link', { hasText: 'Панель' })).toBeVisible();

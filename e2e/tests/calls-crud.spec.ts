@@ -6,8 +6,9 @@ import { expect, test, type Page } from '@playwright/test';
 const editModal = '[data-call-edit-modal] .modal__window';
 
 async function login(page: Page, email: string, password: string) {
+  const login = email.split('@')[0];
   await page.goto('/login');
-  await page.fill('input[name="_username"]', email);
+  await page.fill('input[name="_login"]', login);
   await page.fill('input[name="_password"]', password);
   await page.click('form[action="/login"] button[type="submit"]');
   await expect(page.locator('.header__menu-link', { hasText: 'Панель' })).toBeVisible();

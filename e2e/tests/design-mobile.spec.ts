@@ -7,7 +7,7 @@ const loginSubmit = 'form[action="/login"] button[type="submit"]';
 
 async function loginAsAdmin(page: import('@playwright/test').Page) {
   await page.goto('/login');
-  await page.fill('input[name="_username"]', 'admin@b2b-crm.loc');
+  await page.fill('input[name="_login"]', 'admin');
   await page.fill('input[name="_password"]', 'admin123');
   await page.click(loginSubmit);
   await expect(page).toHaveURL(/\/$/);

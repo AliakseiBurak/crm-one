@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
   const browser = await chromium.launch({ args: ['--ignore-certificate-errors'] });
   const page = await browser.newPage({ viewport: { width: 1920, height: 1400 } });
   await page.goto('https://b2b-crm.local/login');
-  await page.fill('input[name="_username"]', 'admin@b2b-crm.loc');
+  await page.fill('input[name="_login"]', 'admin');
   await page.fill('input[name="_password"]', 'admin123');
   await page.click('button[type="submit"]');
   await page.waitForTimeout(1500);

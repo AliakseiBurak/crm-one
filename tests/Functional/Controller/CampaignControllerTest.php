@@ -30,7 +30,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
 {
     public function testAdminCreatesCampaignWithDefaults(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $this->open('/campaigns/new');
         $this->submitFormByButton('Создать', [
             'name' => 'Новые курсы',
@@ -51,7 +51,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
 
     public function testManagerCanCreateCampaign(): void
     {
-        $this->login($this->makeUser('manager@b2b-crm.loc', UserRole::Manager));
+        $this->login($this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager));
         $this->open('/campaigns/new');
         $this->submitFormByButton('Создать', [
             'name' => 'Приглашение на вебинар',
@@ -67,7 +67,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
 
     public function testCreateWithBlankRequiredFieldsShowsRussianErrors(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $this->open('/campaigns/new');
         $this->submitFormByButton('Создать', [
             'name' => '',
@@ -86,7 +86,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
 
     public function testCreateWithFailedStatusShowsError(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $token = (string) $this->open('/campaigns/new')
             ->filter('input[name="_csrf_token"]')
             ->attr('value');
@@ -109,7 +109,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
     {
         $this->persistCampaign('Новые курсы');
         $this->persistCampaign('Акция');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/campaigns');
 
@@ -135,7 +135,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
             $this->em()->persist($recipient);
         }
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/campaigns');
 
@@ -155,7 +155,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $attachment->setSize(2048);
         $this->em()->persist($attachment);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/campaigns/' . $campaign->id);
 
@@ -183,7 +183,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
             $this->em()->persist($recipient);
         }
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/campaigns/' . $campaign->id);
 
@@ -194,7 +194,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
     public function testLaunchSetsLaunchedAtAndStatusOnce(): void
     {
         $campaign = $this->persistCampaign('Новые курсы');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->campaignToken($campaign->id);
         $this->client->request('POST', $this->launchPath($campaign->id), ['_csrf_token' => $token]);
@@ -217,7 +217,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $campaign = $this->persistCampaign('Акция');
         $campaign->launch();
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->campaignToken($campaign->id);
         $this->client->request('POST', '/campaigns/' . $campaign->id . '/stop', ['_csrf_token' => $token]);
@@ -233,7 +233,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $campaign = $this->persistCampaign('Рассылка с ошибкой');
         $campaign->fail('Проверьте MAILER_DSN.');
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->campaignToken($campaign->id);
         $this->client->request('POST', '/campaigns/' . $campaign->id . '/reset', ['_csrf_token' => $token]);
@@ -263,7 +263,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         self::assertFileExists($storage->path($storageKey));
         $campaignId = $campaign->id;
         $attachmentId = $attachment->id;
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->campaignToken($campaignId);
         $this->client->request('POST', '/campaigns/' . $campaignId . '/delete', ['_csrf_token' => $token]);
@@ -281,7 +281,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
     {
         $storage = $this->storage();
         $campaign = $this->persistCampaign('Акция');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->attachmentCsrfToken($campaign->id);
         $tmp = tempnam(sys_get_temp_dir(), 'upload');
@@ -323,7 +323,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $attachment = new CampaignAttachment($campaign, 'прайс.xlsx', bin2hex(random_bytes(16)));
         $this->em()->persist($attachment);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/campaigns/' . $campaign->id . '/edit');
 
@@ -403,7 +403,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $this->em()->persist($failed);
         $this->em()->persist($pending);
         $this->em()->flush();
-        $this->login($this->makeUser('admin-errors@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin-errors', 'admin-errors@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/campaigns/' . $campaign->id . '/recipients');
 
@@ -421,7 +421,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $this->em()->persist((new Contact())->setOrganization($zavod)->setName('Контакт')->setEmail('zavod@example.test'));
         $this->em()->flush();
         $campaign = $this->persistCampaign('Акция');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->formToken($campaign->id);
         $this->client->request('POST', '/campaigns/' . $campaign->id . '/recipients', [
@@ -472,7 +472,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $this->em()->flush();
         $campaignId = $campaign->id;
         $recipientId = $recipient->id;
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->formToken($campaignId);
         $this->client->request('POST', '/campaigns/' . $campaignId . '/recipients/' . $recipientId . '/delete', [
@@ -492,7 +492,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $recipient = new CampaignRecipient($campaign, $romashka);
         $this->em()->persist($recipient);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->campaignToken($campaign->id);
         $this->client->request('POST', '/campaigns/' . $campaign->id . '/clone', [
@@ -517,7 +517,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $recipient = new CampaignRecipient($campaign, $romashka);
         $this->em()->persist($recipient);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->campaignToken($campaign->id);
         $this->client->request('POST', '/campaigns/' . $campaign->id . '/clone', [
@@ -534,7 +534,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
     public function testCloneFromDraftIsRejected(): void
     {
         $campaign = $this->persistCampaign('Черновик');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->campaignToken($campaign->id);
         $this->client->request('POST', '/campaigns/' . $campaign->id . '/clone', [
@@ -548,7 +548,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
     {
         $campaign = $this->persistCampaign('Черновик');
         $romashka = $this->persistOrganizationWithEmail('ООО Ромашка', 'romashka@example.test');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->formToken($campaign->id);
         $this->client->request('POST', '/campaigns/' . $campaign->id . '/recipients', [
@@ -577,7 +577,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
     {
         $this->persistCampaign('Я');
         $this->persistCampaign('А');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/campaigns?sort=name&dir=DESC');
 
@@ -592,7 +592,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $archived->setStatus(CampaignStatus::Archived);
         $this->em()->flush();
         $this->persistCampaign('Активная');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/campaigns');
 
@@ -604,7 +604,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
     public function testShowCloneRowHiddenForDraft(): void
     {
         $campaign = $this->persistCampaign('Черновик');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/campaigns/' . $campaign->id);
 
@@ -616,7 +616,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $campaign = $this->persistCampaign('Готова');
         $campaign->setStatus(CampaignStatus::Ready);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/campaigns/' . $campaign->id);
 
@@ -632,7 +632,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $launched = $this->persistCampaign('Запущена');
         $launched->launch();
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/campaigns/' . $draft->id);
         $this->assertSelectorNotExists('form[action="' . $this->launchPath($draft->id) . '"]');
@@ -648,7 +648,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
 
     public function testBulkAddByGroupAddsOrgsToCampaign(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = (new OrganizationGroup())->setName('Группа А')->setCreatedBy($manager);
         $this->em()->persist($group);
 
@@ -677,7 +677,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
 
     public function testBulkAddByGroupSkipsExistingRecipients(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = (new OrganizationGroup())->setName('Группа А')->setCreatedBy($manager);
         $this->em()->persist($group);
 
@@ -710,7 +710,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
 
     public function testBulkAddByGroupSkipsOrganizationsWithoutEmail(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = (new OrganizationGroup())->setName('Группа А')->setCreatedBy($manager);
         $this->em()->persist($group);
 
@@ -742,8 +742,8 @@ final class CampaignControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotBulkAddFromInaccessibleGroup(): void
     {
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $group = (new OrganizationGroup())->setName('Чужая')->setCreatedBy($manager2);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -764,7 +764,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
 
     public function testBulkAddByGroupAjaxReturnsJson(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = (new OrganizationGroup())->setName('Группа А')->setCreatedBy($manager);
         $this->em()->persist($group);
 
@@ -801,7 +801,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
 
     public function testBulkAddByGroupWithEmptyGroupAddsNothing(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = (new OrganizationGroup())->setName('Пустая')->setCreatedBy($manager);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -824,7 +824,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
 
     public function testBulkAddAllDiscardsNoEmailOrganizationsInMessage(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = (new OrganizationGroup())->setName('Группа А')->setCreatedBy($manager);
         $this->em()->persist($group);
 
@@ -861,7 +861,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $org->setIsOptedOut(true);
         $this->em()->flush();
         $campaign = $this->persistCampaign('Рассылка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->formToken($campaign->id);
         $this->client->request('POST', '/campaigns/' . $campaign->id . '/recipients', [
@@ -883,7 +883,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $optedOut->setIsOptedOut(true);
         $this->em()->flush();
         $campaign = $this->persistCampaign('Рассылка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->formToken($campaign->id);
         $this->client->request('POST', '/campaigns/' . $campaign->id . '/recipients/bulk', [
@@ -902,7 +902,7 @@ final class CampaignControllerTest extends DatabaseWebTestCase
 
     public function testBulkAddByGroupSkipsOptedOutOrganizations(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = (new OrganizationGroup())->setName('Группа А')->setCreatedBy($manager);
         $this->em()->persist($group);
 
@@ -1001,9 +1001,10 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         return $organization;
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = new User()
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');
@@ -1026,8 +1027,8 @@ final class CampaignControllerTest extends DatabaseWebTestCase
     private function makeTwoManagersWithOrganizations(): array
     {
         $em = $this->em();
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $em->flush();
 
         $personal1 = (new OrganizationGroup())

@@ -24,7 +24,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
     public function testAdminCreatesContactBoundToOrganization(): void
     {
         $organization = $this->makeOrganization('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/contacts/new');
         $this->submitFormByButton('Создать', [
@@ -70,7 +70,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
     public function testAdminCreatesContactWithIsMain(): void
     {
         $organization = $this->makeOrganization('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/contacts/new');
         $this->submitFormByButton('Создать', [
@@ -92,7 +92,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
         $previous = $this->makeContact($organization, 'Мария Смирнова');
         $previous->setIsMain(true);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/contacts/new');
         $this->submitFormByButton('Создать', [
@@ -114,7 +114,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
         $previous->setIsMain(true);
         $candidate = $this->makeContact($organization, 'Иван Петров');
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/contacts/' . $candidate->id . '/edit');
         $this->submitFormByButton('Сохранить', ['name' => 'Иван Петров', 'isMain' => '1']);
@@ -134,7 +134,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
         $second->setIsMain(true);
         $third = $this->makeContact($organization, 'Алексей Сидоров');
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         // Сохранение любого контакта организации нормализует аномалию:
         // isMain остаётся только у контакта с минимальным ID.
@@ -176,7 +176,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
     public function testCreateFormPreselectsOrganizationFromLink(): void
     {
         $organization = $this->makeOrganization('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/contacts/new?organization=' . $organization->id);
 
@@ -188,7 +188,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
     public function testCreateWithBlankNameShowsRussianErrorAndDoesNotSave(): void
     {
         $organization = $this->makeOrganization('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/contacts/new');
         $this->submitFormByButton('Создать', [
@@ -204,7 +204,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
 
     public function testCreateWithoutOrganizationShowsRussianError(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         // Прямой POST: в пустом списке организаций нет опций для заполнения формы.
         $this->submitContactAjax(
@@ -222,7 +222,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
     public function testAdminEditsContactPhone(): void
     {
         $contact = $this->makeContactWithOrganization();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/contacts/' . $contact->id . '/edit');
         $this->assertInputValueSame('name', 'Иван Петров');
@@ -246,7 +246,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
     public function testEditWithClearedNameShowsRussianErrorAndKeepsValues(): void
     {
         $contact = $this->makeContactWithOrganization(phone: '+7-900-000-00-00');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/contacts/' . $contact->id . '/edit');
         $this->submitFormByButton('Сохранить', [
@@ -324,7 +324,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
     public function testAjaxUpdateReturnsJsonGridAndPersistsChanges(): void
     {
         $contact = $this->makeContactWithOrganization(phone: '+7-900-000-00-00');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $url = '/contacts/' . $contact->id . '/edit';
         $this->submitContactAjax($url, $url, [
@@ -355,7 +355,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
     public function testAjaxUpdateInvalidDataReturnsJsonErrors(): void
     {
         $contact = $this->makeContactWithOrganization();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $url = '/contacts/' . $contact->id . '/edit';
         $this->submitContactAjax($url, $url, ['name' => '']);
@@ -371,7 +371,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
     public function testDeleteConfirmationPageShowsWarning(): void
     {
         $contact = $this->makeContactWithOrganization();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/contacts/' . $contact->id . '/delete');
 
@@ -383,7 +383,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
     public function testRemoveDeletesContact(): void
     {
         $contact = $this->makeContactWithOrganization();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/contacts/' . $contact->id . '/delete');
         $this->submitFormByButton('Удалить', []);
@@ -397,7 +397,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
     public function testCancelDeletionKeepsContact(): void
     {
         $contact = $this->makeContactWithOrganization();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/contacts/' . $contact->id . '/delete');
 
@@ -416,9 +416,10 @@ final class ContactControllerTest extends DatabaseWebTestCase
         $this->assertResponseRedirects('/login');
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = new User()
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');
@@ -467,8 +468,8 @@ final class ContactControllerTest extends DatabaseWebTestCase
     private function makeTwoManagersWithOrganizations(): array
     {
         $em = $this->em();
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $em->flush();
 
         $personal1 = $this->makeGroup($manager1);

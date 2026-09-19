@@ -107,8 +107,8 @@ final class OrganizationHidingReadPathTest extends DatabaseWebTestCase
 
     public function testAssignedGroupMembersViewHidesHiddenOrganizations(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = (new OrganizationGroup())
             ->setName('Общая группа')
             ->setCreatedBy($admin);
@@ -136,7 +136,7 @@ final class OrganizationHidingReadPathTest extends DatabaseWebTestCase
 
     public function testBulkAddByGroupSkipsHiddenOrganizations(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = (new OrganizationGroup())
             ->setName('Группа менеджера')
             ->setCreatedBy($manager);
@@ -189,7 +189,7 @@ final class OrganizationHidingReadPathTest extends DatabaseWebTestCase
      */
     private function seedWithCallToday(): array
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $hidden = $this->makeOrganization('ООО Ромашка');
         $visible = $this->makeOrganization('ООО Вектор');
         $this->em()->persist(new Contact()
@@ -217,8 +217,8 @@ final class OrganizationHidingReadPathTest extends DatabaseWebTestCase
      */
     private function seedCampaignWithRecipients(): array
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $hidden = $this->makeOrganization('ООО Ромашка');
         $visible = $this->makeOrganization('ООО Вектор');
         $this->em()->flush();
@@ -234,9 +234,10 @@ final class OrganizationHidingReadPathTest extends DatabaseWebTestCase
         return [$manager, $admin, $hidden, $visible];
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = (new User())
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');

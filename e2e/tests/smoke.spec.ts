@@ -3,8 +3,9 @@ import { expect, test, type Page } from '@playwright/test';
 const loginSubmit = 'form[action="/login"] button[type="submit"]';
 
 async function login(page: Page, email: string, password: string) {
+  const login = email.split('@')[0];
   await page.goto('/login');
-  await page.fill('input[name="_username"]', email);
+  await page.fill('input[name="_login"]', login);
   await page.fill('input[name="_password"]', password);
   await page.click(loginSubmit);
   await expect(page.locator('.header__menu-link', { hasText: 'Панель' })).toBeVisible();
@@ -20,7 +21,7 @@ test('главная страница перенаправляет гостя н
 
 test('вход администратором', async ({ page }) => {
   await page.goto('/login');
-  await page.fill('input[name="_username"]', 'admin@b2b-crm.loc');
+  await page.fill('input[name="_login"]', 'admin');
   await page.fill('input[name="_password"]', 'admin123');
   await page.click(loginSubmit);
 
@@ -33,7 +34,7 @@ test('вход администратором', async ({ page }) => {
 
 test('вход менеджером', async ({ page }) => {
   await page.goto('/login');
-  await page.fill('input[name="_username"]', 'manager@b2b-crm.loc');
+  await page.fill('input[name="_login"]', 'manager');
   await page.fill('input[name="_password"]', 'manager123');
   await page.click(loginSubmit);
 
@@ -48,7 +49,7 @@ test('вход менеджером', async ({ page }) => {
 
 test('неверный пароль: ошибка и отсутствие сессии', async ({ page }) => {
   await page.goto('/login');
-  await page.fill('input[name="_username"]', 'admin@b2b-crm.loc');
+  await page.fill('input[name="_login"]', 'admin');
   await page.fill('input[name="_password"]', 'wrong-password');
   await page.click(loginSubmit);
 
@@ -78,6 +79,8 @@ test('новый пользователь устанавливает парол�
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await page.goto('/admin/users/new');
   const email = `setup-e2e-${Date.now()}@example.com`;
+  const loginName = email.split('@')[0];
+  await page.fill('input[name="login"]', loginName);
   await page.fill('input[name="email"]', email);
   await page.selectOption('select[name="role"]', 'manager');
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();
@@ -92,7 +95,7 @@ test('новый пользователь устанавливает парол�
   await page.check('#new-user-toggle');
 
   // Заполняем форму установки пароля
-  await page.fill('#setup-password-form input[name="email"]', email);
+  await page.fill('#setup-password-form input[name="login"]', loginName);
   await page.fill('#setup-password-form input[name="new_password"]', 'securepass123');
   await page.fill('#setup-password-form input[name="confirm_password"]', 'securepass123');
   await page.click('#setup-password-form button[type="submit"]');
@@ -102,7 +105,7 @@ test('новый пользователь устанавливает парол�
   await expect(page.locator('.alert--warning')).toContainText('Пароль установлен');
 
   // Теперь входим с новым паролем
-  await page.fill('input[name="_username"]', email);
+  await page.fill('input[name="_login"]', loginName);
   await page.fill('input[name="_password"]', 'securepass123');
   await page.click(loginSubmit);
 
@@ -114,6 +117,8 @@ test('установка пароля: ошибка при коротком па
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await page.goto('/admin/users/new');
   const email = `short-e2e-${Date.now()}@example.com`;
+  const loginName = email.split('@')[0];
+  await page.fill('input[name="login"]', loginName);
   await page.fill('input[name="email"]', email);
   await page.selectOption('select[name="role"]', 'manager');
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();
@@ -124,7 +129,7 @@ test('установка пароля: ошибка при коротком па
   await page.goto('/login');
   await page.check('#new-user-toggle');
 
-  await page.fill('#setup-password-form input[name="email"]', email);
+  await page.fill('#setup-password-form input[name="login"]', loginName);
   await page.fill('#setup-password-form input[name="new_password"]', '1234567');
   await page.fill('#setup-password-form input[name="confirm_password"]', '1234567');
   await page.click('#setup-password-form button[type="submit"]');
@@ -138,6 +143,8 @@ test('установка пароля: ошибка при несовпаден�
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await page.goto('/admin/users/new');
   const email = `mismatch-e2e-${Date.now()}@example.com`;
+  const loginName = email.split('@')[0];
+  await page.fill('input[name="login"]', loginName);
   await page.fill('input[name="email"]', email);
   await page.selectOption('select[name="role"]', 'manager');
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();
@@ -148,7 +155,7 @@ test('установка пароля: ошибка при несовпаден�
   await page.goto('/login');
   await page.check('#new-user-toggle');
 
-  await page.fill('#setup-password-form input[name="email"]', email);
+  await page.fill('#setup-password-form input[name="login"]', loginName);
   await page.fill('#setup-password-form input[name="new_password"]', 'securepass123');
   await page.fill('#setup-password-form input[name="confirm_password"]', 'differentpass');
   await page.click('#setup-password-form button[type="submit"]');

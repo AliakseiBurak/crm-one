@@ -33,7 +33,7 @@ final class HomeControllerTest extends DatabaseWebTestCase
         // Организация без отписки
         $this->makeOrganization('ООО Активная');
 
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/');
 
@@ -47,7 +47,7 @@ final class HomeControllerTest extends DatabaseWebTestCase
 
     public function testDashboardOptOutStatsRespectManagerScope(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = (new \App\Entity\OrganizationGroup())->setName('Группа менеджера')->setCreatedBy($manager);
         $this->em()->persist($group);
 
@@ -80,7 +80,7 @@ final class HomeControllerTest extends DatabaseWebTestCase
 
     public function testHomeShowsOptOutSection(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/');
 
@@ -112,7 +112,7 @@ final class HomeControllerTest extends DatabaseWebTestCase
         // Организация без отписки
         $this->makeOrganization('ООО Активная');
 
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/');
 
@@ -122,9 +122,10 @@ final class HomeControllerTest extends DatabaseWebTestCase
         self::assertStringContainsString('Из письма', $content);
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = new User()
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');

@@ -20,7 +20,7 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 {
     public function testManagerGets403OnHidesList(): void
     {
-        $this->login($this->makeUser('manager@b2b-crm.loc', UserRole::Manager));
+        $this->login($this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager));
 
         $this->client->request('GET', '/admin/hides');
 
@@ -29,7 +29,7 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotCreateHideViaPost(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $this->em()->flush();
         $this->login($manager);
@@ -46,8 +46,8 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotDeleteHideViaPost(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $org = $this->makeOrganization('ООО Ромашка');
         $hide = new OrganizationHide($org, $manager);
         $this->em()->persist($hide);
@@ -64,7 +64,7 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testAdminSeesEmptyRegistry(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->client->request('GET', '/admin/hides');
 
@@ -77,9 +77,9 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testAdminCreatesHideForSpecificManager(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $this->em()->flush();
         $this->login($admin);
@@ -99,9 +99,9 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testAdminCreatesHideForAllManagers(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $this->em()->flush();
         $this->login($admin);
@@ -121,8 +121,8 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testEmptyManagersMeansHideFromAll(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $this->em()->flush();
         $this->login($admin);
@@ -141,9 +141,9 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testCreateWithoutOrganizationShowsError(): void
     {
-        $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
+        $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $token = $this->formToken();
         $this->client->request('POST', '/admin/hides', [
@@ -161,7 +161,7 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testCreateRejectsNonManagerUsers(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $org = $this->makeOrganization('ООО Ромашка');
         $this->em()->flush();
         $this->login($admin);
@@ -182,8 +182,8 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testCreateDuplicatePairShowsConflictError(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $this->em()->persist(new OrganizationHide($org, $manager1));
         $this->em()->flush();
@@ -205,9 +205,9 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testAdminUnhidesSingleManager(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $hide1 = new OrganizationHide($org, $manager1);
         $this->em()->persist($hide1);
@@ -228,8 +228,8 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testRegistryListsOrganizationManagerAndHiddenAt(): void
     {
-        $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
+        $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $this->em()->persist(new OrganizationHide($org, $manager));
         $this->em()->flush();
@@ -248,7 +248,7 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testAdminNavContainsHidesEntry(): void
     {
-        $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $this->em()->flush();
         $this->login($this->em()->getRepository(User::class)->findOneBy(['email' => 'admin@b2b-crm.loc']));
 
@@ -263,7 +263,7 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testManagerNavHasNoHidesEntry(): void
     {
-        $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
         $this->login($this->em()->getRepository(User::class)->findOneBy(['email' => 'manager@b2b-crm.loc']));
 
@@ -275,9 +275,9 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testOrgEditFormShowsHidesForAdminOnly(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
-        $otherManager = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $otherManager = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         // Группа принадлежит otherManager — менеджер получает доступ к org.
         $group = (new \App\Entity\OrganizationGroup())
@@ -304,8 +304,8 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testUnhideViaEditFormRemovesHideRow(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $hide = new OrganizationHide($org, $manager);
         $this->em()->persist($hide);
@@ -335,8 +335,8 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotUnhideViaOrgEdit(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $org = $this->makeOrganization('ООО Ромашка');
         $hide = new OrganizationHide($org, $manager);
         $this->em()->persist($hide);
@@ -371,9 +371,10 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
         return $crawler->filter('input[name="_csrf_token"]')->first()->attr('value');
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = (new User())
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');

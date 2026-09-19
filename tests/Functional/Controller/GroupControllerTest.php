@@ -17,7 +17,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 {
     public function testManagerSeesOwnGroupsInList(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('My Group', $manager);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -31,8 +31,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerSeesAssignedGroupsInList(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $group = $this->makeGroup('Assigned Group', $admin);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -50,8 +50,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerDoesNotSeeOtherManagerGroupsInList(): void
     {
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Other Group', $manager2);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -65,7 +65,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerCreatesGroup(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
 
         $this->login($manager);
@@ -92,7 +92,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerCreatesGroupWithInvalidColorReturns422(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
 
         $this->login($manager);
@@ -109,7 +109,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerCreatesGroupWithBlankNameReturns422(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
 
         $this->login($manager);
@@ -125,7 +125,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerEditsOwnGroup(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('My Group', $manager);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -147,8 +147,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotEditOtherManagerGroup(): void
     {
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Other Group', $manager2);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -161,7 +161,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerDeletesOwnGroup(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('My Group', $manager);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -180,8 +180,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotDeleteOtherManagerGroup(): void
     {
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Other Group', $manager2);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -194,7 +194,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerAddsOrgsToGroupMembership(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('My Group', $manager);
         $this->em()->persist($group);
 
@@ -231,7 +231,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerRemovesOrgsFromGroupMembership(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('My Group', $manager);
         $this->em()->persist($group);
 
@@ -262,8 +262,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotAccessOtherManagerGroupMembers(): void
     {
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Other Group', $manager2);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -276,8 +276,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotAddInaccessibleOrgToGroupMembership(): void
     {
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('My Group', $manager1);
         $this->em()->persist($group);
 
@@ -316,8 +316,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testAssignedGroupRowHasNoEditLink(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $ownGroup = $this->makeGroup('My Group', $manager);
         $assignedGroup = $this->makeGroup('Assigned Group', $admin);
         $this->em()->persist($ownGroup);
@@ -350,8 +350,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerSeesAssignedGroupMembersReadOnly(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $group = $this->makeGroup('Assigned Group', $admin);
         $this->em()->persist($group);
 
@@ -374,8 +374,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotUpdateMembersOfAssignedGroup(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $assignedGroup = $this->makeGroup('Assigned Group', $admin);
         $ownGroup = $this->makeGroup('My Group', $manager);
         $this->em()->persist($assignedGroup);
@@ -409,7 +409,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testGroupDeletePageKeepsOrganizations(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('My Group', $manager);
         $this->em()->persist($group);
 
@@ -440,8 +440,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testAdminSeesAllGroupsInList(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $ownGroup = $this->makeGroup('Manager Group', $manager);
         $adminGroup = $this->makeGroup('Admin Group', $admin);
         $this->em()->persist($ownGroup);
@@ -458,8 +458,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testAdminCanEditManagerGroup(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Manager Group', $manager);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -481,8 +481,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testAdminCanDeleteManagerGroup(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Manager Group', $manager);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -501,7 +501,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testAdminCreatesGroup(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $this->em()->flush();
 
         $this->login($admin);
@@ -522,8 +522,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testAdminCanAccessManagerGroupMembers(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Manager Group', $manager);
         $this->em()->persist($group);
 
@@ -541,8 +541,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testAdminCanAddOrgsToManagerGroup(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Manager Group', $manager);
         $this->em()->persist($group);
 
@@ -570,7 +570,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testAdminGroupListHeading(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $this->em()->flush();
 
         $this->login($admin);
@@ -582,7 +582,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerGroupListHeading(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
 
         $this->login($manager);
@@ -596,9 +596,9 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testAdminSeesAssignPageWithManagersAndCheckboxState(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Assign Group', $admin);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -623,9 +623,9 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testAdminAssignsManagersToGroup(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Assign Group', $admin);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -653,9 +653,9 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testAdminUnassignsManagerFromGroup(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Assign Group', $admin);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -686,8 +686,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testAdminUnassignsAllManagersFromGroup(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Assign Group', $admin);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -714,7 +714,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testGroupAssignIgnoresSubmittedAdminId(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $group = $this->makeGroup('Assign Group', $admin);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -740,8 +740,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotAccessGroupAssignPage(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Admin Group', $admin);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -754,8 +754,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotPostGroupAssign(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('Admin Group', $admin);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -772,8 +772,8 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testAdminSeesAssignButtonInGroupList(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $managerGroup = $this->makeGroup('Manager Group', $manager);
         $this->em()->persist($managerGroup);
         $this->em()->flush();
@@ -791,7 +791,7 @@ final class GroupControllerTest extends DatabaseWebTestCase
 
     public function testManagerDoesNotSeeAssignButtonInGroupList(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = $this->makeGroup('My Group', $manager);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -807,9 +807,10 @@ final class GroupControllerTest extends DatabaseWebTestCase
         );
     }
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = new User()
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');

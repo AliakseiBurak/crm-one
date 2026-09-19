@@ -30,7 +30,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testAdminCreatesCallBoundToOrganization(): void
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/organizations/' . $organization->id . '/calls/new');
         self::assertSelectorTextContains('h1', 'Новый звонок');
@@ -67,7 +67,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testCreateWithActualDateOnlySavesCompletedCall(): void
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/calls/new');
         // Запланированная дата опциональна: проведённый звонок фиксируется
@@ -90,7 +90,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testCreateWithoutAnyDatesSavesCall(): void
     {
         $organization = $this->makeOrganization('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/calls/new');
         $this->submitFormByButton('Создать', [
@@ -109,7 +109,7 @@ final class CallControllerTest extends DatabaseWebTestCase
 
     public function testCallFormLayoutContactUnderOrganizationAndDealUnderNotes(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $crawler = $this->open('/calls/new');
 
         $formHtml = $crawler->filter('[data-call-form]')->html();
@@ -137,7 +137,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testFutureCallModeSavesScheduledWithoutFact(): void
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $scheduledAt = new \DateTimeImmutable('+3 days');
         $this->open('/organizations/' . $organization->id . '/calls/new');
@@ -164,7 +164,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
         $campaign = $this->persistReadyCampaign('Осенняя рассылка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/calls/new');
         $this->submitFormByButton('Создать', [
@@ -202,7 +202,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testNewFormPrefillsMadeAtWithCurrentDateTime(): void
     {
         $before = new \DateTimeImmutable('-1 minute');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $crawler = $this->open('/calls/new');
         $after = new \DateTimeImmutable('+1 minute');
 
@@ -219,7 +219,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         $call = $this->makeCallWithOrganization(notes: 'Уже проведён');
         $call->setMadeAt(new \DateTimeImmutable('2026-08-20 10:00'));
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/calls/' . $call->id . '/edit');
         self::assertNotNull($crawler->filter('#is-future-call')->attr('disabled'));
@@ -244,7 +244,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testCreateValidationErrorRestoresEnteredValues(): void
     {
         $organization = $this->makeOrganization('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/calls/new');
         $this->submitFormByButton('Создать', [
@@ -270,7 +270,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testCreateWithFutureActualDateShowsRussianErrorAndRestoresValues(): void
     {
         $organization = $this->makeOrganization('ООО Ромашка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/organizations/' . $organization->id . '/calls/new');
         $this->submitFormByButton('Создать', [
@@ -292,7 +292,7 @@ final class CallControllerTest extends DatabaseWebTestCase
 
     public function testCreateWithoutOrganizationShowsRussianError(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/calls/new');
         $this->submitFormByButton('Создать', [
@@ -348,7 +348,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testAdminEditsCallNotes(): void
     {
         $call = $this->makeCallWithOrganization(notes: 'Старая заметка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/calls/' . $call->id . '/edit');
         self::assertSelectorTextContains('h1', 'Редактирование звонка');
@@ -369,7 +369,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testEditClearedScheduledAtClearsDate(): void
     {
         $call = $this->makeCallWithOrganization(notes: 'Заметка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/calls/' . $call->id . '/edit');
         $this->submitFormByButton('Сохранить', [
@@ -424,7 +424,7 @@ final class CallControllerTest extends DatabaseWebTestCase
 
     public function testRecordedFactSetsDateAndCurrentUserAsAuthor(): void
     {
-        $user = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $user = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $personal = $this->makeGroup($user);
         $this->em()->persist($personal);
         $organization = $this->makeOrganization('ООО Ромашка');
@@ -453,7 +453,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         $call = $this->makeCallWithOrganization(notes: 'Факт был');
         $call->setMadeAt(new \DateTimeImmutable('2026-08-20 10:00'));
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/calls/' . $call->id . '/edit');
         $this->submitFormByButton('Сохранить', [
@@ -472,7 +472,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testDealFlagPersists(): void
     {
         $call = $this->makeCallWithOrganization(notes: 'Переговоры');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/calls/' . $call->id . '/edit');
         $this->submitFormByButton('Сохранить', [
@@ -491,7 +491,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         $organization = $this->makeOrganization('ООО Ромашка');
         $call = $this->makeCallFor($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/calls/' . $call->id . '/edit');
         $this->submitFormByButton('Сохранить', [
@@ -517,7 +517,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
         $call = $this->makeCallFor($organization, $contact, notes: 'Исходный');
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->submitCallAjax('/calls/' . $call->id . '/edit', '/calls/' . $call->id . '/edit', [
             'made_at' => '24.08.2026 15:30',
@@ -546,7 +546,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
         $call = $this->makeCallFor($organization, $contact, notes: 'До изменения');
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->submitCallAjax('/calls/' . $call->id . '/edit', '/calls/' . $call->id . '/edit', [
             'is_future_call' => '1',
@@ -570,7 +570,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testAjaxUpdateInvalidDataReturnsJsonErrors(): void
     {
         $call = $this->makeCallWithOrganization(notes: 'Заметка');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->submitCallAjax('/calls/' . $call->id . '/edit', '/calls/' . $call->id . '/edit', [
             'is_future_call' => '1',
@@ -586,7 +586,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testDeleteConfirmationPageShowsWarning(): void
     {
         $call = $this->makeCallWithOrganization(notes: 'На удаление');
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/calls/' . $call->id . '/delete');
 
@@ -605,7 +605,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         $organization = $this->makeOrganization('ООО Ромашка');
         $call = $this->makeCallFor($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/calls/' . $call->id . '/delete');
         $this->submitFormByButton('Удалить', []);
@@ -632,7 +632,7 @@ final class CallControllerTest extends DatabaseWebTestCase
             ->setName('Анна Смирнова');
         $this->em()->persist($second);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->client->request('GET', '/organizations/' . $organization->id . '/contacts.json');
 
@@ -666,7 +666,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         $contact->setEmail('ivan@romashka.example');
         $call = $this->makeCallFor($organization, $contact);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/calls/' . $call->id . '/edit');
         $this->submitFormByButton('Сохранить', [
@@ -689,7 +689,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     public function testResubmitWithoutMailingCampaignDoesNotDuplicateRecipient(): void
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $campaign = $this->persistReadyCampaign('Осенняя рассылка');
         $call = $this->makeCallFor($organization, $contact);
         $call->setMadeAt(new \DateTimeImmutable('2026-08-24 15:30'));
@@ -717,7 +717,7 @@ final class CallControllerTest extends DatabaseWebTestCase
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
         $contact->setEmail('ivan@romashka.example');
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $campaign = $this->persistLaunchedCampaign('Акция');
         $this->em()->persist(new CampaignRecipient($campaign, $organization, $contact));
         $call = $this->makeCallFor($organization, $contact);
@@ -751,7 +751,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         $contact->setEmail('ivan@romashka.example');
         $call = $this->makeCallFor($organization, $contact);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/calls/' . $call->id . '/edit');
         $this->submitFormByButton('Сохранить', [
@@ -775,7 +775,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         $campaign = $this->persistArchivedCampaign('Прошлая акция');
         $call = $this->makeCallFor($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/calls/' . $call->id . '/edit');
         self::assertCount(0, $crawler->filter('#mailing-campaign option[value="' . $campaign->id . '"]'));
@@ -787,7 +787,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         $campaign = $this->persistReadyCampaign('Осенняя рассылка');
         $call = $this->makeCallFor($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/calls/' . $call->id . '/edit');
         $this->submitFormByButton('Сохранить', [
@@ -809,7 +809,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         [$organization] = $this->makeOrganizationWithContact('ООО Ромашка');
         $call = $this->makeCallFor($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/calls/' . $call->id . '/edit');
         $this->submitFormByButton('Сохранить', [
@@ -831,7 +831,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         $campaign = $this->persistReadyCampaign('Осенняя рассылка');
         $call = $this->makeCallFor($organization);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/calls/' . $call->id . '/edit');
         $this->submitFormByButton('Сохранить', [
@@ -855,7 +855,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         $nextCall = $this->makeCallFor($organization, notes: 'Следующий звонок');
         $call->setNextCall($nextCall);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $callsBefore = $this->em()->getRepository(Call::class)->count(['organization' => $organization]);
 
@@ -884,7 +884,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         $call = $this->makeCallFor($organization, $contact);
         $call->setCampaign($campaign);
         $this->em()->flush();
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $crawler = $this->open('/calls/' . $call->id . '/delete');
 
@@ -896,9 +896,10 @@ final class CallControllerTest extends DatabaseWebTestCase
     // ------------------------------------------------------------------
     // Помощники
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
-        $user = new User()
+        $user = (new User())
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');
@@ -958,8 +959,8 @@ final class CallControllerTest extends DatabaseWebTestCase
     private function makeTwoManagersWithOrganizations(): array
     {
         $em = $this->em();
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $em->flush();
 
         $personal1 = $this->makeGroup($manager1);

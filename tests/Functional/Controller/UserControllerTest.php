@@ -23,9 +23,10 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testAdminCreatesUserWithAllFields(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $this->open('/admin/users/new');
         $this->submitFormByButton('Создать', [
+            'login' => 'maria',
             'email' => 'maria@example.com',
             'name' => 'Мария',
             'surname' => 'Смирнова',
@@ -44,9 +45,10 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testAdminCreatesUserWithoutNameAndSurname(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $this->open('/admin/users/new');
         $this->submitFormByButton('Создать', [
+            'login' => 'ivanov',
             'email' => 'ivan@example.com',
             'name' => '',
             'surname' => '',
@@ -64,9 +66,10 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testCreateAdminDoesNotCreatePersonalGroup(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $this->open('/admin/users/new');
         $this->submitFormByButton('Создать', [
+            'login' => 'newadmin',
             'email' => 'newadmin@example.com',
             'name' => '',
             'surname' => '',
@@ -80,29 +83,31 @@ final class UserControllerTest extends DatabaseWebTestCase
         self::assertNotNull($user);
     }
 
-    public function testCreateWithMissingEmailShowsError(): void
+    public function testCreateWithoutEmailSucceeds(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $this->open('/admin/users/new');
         $this->submitFormByButton('Создать', [
+            'login' => 'test-user',
             'email' => '',
             'name' => '',
             'surname' => '',
             'role' => 'manager',
         ]);
 
-        $this->assertResponseStatusCodeSame(422);
-        self::assertSame(0, $this->em()->getRepository(User::class)->count(['email' => '']));
+        $this->assertResponseRedirects('/admin/users');
+        self::assertSame(1, $this->em()->getRepository(User::class)->count(['login' => 'test-user']));
     }
 
     public function testCreateWithDuplicateEmailShowsError(): void
     {
-        $this->makeUser('existing@example.com', UserRole::Manager);
+        $this->makeUser('existing', 'existing@example.com', UserRole::Manager);
         $this->em()->flush();
 
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $this->open('/admin/users/new');
         $this->submitFormByButton('Создать', [
+            'login' => 'existing',
             'email' => 'existing@example.com',
             'name' => '',
             'surname' => '',
@@ -113,11 +118,28 @@ final class UserControllerTest extends DatabaseWebTestCase
         $this->assertSelectorTextContains('.field__error', 'уже существует');
     }
 
-    public function testCreateWithMissingRoleShowsError(): void
+    public function testCreateWithTooShortLoginShowsError(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $this->open('/admin/users/new');
         $this->submitFormByButton('Создать', [
+            'login' => 'abc',
+            'email' => 'test@example.com',
+            'name' => '',
+            'surname' => '',
+            'role' => 'manager',
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
+        $this->assertSelectorTextContains('.field__error', 'не менее 5 символов');
+    }
+
+    public function testCreateWithMissingRoleShowsError(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/admin/users/new');
+        $this->submitFormByButton('Создать', [
+            'login' => 'testuser',
             'email' => 'test@example.com',
             'name' => '',
             'surname' => '',
@@ -130,9 +152,10 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testCreateWithInvalidRoleShowsError(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $token = $this->open('/admin/users/new')->filter('input[name="_csrf_token"]')->attr('value');
         $this->client->request('POST', '/admin/users/new', [
+            'login' => 'testuser',
             'email' => 'test@example.com',
             'name' => '',
             'surname' => '',
@@ -146,9 +169,10 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testCreateWithInvalidEmailFormatShowsError(): void
     {
-        $this->login($this->makeUser('admin@b2b-crm.loc', UserRole::Admin));
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
         $this->open('/admin/users/new');
         $this->submitFormByButton('Создать', [
+            'login' => 'not-an-email',
             'email' => 'not-an-email',
             'name' => '',
             'surname' => '',
@@ -164,8 +188,8 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testAdminCannotDeleteManagerWithoutGroupChoice(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = new OrganizationGroup()
             ->setName('Группа менеджера')
             ->setCreatedBy($manager);
@@ -187,9 +211,9 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testDeleteConfirmationShowsGroupContext(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
-        $colleague = $this->makeUser('colleague@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $colleague = $this->makeUser('colleague', 'colleague@b2b-crm.loc', UserRole::Manager);
         $colleague->setName('Пётр')->setSurname('Сидоров');
 
         $group = (new OrganizationGroup())->setName('Группа менеджера')->setCreatedBy($manager);
@@ -214,8 +238,8 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testAdminReassignsGroupsWhenDeletingManager(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = new OrganizationGroup()
             ->setName('Группа менеджера')
             ->setCreatedBy($manager);
@@ -239,8 +263,8 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testAdminDeletesGroupsWhenDeletingManager(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = new OrganizationGroup()
             ->setName('Группа менеджера')
             ->setCreatedBy($manager);
@@ -265,8 +289,8 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testAdminDeletesAdminNoGroupDeleted(): void
     {
-        $admin1 = $this->makeUser('admin1@b2b-crm.loc', UserRole::Admin);
-        $admin2 = $this->makeUser('admin2@b2b-crm.loc', UserRole::Admin);
+        $admin1 = $this->makeUser('admin1', 'admin1@b2b-crm.loc', UserRole::Admin);
+        $admin2 = $this->makeUser('admin2', 'admin2@b2b-crm.loc', UserRole::Admin);
         $this->em()->flush();
 
         $admin2Id = $admin2->id;
@@ -283,7 +307,7 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testAdminCannotDeleteSelf(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $this->em()->flush();
 
         $adminId = $admin->id;
@@ -302,8 +326,8 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testAdminSeesAllUsersInList(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
 
         $this->login($admin);
@@ -317,7 +341,7 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testDeleteButtonMissingForCurrentUser(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
         $this->em()->flush();
 
         $this->login($admin);
@@ -332,7 +356,7 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotAccessUserList(): void
     {
-        $this->login($this->makeUser('manager@b2b-crm.loc', UserRole::Manager));
+        $this->login($this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager));
         $this->client->request('GET', '/admin/users');
 
         $this->assertResponseStatusCodeSame(403);
@@ -340,7 +364,7 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotAccessCreateForm(): void
     {
-        $this->login($this->makeUser('manager@b2b-crm.loc', UserRole::Manager));
+        $this->login($this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager));
         $this->client->request('GET', '/admin/users/new');
 
         $this->assertResponseStatusCodeSame(403);
@@ -348,8 +372,8 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotDeleteUser(): void
     {
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
-        $target = $this->makeUser('target@b2b-crm.loc', UserRole::Manager);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $target = $this->makeUser('target', 'target@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
 
         $this->login($manager);
@@ -371,8 +395,8 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testAdminSeesAssignPageWithGroupsAndCheckboxState(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $assignedGroup = (new OrganizationGroup())->setName('Assigned Group')->setCreatedBy($admin);
         $otherGroup = (new OrganizationGroup())->setName('Other Group')->setCreatedBy($admin);
         $ownGroup = (new OrganizationGroup())->setName('Own Group')->setCreatedBy($manager);
@@ -401,8 +425,8 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testAdminAssignsGroupsToManager(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = (new OrganizationGroup())->setName('Shared Group')->setCreatedBy($admin);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -430,8 +454,8 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testAdminUnassignsGroupsFromManager(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
         $group = (new OrganizationGroup())->setName('Shared Group')->setCreatedBy($admin);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -461,8 +485,8 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testUserAssignPageNotFoundForAdmin(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $otherAdmin = $this->makeUser('other-admin@b2b-crm.loc', UserRole::Admin);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $otherAdmin = $this->makeUser('other-admin', 'other-admin@b2b-crm.loc', UserRole::Admin);
         $this->em()->flush();
 
         // Администратору группы не назначаются (design D6).
@@ -474,8 +498,8 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotAccessUserAssignPage(): void
     {
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $this->em()->flush();
 
         $this->login($manager2);
@@ -486,8 +510,8 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testManagerCannotPostUserAssign(): void
     {
-        $manager1 = $this->makeUser('manager1@b2b-crm.loc', UserRole::Manager);
-        $manager2 = $this->makeUser('manager2@b2b-crm.loc', UserRole::Manager);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
         $group = (new OrganizationGroup())->setName('Some Group')->setCreatedBy($manager2);
         $this->em()->persist($group);
         $this->em()->flush();
@@ -506,9 +530,9 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     public function testAssignButtonShownOnlyForManagerRows(): void
     {
-        $admin = $this->makeUser('admin@b2b-crm.loc', UserRole::Admin);
-        $manager = $this->makeUser('manager@b2b-crm.loc', UserRole::Manager);
-        $otherAdmin = $this->makeUser('other-admin@b2b-crm.loc', UserRole::Admin);
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $otherAdmin = $this->makeUser('other-admin', 'other-admin@b2b-crm.loc', UserRole::Admin);
         $this->em()->flush();
 
         $this->login($admin);
@@ -529,9 +553,10 @@ final class UserControllerTest extends DatabaseWebTestCase
 
     // --- Helpers ---
 
-    private function makeUser(string $email, UserRole $role): User
+    private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = new User()
+            ->setLogin($login)
             ->setEmail($email)
             ->setRole($role);
         $user->setPassword('test-password-hash');

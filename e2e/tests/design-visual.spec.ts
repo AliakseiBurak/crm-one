@@ -23,13 +23,13 @@ test('страница входа использует общий шаблон (
   await expect(page.locator('.header__logo')).toBeVisible();
   await expect(page.locator('.header__menu-link').first()).toBeVisible();
   await expect(page.locator('.footer')).toBeVisible();
-  await expect(page.locator('input[name="_username"]')).toBeVisible();
+  await expect(page.locator('input[name="_login"]')).toBeVisible();
   await expect(page.locator('form[action="/login"] button[type="submit"]')).toHaveText('Войти');
 });
 
 test('страница панели использует общий шаблон', async ({ page }) => {
   await page.goto('/login');
-  await page.fill('input[name="_username"]', 'admin@b2b-crm.loc');
+  await page.fill('input[name="_login"]', 'admin');
   await page.fill('input[name="_password"]', 'admin123');
   await page.click('button[type="submit"]');
   await page.goto('/dashboard');
