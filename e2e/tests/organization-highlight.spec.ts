@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 
 // Подсветка организации после редиректа create/update
 // (change fix-org-highlight-e2e): класс .org-table__row--highlight,
-// авто-раскрытие <details> с контактами на сервере (атрибут open) и
-// одноразовое исчезновение подсветки через 4 секунды.
+// авто-раскрытие секции контактов на сервере (класс --expanded на строке)
+// и одноразовое исчезновение подсветки через 4 секунды.
 
 const loginSubmit = 'form[action="/login"] button[type="submit"]';
 
@@ -20,13 +20,18 @@ function highlightedRow(page: Page) {
   return page.locator('tr.org-table__row--highlight');
 }
 
-// Блок <details> организации живёт в соседней строке таблицы; id строки
-// стабилен и после fade-out (в отличие от класса подсветки).
+// Блок <div class="org-details__box"> организации живёт в соседней строке таблицы;
+// id строки стабилен и после fade-out (в отличие от класса подсветки).
+// Раскрытие управляется CSS: .org-table__row--expanded + .org-details { display: table-row }.
 function detailsBox(page: Page, orgId: string) {
   return page
     .locator(`tr[data-org-id="${orgId}"]`)
     .locator('xpath=./following-sibling::tr[1]')
     .locator('.org-details__box');
+}
+
+function orgRow(page: Page, orgId: string) {
+  return page.locator(`tr[data-org-id="${orgId}"]`);
 }
 
 test('после создания организация подсвечена, contacts-блок раскрыт, подсветка исчезает', async ({ page }) => {
@@ -46,9 +51,10 @@ test('после создания организация подсвечена, c
   // Подсветка строки созданной организации.
   await expect(highlightedRow(page)).toHaveCount(1);
 
-  // Авто-раскрытие без клика: серверный open + видимое содержимое блока.
+  // Авто-раскрытие без клика: серверный рендер добавляет класс --expanded к строке,
+  // CSS-селектор .org-table__row--expanded + .org-details показывает секцию.
   const details = detailsBox(page, orgId);
-  await expect(details).toHaveAttribute('open', '');
+  await expect(orgRow(page, orgId)).toHaveClass(/org-table__row--expanded/);
   await expect(details.locator('.org-contacts__add')).toBeVisible();
 
   // Одноразовость: fade-out убирает класс примерно через 4 секунды.
@@ -78,9 +84,9 @@ test('после редактирования организация подсв�
 
   await expect(highlightedRow(page)).toHaveCount(1);
 
-  // Авто-раскрытие: карточки контактов видны без клика по summary.
+  // Авто-раскрытие: карточки контактов видны благодаря классу --expanded на строке.
   const details = detailsBox(page, orgId);
-  await expect(details).toHaveAttribute('open', '');
+  await expect(orgRow(page, orgId)).toHaveClass(/org-table__row--expanded/);
   await expect(details.locator('.org-contacts .card').first()).toBeVisible();
 
   await expect(highlightedRow(page)).toHaveCount(0, { timeout: 8_000 });

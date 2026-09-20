@@ -34,9 +34,9 @@ async function expectStillSamePage(page: Page) {
 async function openEditModal(page: Page) {
   await page.goto('/dashboard');
   const card = page.locator('[data-contact-card-wrap]').first();
-  // Карточка контакта внутри <details> (аккордеон) — нужно раскрыть
-  const details = card.locator('xpath=ancestor::details');
-  await details.locator('xpath=summary').first().click();
+  // Карточка контакта внутри раскрытой секции организации — нужно раскрыть строку организации
+  const orgRow = card.locator('xpath=ancestor::tr[contains(@class,"org-details")]/preceding-sibling::tr[1]');
+  await orgRow.click();
   await card.locator('[data-contact-edit]').click();
   await expect(page.locator(editModal)).toBeVisible();
 
@@ -47,9 +47,9 @@ async function openCreateModal(page: Page) {
   await page.goto('/dashboard');
   const button = page.locator('[data-contact-create]').first();
   const orgId = (await button.getAttribute('data-org-id')) ?? '';
-  // Кнопка «Добавить контакт» внутри <details> (аккордеон) — нужно раскрыть
-  const details = button.locator('xpath=ancestor::details');
-  await details.locator('xpath=summary').first().click();
+  // Кнопка «Добавить контакт» внутри раскрытой секции организации — нужно раскрыть строку организации
+  const orgRow = button.locator('xpath=ancestor::tr[contains(@class,"org-details")]/preceding-sibling::tr[1]');
+  await orgRow.click();
   await button.click();
   await expect(page.locator(createModal)).toBeVisible();
 

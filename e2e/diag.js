@@ -19,7 +19,7 @@ const { chromium } = require('playwright');
     const d = details.nth(i);
     const open = await d.getAttribute('open');
     if (open === null) {
-      await d.locator('.org-details__summary').click();
+      await d.locator('xpath=preceding-sibling::tr[1]').click();
       await page.waitForTimeout(300);
     }
     const btn = d.locator('.org-contacts__add').first();

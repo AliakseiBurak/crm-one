@@ -77,15 +77,13 @@ test('организация без контактов и звонков: тол
 
   const horizon = page.locator('.org-table__row', { hasText: 'Горизонт' });
   const details = horizon.locator('xpath=./following-sibling::tr[1]').locator('.org-details__box');
-  await details.locator('summary.org-details__summary').click();
+  await horizon.click();
   await expect(details.locator('.org-contacts__card-wrap')).toHaveCount(0);
   await expect(details.locator('a.org-contacts__add', { hasText: 'Добавить контакт' })).toBeVisible();
   // Кнопка «Добавить звонок» видна и при отсутствии звонков
   await expect(details.locator('a.org-calls__add', { hasText: 'Добавить звонок' })).toBeVisible();
   // Без звонков: секция звонков не рендерится вовсе
   await expect(details.locator('.org-calls')).toHaveCount(0);
-  // Summary переименован
-  await expect(details.locator('summary.org-details__summary')).toHaveText('Звонки и контакты организации');
 });
 
 test('организация с контактом, но без звонков: карточка есть, списка звонков нет', async ({ page }) => {
@@ -94,7 +92,7 @@ test('организация с контактом, но без звонков: 
 
   const zakat = page.locator('.org-table__row', { hasText: 'Закат' });
   const details = zakat.locator('xpath=./following-sibling::tr[1]').locator('.org-details__box');
-  await details.locator('summary.org-details__summary').click();
+  await zakat.click();
   await expect(details.locator('.org-contacts__card-wrap .card')).toHaveCount(1);
   await expect(details.locator('.org-contacts__card-wrap .card .card__name')).toContainText('Ольга Викторовна');
   await expect(details.locator('.org-calls')).toHaveCount(0);
@@ -185,7 +183,7 @@ test('аккордеон: раскрытие контактов организа
 
   const romashka = page.locator('.org-table__row', { hasText: 'Ромашка' });
   const details = romashka.locator('xpath=./following-sibling::tr[1]').locator('.org-details__box');
-  await details.locator('summary.org-details__summary').click();
+  await romashka.click();
 
   const cards = details.locator('.org-contacts__card-wrap .card');
   await expect(cards.first()).toBeVisible();
@@ -226,7 +224,7 @@ test('аккордеон: раскрытие контактов организа
   const withContact = items.filter({ has: page.locator('.org-calls__item-contact') });
   expect(await withContact.count()).toBeGreaterThanOrEqual(1);
 
-  await details.locator('summary.org-details__summary').click();
+  await romashka.click();
   await expect(cards.first()).toBeHidden();
 });
 
@@ -236,6 +234,6 @@ test('добавление контакта доступно в раскрыто
 
   const romashka = page.locator('.org-table__row', { hasText: 'Ромашка' });
   const details = romashka.locator('xpath=./following-sibling::tr[1]').locator('.org-details__box');
-  await details.locator('summary.org-details__summary').click();
+  await romashka.click();
   await expect(details.locator('a.org-contacts__add', { hasText: 'Добавить контакт' })).toBeVisible();
 });

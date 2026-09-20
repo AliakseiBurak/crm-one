@@ -44,7 +44,7 @@ async function openRomashkaCards(page: Page): Promise<Locator> {
     has: page.locator('.org-table__name', { hasText: 'Ромашка' }),
   });
   const details = row.locator('xpath=./following-sibling::tr[1]').locator('.org-details__box');
-  await details.locator('summary.org-details__summary').click();
+  await row.click();
   await expect(details.locator('.org-contacts__grid [data-contact-card-wrap]')).toHaveCount(2);
 
   return details;
