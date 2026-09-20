@@ -64,16 +64,30 @@
     vertical-align: middle;
 }
 
+.org-table__row {
+    cursor: pointer;
+}
+
 // Дата следующего звонка — выравнивание по правому краю ячейки
 .org-table__next-call {
     text-align: right;
 }
 
 .org-table__name {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
+    position: relative;
+    padding-right: 5rem;
+
+    &::before {
+        content: '▸';
+        display: inline-block;
+        margin-right: 0.5em;
+        color: $color-action-orange;
+        transition: transform 0.15s ease;
+    }
+}
+
+.org-table__row--expanded .org-table__name::before {
+    transform: rotate(90deg);
 }
 
 .org-table__name-link {
@@ -85,6 +99,13 @@
         text-decoration: underline;
         color: $color-action-orange;
     }
+}
+
+.org-table__edit {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 // Подсветка строки после перенаправления (create/update) — одноразовая:
@@ -105,8 +126,16 @@
     }
 }
 
-// Вторая строка организации — нативный аккордеон раскрытия.
+// Вторая строка организации — скрыта по умолчанию, показывается при раскрытии.
 // При наведении не подсвечивается (подсветка зебры только для данных).
+.org-details {
+    display: none;
+}
+
+.org-table__row--expanded + .org-details {
+    display: table-row;
+}
+
 .org-details > td {
     background: transparent;
     padding: 0 0.9em 0.5em;
@@ -122,31 +151,7 @@
     padding: 1rem 1.2rem;
 }
 
-.org-details__summary {
-    font-family: $font-heading;
-    font-size: 1rem;
-    font-weight: 700;
-    color: $color-info-blue;
-    cursor: pointer;
-    list-style: none;
-    user-select: none;
 
-    &::-webkit-details-marker {
-        display: none;
-    }
-
-    &::before {
-        content: '▸';
-        display: inline-block;
-        margin-right: 0.5em;
-        color: $color-action-orange;
-        transition: transform 0.15s ease;
-    }
-}
-
-.org-details__box[open] .org-details__summary::before {
-    transform: rotate(90deg);
-}
 
 // Звонки организации: последний звонок + раскрываемый список «Все звонки»
 .org-calls {

@@ -56,10 +56,11 @@
                     <tbody>
                         {% for row in organizationRows %}
                             {% set organization = row.organization %}
-                            <tr class="org-table__row{% if highlight == organization.id %} org-table__row--highlight{% endif %}"
+                            <tr class="org-table__row{% if highlight == organization.id %} org-table__row--highlight org-table__row--expanded{% endif %}"
                                 id="org-{{ organization.id }}"
                                 data-organization-row
                                 data-org-id="{{ organization.id }}"
+                                data-org-row-toggle="{{ organization.id }}"
                                 data-org-name="{{ organization.name }}"
                                 data-org-industry="{{ organization.industry }}"
                                 data-org-annualplan="{{ organization.annualPlan|default('') }}"
@@ -78,8 +79,7 @@
                             </tr>
                             <tr class="org-details">
                                 <td colspan="4">
-                                    <details class="org-details__box"{% if highlight == organization.id %} open{% endif %}>
-                                        <summary class="org-details__summary">Звонки и контакты организации</summary>
+                                    <div class="org-details__box" id="org-details-{{ organization.id }}">
 
                                         <a class="btn btn--secondary btn--sm org-calls__add" href="{{ path('app_call_new_org', { organizationId: organization.id }) }}">Добавить звонок</a>
 
@@ -124,7 +124,7 @@
                                                 }) }}
                                             </div>
                                         {% endif %}
-                                    </details>
+                                    </div>
                                 </td>
                             </tr>
                         {% endfor %}

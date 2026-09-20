@@ -93,6 +93,19 @@ if (modal) {
         }
     });
 
+    // Раскрытие/сворачивание секции контактов по клику на строку организации.
+    document.addEventListener('click', (event) => {
+        const row = event.target.closest('[data-org-row-toggle]');
+        if (!row) {
+            return;
+        }
+        if (event.target.closest('[data-organization-edit], .org-table__name-link')) {
+            return;
+        }
+        event.preventDefault();
+        row.classList.toggle('org-table__row--expanded');
+    });
+
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && !modal.hidden) {
             close();
