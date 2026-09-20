@@ -43,13 +43,12 @@
                 ],
             },
             {
-                title: 'Отписки',
+                title: 'Отписки организаций',
                 modifier: 'optout',
                 items: [
-                    { figure: optOutStats.optedOutToday, caption: 'Отписки: сегодня' },
-                    { figure: optOutStats.optedOutWeek, caption: 'Отписки: 7 дней' },
-                    { figure: optOutStats.optedOutMonth, caption: 'Отписки: за 30 дней' },
-                    { figure: statsByOrg['optoutEmail'], caption: 'Из письма', bucket: 'optoutEmail' },
+                    { figure: optOutStats.optedOutToday, caption: 'сегодня', subFigure: optOutStats.optedOutTodayByEmail, subCaption: 'Из письма', subBucket: 'optoutEmail1' },
+                    { figure: optOutStats.optedOutWeek, caption: 'за 7 дней', subFigure: optOutStats.optedOutWeekByEmail, subCaption: 'Из письма', subBucket: 'optoutEmail7' },
+                    { figure: optOutStats.optedOutMonth, caption: 'за 30 дней', subFigure: optOutStats.optedOutMonthByEmail, subCaption: 'Из письма', subBucket: 'optoutEmail30' },
                 ],
             },
         ] %}
@@ -68,7 +67,7 @@
                                         <div class="stats__figure">{{ item.figure }}</div>
                                         <div class="stats__caption">{{ item.caption }}</div>
                                         {% if item.subFigure is defined %}
-                                            <div class="stats__sub">{{ item.subCaption }}: {{ item.subFigure }}</div>
+                                            <a class="stats__sub" href="{{ path('app_dashboard', { filter: item.subBucket }) }}">{{ item.subCaption }}: {{ item.subFigure }}</a>
                                         {% endif %}
                                         {% if item.bucket is defined %}
                                             <a class="stats__orgs" href="{{ path('app_dashboard', { filter: item.bucket }) }}">По организациям: {{ statsByOrg[item.bucket] }}</a>

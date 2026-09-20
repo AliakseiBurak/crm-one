@@ -193,3 +193,19 @@
         text-decoration: underline;
     }
 }
+
+// Подметрика-ссылка «Из письма: N» под периодными показателями отписок:
+// тот же мелкий серый текст, что и у индикатора .stats__orgs.
+.stats__sub {
+    display: inline-block;
+    margin-top: 0.3em;
+    font-family: $font-body;
+    font-size: $font-size-body;
+    font-weight: 400;
+    color: $color-text-body;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}

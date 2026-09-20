@@ -248,8 +248,9 @@ class OrganizationRepository extends ServiceEntityRepository
     public function optOutStats(?array $organizationIds, \DateTimeImmutable $now): array
     {
         $todayStart = $now->setTime(0, 0);
-        $weekStart = $todayStart->modify('-7 days');
-        $monthStart = $todayStart->modify('-30 days');
+        // N календарных дней включая сегодня: неделя — today−6, месяц — today−29.
+        $weekStart = $todayStart->modify('-6 days');
+        $monthStart = $todayStart->modify('-29 days');
 
         $qb = $this->createQueryBuilder('o')
             ->select(

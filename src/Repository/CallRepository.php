@@ -17,14 +17,16 @@ use Doctrine\Persistence\ManagerRegistry;
 class CallRepository extends ServiceEntityRepository
 {
     /**
-     * Ключи девяти категорий индикаторов «По организациям»: 3 called
-     * (факт), 3 waiting (план в будущем) и 3 overdue (просроченные).
+     * Ключи категорий фильтров «По организациям» в формате
+     * `<category><days>`: девять категорий звонков — 3 called (факт),
+     * 3 waiting (план в будущем) и 3 overdue (просроченные) — плюс три
+     * периодные категории отписок из письма (optoutEmail1/7/30).
      */
     public const ORGANIZATION_BUCKETS = [
         'called1', 'called7', 'called30',
         'waiting1', 'waiting7', 'waiting30',
         'overdue1', 'overdue7', 'overdue30',
-        'optoutEmail',
+        'optoutEmail1', 'optoutEmail7', 'optoutEmail30',
     ];
 
     public function __construct(ManagerRegistry $registry)
@@ -196,18 +198,40 @@ class CallRepository extends ServiceEntityRepository
             $counts[$bucket] = (int) ($row[$bucket] ?? 0);
         }
 
-        // optoutEmail: count organizations with isOptedOut=true and optOutReason='Отписка из письма'
-        // This is organization-level data, not call-based, so we query separately.
-        $optoutSql = 'SELECT COUNT(DISTINCT id) AS cnt FROM organization WHERE is_opted_out = 1 AND opt_out_reason = :reason';
-        $optoutParams = ['reason' => 'Отписка из письма'];
-        $optoutTypes = [];
+        // optoutEmail1/7/30: организации с отпиской из письма за период
+        // (N календарных дней включая сегодня). Это organization-level
+        // данные, не звонки, поэтому отдельный запрос. Границы — как в
+        // OrganizationRepository::optOutStats(), чтобы число в подметрике
+        // совпадало со scope ссылки filter.
+        $todayStart = $now->setTime(0, 0);
+        $optoutSql = <<<'SQL'
+            SELECT
+                COUNT(DISTINCT CASE WHEN opted_out_at >= :optoutTodayStart THEN id END) AS optoutEmail1,
+                COUNT(DISTINCT CASE WHEN opted_out_at >= :optoutWeekStart THEN id END) AS optoutEmail7,
+                COUNT(DISTINCT CASE WHEN opted_out_at >= :optoutMonthStart THEN id END) AS optoutEmail30
+            FROM organization
+            WHERE is_opted_out = 1 AND opt_out_reason = :reason
+        SQL;
+        $optoutParams = [
+            'reason' => 'Отписка из письма',
+            'optoutTodayStart' => $todayStart,
+            'optoutWeekStart' => $todayStart->modify('-6 days'),
+            'optoutMonthStart' => $todayStart->modify('-29 days'),
+        ];
+        $optoutTypes = [
+            'optoutTodayStart' => Types::DATETIME_IMMUTABLE,
+            'optoutWeekStart' => Types::DATETIME_IMMUTABLE,
+            'optoutMonthStart' => Types::DATETIME_IMMUTABLE,
+        ];
         if (null !== $organizationIds) {
             $optoutSql .= ' AND id IN (:organizationIds)';
             $optoutParams['organizationIds'] = $organizationIds;
             $optoutTypes['organizationIds'] = ArrayParameterType::INTEGER;
         }
         $optoutRow = $this->getEntityManager()->getConnection()->fetchAssociative($optoutSql, $optoutParams, $optoutTypes);
-        $counts['optoutEmail'] = (int) ($optoutRow['cnt'] ?? 0);
+        foreach (['optoutEmail1', 'optoutEmail7', 'optoutEmail30'] as $bucket) {
+            $counts[$bucket] = (int) ($optoutRow[$bucket] ?? 0);
+        }
 
         return $counts;
     }
