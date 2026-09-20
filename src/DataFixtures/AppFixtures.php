@@ -135,13 +135,13 @@ class AppFixtures extends Fixture
         // Примеры новых полей (change call-result-deal-and-optout):
         // Горизонт (индекс 4) — isActive = false;
         // Конкурент (индекс 3) — opted-out на прошлой неделе;
-        // Закат (индекс 5) — opted-out в текущем месяце.
+        // Закат (индекс 5) — opted-out из письма в текущем месяце.
         $organizations[4]->setIsActive(false);
         $organizations[3]->setIsOptedOut(true)
             ->setOptOutReason('Перестал отвечать на звонки')
             ->setOptedOutAt(new \DateTimeImmutable('-8 days'));
         $organizations[5]->setIsOptedOut(true)
-            ->setOptOutReason('Не интересует сотрудничество')
+            ->setOptOutReason('Отписка из письма')
             ->setOptedOutAt(new \DateTimeImmutable('-20 days'));
 
         $manager->persist(new OrgGroupMembership($organizations[0], $group1));

@@ -1,15 +1,18 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// Статистика на домашней странице (change dashboard-stats-by-organization):
-// карточка «Доступно организаций: Y», 9 показателей (Звонков/Ожидают/Просроченные),
-// индикаторы «По организациям: N» со ссылками /dashboard?filter=<bucket>.
+// Статистика на домашней странице (change dashboard-stats-by-organization,
+// обновлено change dashboard-submetrics-optout):
+// карточка «Доступно организаций: Y», 12 показателей (Звонков/Ожидают/
+// Просроченные + Отписки с подметриками «Из письма»), индикаторы
+// «По организациям: N» со ссылками /dashboard?filter=<bucket> — только под
+// девятью звонковыми показателями.
 //
 // Ожидаемые числа выведены из фикстур AppFixtures и детерминированы внутри
 // суток: планы «на сегодня» стоят на 00:05, поэтому для любого запуска
 // позже 00:05 они не попадают в окна waitingWeek/waitingMonth (> now),
 // но остаются в waitingToday (BETWEEN todayStart..todayEnd).
 //
-// Тесты проверяют структуру (Y, 9 элементов, подписи, ссылки) и инварианты
+// Тесты проверяют структуру (Y, 12 элементов, подписи, ссылки) и инварианты
 // (called30 ≥ called7 ≥ called1 и т.д.), чтобы не зависеть от даты загрузки
 // фикстур.
 
@@ -30,6 +33,10 @@ const BUCKETS = [
   'waiting1', 'waiting7', 'waiting30',
   'overdue1', 'overdue7', 'overdue30',
 ] as const;
+
+const OPT_OUT_CAPTIONS = ['сегодня', 'за 7 дней', 'за 30 дней'] as const;
+
+const OPT_OUT_BUCKETS = ['optoutEmail1', 'optoutEmail7', 'optoutEmail30'] as const;
 
 const OLD_CAPTIONS = ['Обзвонено сегодня', 'В течение недели', 'В течение месяца'] as const;
 
@@ -62,13 +69,13 @@ async function getOrgValues(page: Page): Promise<number[]> {
   });
 }
 
-// 5.1, 5.3, 5.6 (менеджер): карточка Y и девять показателей после логина
-test('менеджер после логина видит карточку Y=6 и 9 показателей на главной', async ({ page }) => {
+// 5.1, 5.3, 5.6 (менеджер): карточка Y и двенадцать показателей после логина
+test('менеджер после логина видит карточку Y=6 и 12 показателей на главной', async ({ page }) => {
   await login(page, 'manager@b2b-crm.loc', 'manager123');
 
   await expect(page.locator('.stats__total')).toHaveText('Доступно организаций: 6');
   const figures = page.locator('.stats-home .stats__figure');
-  await expect(figures).toHaveCount(9);
+  await expect(figures).toHaveCount(12);
 
   const values = await getFigureValues(page);
   // called30 ≥ called7 ≥ called1
@@ -106,6 +113,13 @@ test('администратор видит карточку Y=7 и показа
   // хотя бы по одной категории строго больше (напр. calledToday)
   const hasStrictIncrease = values.some((v) => v > 0);
   expect(hasStrictIncrease).toBe(true);
+
+  // Отписки: «Конкурент» (другая причина, −8 дней) и «Закат» (из письма,
+  // −20 дней) — обе в месячном окне; подметрика «Из письма» = 1.
+  const optOutSection = page.locator('.stats-home__section--optout');
+  const monthItem = optOutSection.locator('.stats__item', { hasText: 'за 30 дней' });
+  await expect(monthItem.locator('.stats__figure')).toHaveText('2');
+  await expect(monthItem.locator('a.stats__sub')).toHaveText('Из письма: 1');
 });
 
 // 5.2: гость перенаправляется на вход
@@ -137,6 +151,41 @@ test('под каждым из девяти показателей ссылка 
     await expect(link).toHaveText(/По организациям: \d+/);
     await expect(link).toHaveAttribute('href', `/dashboard?filter=${BUCKETS[i]}`);
   }
+});
+
+// dashboard-submetrics-optout: подметрика «Из письма: N» — ссылка с filter=<category><days>.
+// Значения детерминированы фикстурами: «Закат» отписался из письма 20 дней назад
+// (месячное окно), «Конкурент» (другая причина) скрыт от менеджера.
+test('под тремя показателями отписок подметрики «Из письма: N» ведут на filter=optoutEmail<days>', async ({ page }) => {
+  await login(page, 'manager@b2b-crm.loc', 'manager123');
+
+  const optOutSection = page.locator('.stats-home__section--optout');
+  await expect(optOutSection.locator('.stats-home__title')).toHaveText('Отписки организаций');
+  await expect(optOutSection.locator('.stats__item')).toHaveCount(3);
+
+  // [основная цифра, подметрика] по периодам: сегодня / 7 дней / 30 дней.
+  const expected = [
+    { figure: '0', sub: 'Из письма: 0' },
+    { figure: '0', sub: 'Из письма: 0' },
+    { figure: '1', sub: 'Из письма: 1' },
+  ];
+
+  for (let i = 0; i < OPT_OUT_CAPTIONS.length; ++i) {
+    const item = optOutSection.locator('.stats__item', { hasText: OPT_OUT_CAPTIONS[i] });
+    await expect(item.locator('.stats__figure')).toHaveText(expected[i].figure);
+    const link = item.locator('a.stats__sub');
+    await expect(link).toHaveText(expected[i].sub);
+    await expect(link).toHaveAttribute('href', `/dashboard?filter=${OPT_OUT_BUCKETS[i]}`);
+  }
+});
+
+// dashboard-submetrics-optout: отдельной all-time цифры «Из письма» и all-time ссылки нет
+test('нет отдельной цифры «Из письма» и all-time ссылки filter=optoutEmail', async ({ page }) => {
+  await login(page, 'manager@b2b-crm.loc', 'manager123');
+
+  await expect(page.locator('.stats__caption', { hasText: 'Из письма' })).toHaveCount(0);
+  await expect(page.locator('a[href="/dashboard?filter=optoutEmail"]')).toHaveCount(0);
+  await expect(page.locator('.stats-home__section--optout a.stats__orgs')).toHaveCount(0);
 });
 
 // 5.12: пустая категория — «По организациям: 0», ссылка присутствует

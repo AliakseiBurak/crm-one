@@ -8,6 +8,7 @@ use App\Entity\Enum\UserRole;
 use App\Entity\Organization;
 use App\Entity\User;
 use App\Tests\DatabaseWebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * Функциональные тесты HomeController: статистика дашборда.
@@ -39,10 +40,13 @@ final class HomeControllerTest extends DatabaseWebTestCase
 
         $this->assertResponseIsSuccessful();
         $content = (string) $this->client->getResponse()->getContent();
-        self::assertStringContainsString('Отписки', $content);
-        self::assertStringContainsString('Отписки: сегодня', $content);
-        self::assertStringContainsString('Отписки: 7 дней', $content);
-        self::assertStringContainsString('Отписки: за 30 дней', $content);
+        self::assertStringContainsString('Отписки организаций', $content);
+        self::assertSame(
+            ['сегодня', 'за 7 дней', 'за 30 дней'],
+            $crawler->filter('.stats-home__section--optout .stats__caption')->each(
+                static fn(Crawler $node): string => trim($node->text()),
+            ),
+        );
     }
 
     public function testDashboardOptOutStatsRespectManagerScope(): void
@@ -67,8 +71,21 @@ final class HomeControllerTest extends DatabaseWebTestCase
         $crawler = $this->open('/');
 
         $this->assertResponseIsSuccessful();
-        $content = (string) $this->client->getResponse()->getContent();
-        self::assertStringContainsString('Отписки', $content);
+
+        // Видимая менеджеру организация учитывается в показателях, скрытая —
+        // нет: если бы скрытая учитывалась, «за 7 дней»/«за 30 дней» были бы 2.
+        self::assertSame(
+            ['0', 'Из письма: 0', '/dashboard?filter=optoutEmail1'],
+            $this->optOutItem($crawler, 'сегодня'),
+        );
+        self::assertSame(
+            ['1', 'Из письма: 0', '/dashboard?filter=optoutEmail7'],
+            $this->optOutItem($crawler, 'за 7 дней'),
+        );
+        self::assertSame(
+            ['1', 'Из письма: 0', '/dashboard?filter=optoutEmail30'],
+            $this->optOutItem($crawler, 'за 30 дней'),
+        );
     }
 
     public function testHomeRedirectsUnauthenticatedUser(): void
@@ -86,28 +103,43 @@ final class HomeControllerTest extends DatabaseWebTestCase
 
         $this->assertResponseIsSuccessful();
         $content = (string) $this->client->getResponse()->getContent();
-        self::assertStringContainsString('Отписки', $content);
-        self::assertStringContainsString('Отписки: сегодня', $content);
-        self::assertStringContainsString('Отписки: 7 дней', $content);
-        self::assertStringContainsString('Отписки: за 30 дней', $content);
+        self::assertStringContainsString('Отписки организаций', $content);
         self::assertStringContainsString('Из письма', $content);
+        self::assertSame(
+            ['сегодня', 'за 7 дней', 'за 30 дней'],
+            $crawler->filter('.stats-home__section--optout .stats__caption')->each(
+                static fn(Crawler $node): string => trim($node->text()),
+            ),
+        );
     }
 
-    public function testDashboardOptOutByEmailCount(): void
+    public function testDashboardOptOutEmailSubMetrics(): void
     {
         $now = new \DateTimeImmutable();
 
-        // Организация, отписавшаяся из письма сегодня
-        $org1 = $this->makeOrganization('ООО Из Письма');
-        $org1->setIsOptedOut(true)
+        // Отписка из письма сегодня
+        $emailToday = $this->makeOrganization('ООО Из Письма Сегодня');
+        $emailToday->setIsOptedOut(true)
             ->setOptOutReason('Отписка из письма')
-            ->setOptedOutAt($now->modify('-2 hours'));
+            ->setOptedOutAt($now->setTime(0, 0));
 
-        // Организация, отписавшаяся по другой причине
-        $org2 = $this->makeOrganization('ООО Другая Причина');
-        $org2->setIsOptedOut(true)
+        // Отписка из письма 3 дня назад — с запасом от границы 7 дней
+        $emailWeek = $this->makeOrganization('ООО Из Письма Неделя');
+        $emailWeek->setIsOptedOut(true)
+            ->setOptOutReason('Отписка из письма')
+            ->setOptedOutAt($now->modify('-3 days'));
+
+        // Отписка из письма 15 дней назад — с запасом от границы 30 дней
+        $emailMonth = $this->makeOrganization('ООО Из Письма Месяц');
+        $emailMonth->setIsOptedOut(true)
+            ->setOptOutReason('Отписка из письма')
+            ->setOptedOutAt($now->modify('-15 days'));
+
+        // Отписка по другой причине: только в основной цифре, не в подметрике
+        $other = $this->makeOrganization('ООО Другая Причина');
+        $other->setIsOptedOut(true)
             ->setOptOutReason('Не интересно')
-            ->setOptedOutAt($now->modify('-3 hours'));
+            ->setOptedOutAt($now->modify('-3 days'));
 
         // Организация без отписки
         $this->makeOrganization('ООО Активная');
@@ -117,9 +149,52 @@ final class HomeControllerTest extends DatabaseWebTestCase
         $crawler = $this->open('/');
 
         $this->assertResponseIsSuccessful();
-        $content = (string) $this->client->getResponse()->getContent();
-        self::assertStringContainsString('Отписки: сегодня', $content);
-        self::assertStringContainsString('Из письма', $content);
+
+        // Email-причина учитывается и в основной цифре, и в подметрике;
+        // другая причина — только в основной цифре. Подметрика — ссылка
+        // с периодным filter-параметром <category><days>.
+        self::assertSame(
+            ['1', 'Из письма: 1', '/dashboard?filter=optoutEmail1'],
+            $this->optOutItem($crawler, 'сегодня'),
+        );
+        self::assertSame(
+            ['3', 'Из письма: 2', '/dashboard?filter=optoutEmail7'],
+            $this->optOutItem($crawler, 'за 7 дней'),
+        );
+        self::assertSame(
+            ['4', 'Из письма: 3', '/dashboard?filter=optoutEmail30'],
+            $this->optOutItem($crawler, 'за 30 дней'),
+        );
+    }
+
+    public function testDashboardHasNoSeparateAllTimeOptOutEmailFigure(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $crawler = $this->open('/');
+
+        $this->assertResponseIsSuccessful();
+
+        // В блоке «Отписки организаций» ровно три периодные цифры, отдельной
+        // all-time цифры «Из письма» и её ссылки «По организациям» нет.
+        $optOutItems = $crawler->filter('.stats-home__section--optout .stats__item');
+        self::assertCount(3, $optOutItems);
+
+        $captions = $optOutItems->each(
+            static fn(Crawler $item): string => trim($item->filter('.stats__caption')->text()),
+        );
+        self::assertSame(['сегодня', 'за 7 дней', 'за 30 дней'], $captions);
+
+        // Индикаторов «По организациям» под отписками нет, all-time bucket
+        // optoutEmail не используется — только периодные optoutEmail1/7/30.
+        self::assertCount(0, $crawler->filter('.stats-home__section--optout a.stats__orgs'));
+        $hrefs = $crawler->filter('.stats-home__section--optout a')->each(
+            static fn(Crawler $link): string => (string) $link->attr('href'),
+        );
+        self::assertSame(
+            ['/dashboard?filter=optoutEmail1', '/dashboard?filter=optoutEmail7', '/dashboard?filter=optoutEmail30'],
+            $hrefs,
+        );
     }
 
     private function makeUser(string $login, string $email, UserRole $role): User
@@ -142,5 +217,26 @@ final class HomeControllerTest extends DatabaseWebTestCase
         $this->em()->flush();
 
         return $organization;
+    }
+
+    /**
+     * Показатель блока «Отписки организаций»: [основная цифра, подметрика, href подметрики].
+     *
+     * @return array{string, string, string}
+     */
+    private function optOutItem(Crawler $crawler, string $caption): array
+    {
+        $item = $crawler->filter('.stats-home__section--optout .stats__item')->reduce(
+            static fn(Crawler $node): bool => trim($node->filter('.stats__caption')->text()) === $caption,
+        );
+
+        self::assertCount(1, $item, \sprintf('Показатель «%s» не найден.', $caption));
+        self::assertCount(1, $item->filter('a.stats__sub'), \sprintf('Подметрика «%s» не найдена.', $caption));
+
+        return [
+            trim($item->filter('.stats__figure')->text()),
+            trim($item->filter('a.stats__sub')->text()),
+            (string) $item->filter('a.stats__sub')->attr('href'),
+        ];
     }
 }
