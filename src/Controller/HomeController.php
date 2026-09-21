@@ -63,10 +63,18 @@ class HomeController extends AbstractController
         $search = (string) $request->query->get('q', '');
         $sort = (string) $request->query->get('sort', '');
         $dir = (string) $request->query->get('dir', 'asc');
-        $filter = (string) $request->query->get('filter', '');
+        $inactive = $request->query->getBoolean('inactive');
+        $optout = $request->query->getBoolean('optout');
         $highlight = (int) $request->query->get('highlight', 0);
 
-        $organizationRows = $organizationRepository->findForDashboard($user, $search, $sort, $dir);
+        $organizationRows = $organizationRepository->findForDashboard(
+            $user,
+            $search,
+            $sort,
+            $dir,
+            $inactive ? false : null,
+            $optout ? true : null,
+        );
 
         $ids = array_map(static fn(\App\Dto\DashboardOrganizationRow $row): int => (int) $row->organization->id, $organizationRows);
 
@@ -111,7 +119,8 @@ class HomeController extends AbstractController
             'search' => $search,
             'sort' => $sort,
             'dir' => $dir,
-            'filter' => $filter,
+            'inactive' => $inactive,
+            'optout' => $optout,
             'highlight' => $highlight,
         ]);
     }

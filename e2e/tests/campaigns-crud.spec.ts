@@ -433,3 +433,26 @@ test('кнопка «Назад к списку» возвращает в спи
 
   await expect(page).toHaveURL(/\/campaigns$/);
 });
+
+test('адресаты рассылки: поисковый выпадающий список организаций', async ({ page }) => {
+  await login(page, 'admin@b2b-crm.loc', 'admin123');
+  const name = uniqueName('Адресат Комбобокс');
+
+  const id = await createCampaign(page, name, { status: 'ready' });
+  await page.goto(`/campaigns/${id}/recipients`);
+
+  const form = page.locator('.campaign-recipients__add');
+  const toggle = form.locator('.org-combobox__toggle');
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+
+  const search = form.locator('.org-combobox__search');
+  await expect(search).toBeVisible();
+  await search.fill('заведомо-нет-такой-организации');
+  await expect(form.locator('.org-combobox__empty')).toHaveText('Ничего не найдено');
+
+  // Выбор через поиск подставляет значение в нативный select — источник значения формы.
+  await search.fill('Ромашка');
+  await form.locator('.org-combobox__option', { hasText: 'Ромашка' }).first().click();
+  await expect(page.locator('select[name="organization"]')).toHaveValue(/\d+/);
+});

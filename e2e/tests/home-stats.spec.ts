@@ -16,22 +16,28 @@ import { expect, test, type Page } from '@playwright/test';
 // (called30 ≥ called7 ≥ called1 и т.д.), чтобы не зависеть от даты загрузки
 // фикстур.
 
-const CAPTIONS = [
-  'Звонков сегодня',
-  'Звонков за 7 дней',
-  'Звонков за 30 дней',
-  'Ожидают сегодня',
-  'Ожидают на неделе',
-  'Ожидают в месяце',
-  'Просроченные: вчера',
-  'Просроченные: за 7 дней',
-  'Просроченные: за 30 дней',
-] as const;
-
-const BUCKETS = [
-  'called1', 'called7', 'called30',
-  'waiting1', 'waiting7', 'waiting30',
-  'overdue1', 'overdue7', 'overdue30',
+// Секции и подписи (change ui-favicon-filters-headers): заголовок секции
+// называет категорию, подпись — только период. Подписи «Сегодня»/«За 7 дней»
+// повторяются в разных секциях, поэтому локаторы скоупятся по модификатору.
+const SECTIONS = [
+  {
+    modifier: 'called',
+    title: 'Сделано звонков',
+    captions: ['Сегодня', 'За 7 дней', 'За 30 дней'],
+    buckets: ['called1', 'called7', 'called30'],
+  },
+  {
+    modifier: 'waiting',
+    title: 'Ожидают звонка',
+    captions: ['Сегодня', 'За 7 дней', 'За 30 дней'],
+    buckets: ['waiting1', 'waiting7', 'waiting30'],
+  },
+  {
+    modifier: 'overdue',
+    title: 'Просроченные звонки',
+    captions: ['Вчера', 'За 7 дней', 'За 30 дней'],
+    buckets: ['overdue1', 'overdue7', 'overdue30'],
+  },
 ] as const;
 
 const OPT_OUT_CAPTIONS = ['сегодня', 'за 7 дней', 'за 30 дней'] as const;
@@ -42,8 +48,12 @@ const OLD_CAPTIONS = ['Обзвонено сегодня', 'В течение н
 
 const loginSubmit = 'form[action="/login"] button[type="submit"]';
 
-function statItem(page: Page, caption: string) {
-  return page.locator('.stats__item', { hasText: caption });
+function section(page: Page, modifier: string) {
+  return page.locator(`.stats-home__section--${modifier}`);
+}
+
+function statItem(page: Page, modifier: string, caption: string) {
+  return section(page, modifier).locator('.stats__item', { hasText: caption });
 }
 
 async function login(page: Page, email: string, password: string) {
@@ -135,7 +145,7 @@ test('на /dashboard нет карточки и статистики, толь�
   await login(page, 'manager@b2b-crm.loc', 'manager123');
   await page.goto('/dashboard');
 
-  await expect(page.getByRole('heading', { name: 'Панель' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Организации' })).toBeVisible();
   await expect(page.locator('.org-table__row').first()).toBeVisible();
   await expect(page.locator('.stats__total')).toHaveCount(0);
   await expect(page.locator('.stats__figure')).toHaveCount(0);
@@ -146,10 +156,12 @@ test('на /dashboard нет карточки и статистики, толь�
 test('под каждым из девяти показателей ссылка «По организациям: N» с filter=<bucket>', async ({ page }) => {
   await login(page, 'manager@b2b-crm.loc', 'manager123');
 
-  for (let i = 0; i < CAPTIONS.length; ++i) {
-    const link = statItem(page, CAPTIONS[i]).locator('a.stats__orgs');
-    await expect(link).toHaveText(/По организациям: \d+/);
-    await expect(link).toHaveAttribute('href', `/dashboard?filter=${BUCKETS[i]}`);
+  for (const s of SECTIONS) {
+    for (let i = 0; i < s.captions.length; ++i) {
+      const link = statItem(page, s.modifier, s.captions[i]).locator('a.stats__orgs');
+      await expect(link).toHaveText(/По организациям: \d+/);
+      await expect(link).toHaveAttribute('href', `/dashboard?filter=${s.buckets[i]}`);
+    }
   }
 });
 
@@ -192,7 +204,7 @@ test('нет отдельной цифры «Из письма» и all-time с�
 test('пустая категория отображается как «По организациям: 0» с активной ссылкой', async ({ page }) => {
   await login(page, 'manager@b2b-crm.loc', 'manager123');
 
-  const link = statItem(page, 'Ожидают на неделе').locator('a.stats__orgs');
+  const link = statItem(page, 'waiting', 'За 7 дней').locator('a.stats__orgs');
   await expect(link).toHaveText('По организациям: 0');
   await expect(link).toHaveAttribute('href', '/dashboard?filter=waiting7');
 });
@@ -201,7 +213,7 @@ test('пустая категория отображается как «По о�
 test('клик по индикатору переходит на /dashboard?filter=<bucket>', async ({ page }) => {
   await login(page, 'manager@b2b-crm.loc', 'manager123');
 
-  await statItem(page, 'Просроченные: вчера').locator('a.stats__orgs').click();
+  await statItem(page, 'overdue', 'Вчера').locator('a.stats__orgs').click();
 
   await expect(page).toHaveURL(/\/dashboard\?filter=overdue1$/);
   await expect(page.locator('.org-table__row').first()).toBeVisible();
@@ -231,18 +243,18 @@ test('просроченная организация учитывается и 
   expect(orgs[1]).toBeLessThanOrEqual(orgs[2]);
 });
 
-// 5.13: новые подписи на месте, старые отсутствуют
-test('подписи показателей обновлены, старых подписей нет', async ({ page }) => {
+// 5.13: новые заголовки секций и подписи на месте, старые отсутствуют
+test('заголовки секций и подписи обновлены, старых формулировок нет', async ({ page }) => {
   await login(page, 'manager@b2b-crm.loc', 'manager123');
 
-  for (const caption of CAPTIONS) {
-    await expect(page.locator('.stats__caption', { hasText: caption })).toBeVisible();
+  for (const s of SECTIONS) {
+    await expect(section(page, s.modifier).locator('.stats-home__title')).toHaveText(s.title);
+    for (const caption of s.captions) {
+      await expect(statItem(page, s.modifier, caption).locator('.stats__caption')).toBeVisible();
+    }
   }
   const texts = await page.locator('.stats__caption').allTextContents();
   for (const old of OLD_CAPTIONS) {
     expect(texts.some((t) => t.includes(old))).toBe(false);
   }
-  // Старая подпись «Сегодня» (ждут) — точное совпадение, чтобы не задеть
-  // новые подписи вида «Ожидают сегодня».
-  expect(texts).not.toContain('Сегодня');
 });

@@ -375,9 +375,16 @@
         align-items: center;
         gap: 12px;
 
-        .field__input {
+        > .field__input {
             width: auto;
             flex: 1;
+        }
+
+        // Обёртка поискового выпадающего списка организации: тянется в строке,
+        // позиционирование меню — относительно .field (position: relative)
+        .field {
+            flex: 1;
+            margin-bottom: 0;
         }
     }
 

@@ -288,3 +288,23 @@ test('скрытие действует внутри групп менеджер
   await login(page, ADMIN, ADMIN_PASSWORD);
   await unhideFromManager1(page, 'Вектор');
 });
+
+test('реестр скрытий: поисковый выпадающий список организаций', async ({ page }) => {
+  await login(page, ADMIN, ADMIN_PASSWORD);
+  await gotoHides(page);
+
+  const form = page.locator('.campaign-recipients__add');
+  const toggle = form.locator('.org-combobox__toggle');
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+
+  const search = form.locator('.org-combobox__search');
+  await expect(search).toBeVisible();
+  await search.fill('заведомо-нет-такой-организации');
+  await expect(form.locator('.org-combobox__empty')).toHaveText('Ничего не найдено');
+
+  // Выбор через поиск подставляет значение в нативный select — источник значения формы.
+  await search.fill('Вектор');
+  await form.locator('.org-combobox__option', { hasText: 'Вектор' }).first().click();
+  await expect(page.locator('select[name="organization"]')).toHaveValue(/\d+/);
+});

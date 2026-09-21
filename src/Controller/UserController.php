@@ -64,7 +64,7 @@ class UserController extends AbstractController
             $errors[$violation->getPropertyPath()] ??= $violation->getMessage();
         }
 
-        if (null === $createRequest->role || '' === $createRequest->role) {
+        if ('' === $createRequest->role) {
             $errors['role'] ??= 'Роль обязательна для заполнения';
         }
 
@@ -74,7 +74,7 @@ class UserController extends AbstractController
                 $errors['login'] = 'Пользователь с таким логином уже существует';
             }
 
-            if (null !== $createRequest->email && '' !== $createRequest->email) {
+            if ('' !== $createRequest->email) {
                 $existing = $this->users->findOneBy(['email' => $createRequest->email]);
                 if (null !== $existing) {
                     $errors['email'] = 'Пользователь с таким email уже существует';

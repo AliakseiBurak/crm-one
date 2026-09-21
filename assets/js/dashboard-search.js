@@ -1,6 +1,7 @@
 // Авто-применение поиска организаций панели по мере ввода (сп. dashboard:
 // «applied immediately as the user types»). GET-форма переотправляется
-// с дебаунсом; пустое поле сбрасывает запрос на базовую страницу.
+// с дебаунсом; пустое поле отправляет форму без параметра q, сохраняя
+// отмеченные фильтры inactive/optout.
 
 const DEBOUNCE_MS = 400;
 
@@ -14,7 +15,9 @@ document.querySelectorAll('[data-dashboard-search]').forEach((input) => {
 
     const submit = () => {
         if (input.value.trim() === '') {
-            window.location.href = form.action;
+            input.disabled = true;
+            form.submit();
+            input.disabled = false;
             return;
         }
         form.submit();

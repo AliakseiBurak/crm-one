@@ -18,23 +18,26 @@ class OrganizationRepository extends ServiceEntityRepository
 {
     /**
      * Колонки, допущенные в SQL ORDER BY (только пути к полям и псевдонимы
-     * скалярных результатов). Даты lastCall/nextCall сортируются в PHP,
-     * т.к. DQL не допускает функций (COALESCE/IS NULL) в ORDER BY, а
+     * скалярных результатов). Даты lastCall/nextCall/optedOutAt сортируются
+     * в PHP, т.к. DQL не допускает функций (COALESCE/IS NULL) в ORDER BY, а
      * NULL-позиция «в конец» требует PHP-маппера.
      */
     private const SQL_SORT_COLUMNS = [
         'name' => 'o.name',
         'industry' => 'o.industry',
+        'isActive' => 'o.isActive',
     ];
 
     /**
      * Колонки сортировки, сопоставляющие ключ запроса скалярному результату:
      * lastMadeAt — последний совершённый звонок,
-     * nextScheduledAt — ближайший будущий план.
+     * nextScheduledAt — ближайший будущий план,
+     * optedOutAt — дата отписки организации.
      */
     private const DATE_SORT_FIELDS = [
         'lastCall' => 'lastMadeAt',
         'nextCall' => 'nextScheduledAt',
+        'optedOutAt' => 'optedOutAt',
     ];
 
     public function __construct(ManagerRegistry $registry)
@@ -107,18 +110,22 @@ class OrganizationRepository extends ServiceEntityRepository
      * - lastCallDate    — эффективная дата последнего звонка организации.
      *
      * Область доступа: null $organizationIds — все организации (админ/гость).
-     * Сортировка: name/industry — в SQL (whitelist-путь к полю);
-     * lastCall/nextCall — в PHP с NULL в конец и вторичным ключом name ASC.
+     * Фильтры: $isActive/$isOptedOut (null — без ограничения) пересекаются
+     * с поиском.
+     * Сортировка: name/industry/isActive — в SQL (whitelist-путь к полю);
+     * lastCall/nextCall/optedOutAt — в PHP с NULL в конец и вторичным ключом
+     * name ASC.
      *
      * @return DashboardOrganizationRow[]
      */
-    public function findForDashboard(?User $user, ?string $search = null, string $sort = 'name', string $dir = 'asc'): array
+    public function findForDashboard(?User $user, ?string $search = null, string $sort = 'name', string $dir = 'asc', ?bool $isActive = null, ?bool $isOptedOut = null): array
     {
         $organizationIds = $this->findAccessibleIds($user);
         $now = new \DateTimeImmutable();
 
         $qb = $this->createQueryBuilder('o')
             ->select('o')
+            ->addSelect('o.optedOutAt AS optedOutAt')
             ->addSelect('(SELECT MAX(c.madeAt) FROM App\Entity\Call c WHERE c.organization = o) AS lastMadeAt')
             ->addSelect('(SELECT MIN(cs.scheduledAt) FROM App\Entity\Call cs WHERE cs.organization = o AND cs.scheduledAt >= :now) AS nextScheduledAt')
             ->addSelect('(SELECT cn.notes FROM App\Entity\Call cn WHERE cn.organization = o AND cn.notes IS NOT NULL AND cn.notes <> \'\' AND cn.id = (SELECT MAX(cc.id) FROM App\Entity\Call cc WHERE cc.organization = o AND cc.notes IS NOT NULL AND cc.notes <> \'\' AND COALESCE(cc.madeAt, cc.scheduledAt) = (SELECT MAX(COALESCE(ccd.madeAt, ccd.scheduledAt)) FROM App\Entity\Call ccd WHERE ccd.organization = o AND ccd.notes IS NOT NULL AND ccd.notes <> \'\'))) AS lastCallNote')
@@ -139,7 +146,17 @@ class OrganizationRepository extends ServiceEntityRepository
                 ->setParameter('term', '%' . $search . '%');
         }
 
-        // name/industry — whitelist-сортировка в SQL; вторичный ключ name ASC.
+        if (null !== $isActive) {
+            $qb->andWhere('o.isActive = :isActive')
+                ->setParameter('isActive', $isActive);
+        }
+
+        if (null !== $isOptedOut) {
+            $qb->andWhere('o.isOptedOut = :isOptedOut')
+                ->setParameter('isOptedOut', $isOptedOut);
+        }
+
+        // name/industry/isActive — whitelist-сортировка в SQL; вторичный ключ name ASC.
         // Без параметра сортировки — по умолчанию по имени организации (А–Я).
         if (\array_key_exists($sort, self::SQL_SORT_COLUMNS)) {
             $qb->orderBy(self::SQL_SORT_COLUMNS[$sort], strtolower($dir) === 'desc' ? 'DESC' : 'ASC')

@@ -149,6 +149,93 @@ test('сортировка по названию, отрасли и дате с�
   expect(dateless.length).toBeGreaterThan(0);
 });
 
+test('колонки «Активна» и «Дата отписки»: статус чекбоксом и дата отписки', async ({ page }) => {
+  await login(page, 'admin@b2b-crm.loc', 'admin123');
+  await page.goto('/dashboard');
+
+  // Горизонт (isActive = false): чекбокс не отмечен, даты отписки нет.
+  const horizon = page.locator('.org-table__row', { hasText: 'Горизонт' });
+  await expect(horizon.locator('td').nth(4).locator('input[type="checkbox"]')).not.toBeChecked();
+  await expect(horizon.locator('td').nth(5)).toHaveText('—');
+
+  // Закат (отписка из письма −20 дней): чекбокс отмечен, дата в формате d.m.Y.
+  const zakat = page.locator('.org-table__row', { hasText: 'Закат' });
+  await expect(zakat.locator('td').nth(4).locator('input[type="checkbox"]')).toBeChecked();
+  await expect(zakat.locator('td').nth(5)).toHaveText(/\d{2}\.\d{2}\.\d{4}/);
+});
+
+test('фильтры «Неактивные» и «Отписавшиеся»: пересечение и сохранение при сортировке', async ({ page }) => {
+  await login(page, 'admin@b2b-crm.loc', 'admin123');
+  await page.goto('/dashboard');
+
+  // «Неактивные»: остаётся только Горизонт (isActive = false).
+  await page.check('input[name="inactive"]');
+  await page.click('.org-search button[type="submit"]');
+  await expect(page.locator('.org-table__row')).toHaveCount(1);
+  await expect(page.locator('.org-table__name').first()).toContainText('Горизонт');
+
+  // Фильтр сохраняется в форме и в ссылках сортировки.
+  await expect(page.locator('input[name="inactive"]')).toBeChecked();
+  await expect(page.locator('a.table__sortable').first()).toHaveAttribute('href', /inactive=1/);
+
+  // Сортировка сохраняет фильтр.
+  await page.getByRole('link', { name: 'Активна' }).click();
+  await expect(page.locator('input[name="inactive"]')).toBeChecked();
+  await expect(page.locator('.org-table__row')).toHaveCount(1);
+
+  // «Отписавшиеся»: Конкурент и Закат.
+  await page.uncheck('input[name="inactive"]');
+  await page.check('input[name="optout"]');
+  await page.click('.org-search button[type="submit"]');
+  const names = await orgNames(page);
+  expect(names.length).toBe(2);
+  expect(names.some((n) => n.includes('Конкурент'))).toBe(true);
+  expect(names.some((n) => n.includes('Закат'))).toBe(true);
+
+  // Пересечение: неактивных отписавшихся нет.
+  await page.check('input[name="inactive"]');
+  await page.click('.org-search button[type="submit"]');
+  await expect(page.locator('.org-table__empty')).toHaveText('Ничего не найдено');
+});
+
+test('очистка поиска сохраняет фильтры и убирает q из URL', async ({ page }) => {
+  await login(page, 'admin@b2b-crm.loc', 'admin123');
+  await page.goto('/dashboard');
+
+  await page.check('input[name="inactive"]');
+  await page.fill('.org-search__input', 'Горизонт');
+  await page.click('.org-search button[type="submit"]');
+  await expect(page.locator('.org-table__row')).toHaveCount(1);
+  await expect(page).toHaveURL(/inactive=1/);
+
+  // Очистка поля: q исчезает из URL, отмеченный фильтр сохраняется.
+  await page.locator('.org-search__input').fill('');
+  await page.waitForURL((url) => !url.searchParams.has('q'));
+  await expect(page.locator('input[name="inactive"]')).toBeChecked();
+  await expect(page.locator('.org-table__row')).toHaveCount(1);
+  await expect(page.locator('.org-table__name').first()).toContainText('Горизонт');
+});
+
+test('сортировка по «Активна» и «Дата отписки»', async ({ page }) => {
+  await login(page, 'admin@b2b-crm.loc', 'admin123');
+  await page.goto('/dashboard');
+
+  // По возрастанию: неактивные (false) впереди активных.
+  await page.getByRole('link', { name: 'Активна' }).click();
+  await expect(page.locator('.table__sortable--active', { hasText: 'Активна' })).toBeVisible();
+  await expect(page.locator('.org-table__name').first()).toContainText('Горизонт');
+
+  // По дате отписки: организации без даты — в конце списка.
+  await page.getByRole('link', { name: 'Дата отписки' }).click();
+  await expect(page.locator('.table__sortable--active', { hasText: 'Дата отписки' })).toBeVisible();
+  const optoutDates = await page.locator('.org-table__row td:nth-child(6)').allTextContents();
+  const dated = optoutDates.filter((d) => d !== '—');
+  expect(dated.length).toBe(2);
+  expect(optoutDates.slice(dated.length)).toEqual(
+    Array(optoutDates.length - dated.length).fill('—'),
+  );
+});
+
 test('наведение подсвечивает строку оттенком зебры, не убирая цвет', async ({ page }) => {
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await page.goto('/dashboard');
@@ -170,7 +257,7 @@ test('сортировочные заголовки — обычные клик�
   await page.goto('/dashboard');
 
   const sortables = page.locator('.table__sortable');
-  await expect(sortables).toHaveCount(4);
+  await expect(sortables).toHaveCount(6);
   await expect(sortables.first()).toBeVisible();
   // Активная колонка подсвечивается после клика
   await page.getByRole('link', { name: 'Название' }).click();

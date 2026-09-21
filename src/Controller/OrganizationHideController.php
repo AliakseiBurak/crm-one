@@ -108,10 +108,11 @@ class OrganizationHideController extends AbstractController
             // Повторное скрытие пары отклоняется с ошибкой конфликта
             $duplicated = $this->hideService->findDuplicateTargets($organization, $managers);
             if ([] !== $duplicated) {
-                $this->addFlash('error', 'Организация уже скрыта от: ' . implode(', ', array_map(
-                    static fn(User $m): string => $m->email,
+                $emails = array_filter(array_map(
+                    static fn(User $m): ?string => $m->email,
                     $duplicated,
-                )));
+                ));
+                $this->addFlash('error', 'Организация уже скрыта от: ' . implode(', ', $emails));
 
                 return $this->redirectToRoute('app_organization_hide_list');
             }

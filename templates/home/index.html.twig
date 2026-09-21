@@ -16,30 +16,30 @@
     {% if app.user %}
         {% set stat_sections = [
             {
-                title: 'Звонков',
+                title: 'Сделано звонков',
                 modifier: 'called',
                 items: [
-                    { figure: stats.calledToday, caption: 'Звонков сегодня', bucket: 'called1' },
-                    { figure: stats.calledWeek, caption: 'Звонков за 7 дней', bucket: 'called7' },
-                    { figure: stats.calledMonth, caption: 'Звонков за 30 дней', bucket: 'called30' },
+                    { figure: stats.calledToday, caption: 'Сегодня', bucket: 'called1' },
+                    { figure: stats.calledWeek, caption: 'За 7 дней', bucket: 'called7' },
+                    { figure: stats.calledMonth, caption: 'За 30 дней', bucket: 'called30' },
                 ],
             },
             {
-                title: 'Ожидают',
+                title: 'Ожидают звонка',
                 modifier: 'waiting',
                 items: [
-                    { figure: stats.waitingToday, caption: 'Ожидают сегодня', bucket: 'waiting1' },
-                    { figure: stats.waitingWeek, caption: 'Ожидают на неделе', bucket: 'waiting7' },
-                    { figure: stats.waitingMonth, caption: 'Ожидают в месяце', bucket: 'waiting30' },
+                    { figure: stats.waitingToday, caption: 'Сегодня', bucket: 'waiting1' },
+                    { figure: stats.waitingWeek, caption: 'За 7 дней', bucket: 'waiting7' },
+                    { figure: stats.waitingMonth, caption: 'За 30 дней', bucket: 'waiting30' },
                 ],
             },
             {
-                title: 'Просроченные',
+                title: 'Просроченные звонки',
                 modifier: 'overdue',
                 items: [
-                    { figure: statsByOrg['overdue1'], caption: 'Просроченные: вчера', bucket: 'overdue1' },
-                    { figure: statsByOrg['overdue7'], caption: 'Просроченные: за 7 дней', bucket: 'overdue7' },
-                    { figure: statsByOrg['overdue30'], caption: 'Просроченные: за 30 дней', bucket: 'overdue30' },
+                    { figure: statsByOrg['overdue1'], caption: 'Вчера', bucket: 'overdue1' },
+                    { figure: statsByOrg['overdue7'], caption: 'За 7 дней', bucket: 'overdue7' },
+                    { figure: statsByOrg['overdue30'], caption: 'За 30 дней', bucket: 'overdue30' },
                 ],
             },
             {

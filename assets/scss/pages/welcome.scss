@@ -50,23 +50,6 @@
     flex-wrap: wrap;
 }
 
-// Дашборд: заголовок страницы и приветствие
-.dashboard-head {
-    padding: 3rem 1rem 0;
-    max-width: $container-max;
-    margin: 0 auto;
-    width: 100%;
-}
-
-.dashboard-head h1 {
-    margin-bottom: 0.3em;
-}
-
-.dashboard-head__greeting {
-    margin: 0 0 0.6em;
-    color: $color-text-secondary;
-}
-
 // Блок статистики на зелёной ленте
 .stats {
     background: $gradient-green;

@@ -52,12 +52,14 @@
                 <div class="campaign-recipients__add">
                     <form method="post" action="{{ path('app_campaign_recipient_add', { id: campaign.id }) }}" class="campaign-recipients__add-form">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token('campaign_recipient') }}">
-                        <select class="field__input" name="organization" id="recipient-organization" required>
-                            <option value="">Выберите организацию…</option>
-                            {% for org in availableOrganizations %}
-                                <option value="{{ org.id }}">{{ org.name }}</option>
-                            {% endfor %}
-                        </select>
+                        <div class="field">
+                            <select class="field__input" name="organization" id="recipient-organization" required data-org-combobox>
+                                <option value="">Выберите организацию…</option>
+                                {% for org in availableOrganizations %}
+                                    <option value="{{ org.id }}">{{ org.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                         <select class="field__input" name="contact" id="recipient-contact">
                             <option value="">— вся организация —</option>
                         </select>

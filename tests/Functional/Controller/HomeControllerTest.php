@@ -197,6 +197,134 @@ final class HomeControllerTest extends DatabaseWebTestCase
         );
     }
 
+    public function testHomeShowsRenamedStatisticsSections(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $crawler = $this->open('/');
+        $this->assertResponseIsSuccessful();
+
+        $titles = $crawler->filter('.stats-home__title')->each(
+            static fn(Crawler $node): string => trim($node->text()),
+        );
+        self::assertSame(
+            ['Сделано звонков', 'Ожидают звонка', 'Просроченные звонки', 'Отписки организаций'],
+            $titles,
+        );
+
+        $captions = [
+            'called' => ['Сегодня', 'За 7 дней', 'За 30 дней'],
+            'waiting' => ['Сегодня', 'За 7 дней', 'За 30 дней'],
+            'overdue' => ['Вчера', 'За 7 дней', 'За 30 дней'],
+            'optout' => ['сегодня', 'за 7 дней', 'за 30 дней'],
+        ];
+        foreach ($captions as $modifier => $expected) {
+            self::assertSame(
+                $expected,
+                $crawler->filter('.stats-home__section--' . $modifier . ' .stats__caption')->each(
+                    static fn(Crawler $node): string => trim($node->text()),
+                ),
+                'Подписи секции ' . $modifier,
+            );
+        }
+
+        $content = (string) $this->client->getResponse()->getContent();
+        self::assertStringNotContainsString('Обзвонено сегодня', $content);
+        self::assertStringNotContainsString('В течение недели', $content);
+        self::assertStringNotContainsString('В течение месяца', $content);
+    }
+
+    public function testBaseLayoutReferencesFavicon(): void
+    {
+        $crawler = $this->open('/login');
+
+        $this->assertResponseIsSuccessful();
+        $icon = $crawler->filter('head link[rel="icon"]');
+        self::assertCount(1, $icon);
+        self::assertSame('image/x-icon', $icon->attr('type'));
+        self::assertStringEndsWith('/favicon.ico', (string) $icon->attr('href'));
+    }
+
+    public function testDashboardFiltersByInactiveAndOptout(): void
+    {
+        $active = $this->makeOrganization('ООО Активная');
+
+        $inactive = $this->makeOrganization('ООО Неактивная');
+        $inactive->setIsActive(false);
+
+        $optedOut = $this->makeOrganization('ООО Отписавшаяся');
+        $optedOut->setIsOptedOut(true);
+
+        $inactiveOptedOut = $this->makeOrganization('ООО Неактивная Отписавшаяся');
+        $inactiveOptedOut->setIsActive(false)->setIsOptedOut(true);
+
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        // Без фильтров — все организации области доступа.
+        $crawler = $this->open('/dashboard');
+        foreach ([$active, $inactive, $optedOut, $inactiveOptedOut] as $organization) {
+            self::assertSame(1, $crawler->filter('#org-' . $organization->id)->count());
+        }
+
+        // «Неактивные»: только isActive = false; фильтр отмечен в форме.
+        $crawler = $this->open('/dashboard?inactive=1');
+        self::assertSame(0, $crawler->filter('#org-' . $active->id)->count());
+        self::assertSame(1, $crawler->filter('#org-' . $inactive->id)->count());
+        self::assertSame(0, $crawler->filter('#org-' . $optedOut->id)->count());
+        self::assertSame(1, $crawler->filter('#org-' . $inactiveOptedOut->id)->count());
+        self::assertCount(1, $crawler->filter('input[name="inactive"][checked]'));
+        self::assertCount(0, $crawler->filter('input[name="optout"][checked]'));
+
+        // «Отписавшиеся»: только isOptedOut = true.
+        $crawler = $this->open('/dashboard?optout=1');
+        self::assertSame(0, $crawler->filter('#org-' . $active->id)->count());
+        self::assertSame(0, $crawler->filter('#org-' . $inactive->id)->count());
+        self::assertSame(1, $crawler->filter('#org-' . $optedOut->id)->count());
+        self::assertSame(1, $crawler->filter('#org-' . $inactiveOptedOut->id)->count());
+
+        // Пересечение: неактивные отписавшиеся.
+        $crawler = $this->open('/dashboard?inactive=1&optout=1');
+        self::assertSame(0, $crawler->filter('#org-' . $active->id)->count());
+        self::assertSame(0, $crawler->filter('#org-' . $inactive->id)->count());
+        self::assertSame(0, $crawler->filter('#org-' . $optedOut->id)->count());
+        self::assertSame(1, $crawler->filter('#org-' . $inactiveOptedOut->id)->count());
+
+        // Фильтры сохраняются в ссылках сортировки.
+        $sortHref = (string) $crawler->filter('a.table__sortable')->first()->attr('href');
+        self::assertStringContainsString('inactive=1', $sortHref);
+        self::assertStringContainsString('optout=1', $sortHref);
+    }
+
+    public function testDashboardSortsByActivityAndOptOutDate(): void
+    {
+        $active = $this->makeOrganization('Активная');
+        $inactive = $this->makeOrganization('Неактивная');
+        $inactive->setIsActive(false);
+        $optedOut = $this->makeOrganization('Отписавшаяся');
+        $optedOut->setIsOptedOut(true)->setOptedOutAt(new \DateTimeImmutable('-3 days'));
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        // По активности (возрастание): неактивные впереди активных.
+        $crawler = $this->open('/dashboard?sort=isActive&dir=asc');
+        self::assertSame('Неактивная', $this->firstOrganizationName($crawler));
+
+        // По дате отписки (возрастание): с датой — впереди, без даты — в конце.
+        $crawler = $this->open('/dashboard?sort=optedOutAt&dir=asc');
+        self::assertSame(
+            ['Отписавшаяся', 'Активная', 'Неактивная'],
+            $crawler->filter('.org-table__row .org-table__name-link')->each(
+                static fn(Crawler $node): string => trim($node->text()),
+            ),
+        );
+    }
+
+    private function firstOrganizationName(Crawler $crawler): string
+    {
+        return trim($crawler->filter('.org-table__row .org-table__name-link')->first()->text());
+    }
+
     private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = new User()

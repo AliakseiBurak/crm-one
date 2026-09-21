@@ -36,6 +36,6 @@ test('страница панели использует общий шаблон
 
   await expect(page.locator('.header__logo')).toBeVisible();
   await expect(page.locator('.footer')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Панель' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Организации' })).toBeVisible();
   await expect(page.locator('.org-table__row').first()).toBeVisible();
 });

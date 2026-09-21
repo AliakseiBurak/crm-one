@@ -394,6 +394,14 @@ readonly class MailingService
         );
 
         foreach ($admins as $admin) {
+            if (null === $admin->email) {
+                $this->logger->warning('Администратор {id} без email — уведомление об ошибке рассылки не отправлено', [
+                    'id' => $admin->id,
+                ]);
+
+                continue;
+            }
+
             $email = new Email()
                 ->from(new Address($this->fromEmail, $this->fromName))
                 ->to($admin->email)

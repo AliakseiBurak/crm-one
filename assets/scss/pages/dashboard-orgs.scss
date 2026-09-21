@@ -32,6 +32,28 @@
     color: $color-info-blue;
 }
 
+// Чекбоксы фильтров «Неактивные» / «Отписавшиеся» в одну строку с поиском
+.org-search__check {
+    display: flex;
+    align-items: center;
+    gap: 0.45em;
+    min-height: 44px;
+    font-family: $font-heading;
+    font-size: 1rem;
+    font-weight: 700;
+    color: $color-info-blue;
+    cursor: pointer;
+    white-space: nowrap;
+
+    input[type='checkbox'] {
+        width: 20px;
+        height: 20px;
+        accent-color: $color-action-orange;
+        flex: 0 0 auto;
+        margin: 0;
+    }
+}
+
 .org-search__input {
     font-family: $font-body;
     font-size: $font-size-body;
@@ -40,6 +62,19 @@
     border-bottom: 2px solid $color-action-orange;
     background: transparent;
     padding: 0.4em 0;
+    outline: 0;
+    transition: border-bottom-width 0.15s ease;
+
+    // Как у полей форм (.field__input): при фокусе линия утолщается до 4px
+    &:focus {
+        border-bottom-width: 4px;
+        border-bottom-color: $color-action-orange;
+    }
+
+    &:focus-visible {
+        box-shadow: none;
+        outline: 0;
+    }
 
     &::placeholder {
         color: $color-text-secondary;
@@ -71,6 +106,23 @@
 // Дата следующего звонка — выравнивание по правому краю ячейки
 .org-table__next-call {
     text-align: right;
+}
+
+// Колонка «Активна» — неактивный чекбокс (только отображение статуса)
+.org-table__active {
+    text-align: center;
+
+    input[type='checkbox'] {
+        width: 20px;
+        height: 20px;
+        accent-color: $color-action-orange;
+        cursor: default;
+    }
+}
+
+// Колонка «Дата отписки»
+.org-table__optout {
+    white-space: nowrap;
 }
 
 .org-table__name {

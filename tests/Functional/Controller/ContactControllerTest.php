@@ -38,7 +38,7 @@ final class ContactControllerTest extends DatabaseWebTestCase
         $this->assertResponseRedirects();
         $this->client->followRedirect();
         $this->assertResponseIsSuccessful();
-        $this->assertSelectorTextContains('h1', 'Панель');
+        $this->assertSelectorTextContains('h1', 'Организации');
 
         $contact = $this->findContact('Иван Петров');
         self::assertNotNull($contact);

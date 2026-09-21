@@ -3,15 +3,6 @@
 {% block title %}Панель{% endblock %}
 
 {% block body %}
-    {% set userType = app.user.role.value == 'admin' ? 'администратор' : 'менеджер' %}
-
-    <section class="dashboard-head">
-        <div class="container">
-            <h1>Панель</h1>
-            <p class="dashboard-head__greeting">Вы вошли как {{ userType }} {{ app.user.email }}</p>
-        </div>
-    </section>
-
     {{ include('home/partials/_organizations_table.html.twig') }}
 
     {# Модальное окно быстрого редактирования организации (organizations-crud) #}

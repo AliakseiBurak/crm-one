@@ -28,8 +28,8 @@ test('вход администратором', async ({ page }) => {
   await expect(page.locator('.header__menu-link', { hasText: 'Панель' })).toBeVisible();
 
   await page.goto('/dashboard');
-  await expect(page.getByRole('heading', { name: 'Панель' })).toBeVisible();
-  await expect(page.locator('.dashboard-head__greeting')).toHaveText('Вы вошли как администратор admin@b2b-crm.loc');
+  await expect(page.getByRole('heading', { name: 'Организации' })).toBeVisible();
+  await expect(page.locator('.dashboard-head__greeting')).toHaveCount(0);
 });
 
 test('вход менеджером', async ({ page }) => {
@@ -43,8 +43,8 @@ test('вход менеджером', async ({ page }) => {
   await expect(page.locator('.stats__total')).toBeVisible();
 
   await page.goto('/dashboard');
-  await expect(page.getByRole('heading', { name: 'Панель' })).toBeVisible();
-  await expect(page.locator('.dashboard-head__greeting')).toHaveText('Вы вошли как менеджер manager@b2b-crm.loc');
+  await expect(page.getByRole('heading', { name: 'Организации' })).toBeVisible();
+  await expect(page.locator('.dashboard-head__greeting')).toHaveCount(0);
 });
 
 test('неверный пароль: ошибка и отсутствие сессии', async ({ page }) => {

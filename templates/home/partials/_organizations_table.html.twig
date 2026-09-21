@@ -4,25 +4,28 @@
     Кнопки «Изменить» карточек контактов и «Добавить контакт» ведут на
     маршруты contacts-crud (модальное окно / форма создания).
     Ожидает: organizationRows (DashboardOrganizationRow[]), contactsByOrganization,
-    callsByOrganization, search, sort, dir, highlight.
+    callsByOrganization, search, sort, dir, highlight, inactive, optout.
 #}
-{% macro sort_url(col, search, sort, dir, highlight) -%}
-    {{ path('app_dashboard', { q: search|default(''), sort: col, dir: sort == col and dir == 'asc' ? 'desc' : 'asc' }|merge(highlight ? { highlight: highlight } : {})) }}
+{% macro sort_url(col, search, sort, dir, highlight, inactive, optout) -%}
+    {{ path('app_dashboard', { q: search|default(''), sort: col, dir: sort == col and dir == 'asc' ? 'desc' : 'asc' }
+        |merge(highlight ? { highlight: highlight } : {})
+        |merge(inactive ? { inactive: 1 } : {})
+        |merge(optout ? { optout: 1 } : {})) }}
 {%- endmacro %}
 
-{% macro sort_header(col, label, search, sort, dir, highlight) -%}
+{% macro sort_header(col, label, search, sort, dir, highlight, inactive, optout) -%}
     {% if sort == col %}
-        <a class="table__sortable table__sortable--active" href="{{ _self.sort_url(col, search, sort, dir, highlight) }}">
+        <a class="table__sortable table__sortable--active" href="{{ _self.sort_url(col, search, sort, dir, highlight, inactive, optout) }}">
             {{ label }}{{ dir == 'desc' ? ' ↓' : ' ↑' }}
         </a>
     {% else %}
-        <a class="table__sortable" href="{{ _self.sort_url(col, search, sort, dir, highlight) }}">{{ label }}</a>
+        <a class="table__sortable" href="{{ _self.sort_url(col, search, sort, dir, highlight, inactive, optout) }}">{{ label }}</a>
     {% endif %}
 {%- endmacro %}
 
 <section class="section section--white" id="organizations">
     <div class="container">
-        <h2>Организации</h2>
+        <h1>Организации</h1>
 
         <form class="org-search" method="get" action="{{ path('app_dashboard') }}">
             <label class="org-search__field">
@@ -37,6 +40,14 @@
                     data-dashboard-search
                 >
             </label>
+            <label class="org-search__check">
+                <input type="checkbox" name="inactive" value="1"{% if inactive %} checked{% endif %}>
+                <span>Неактивные</span>
+            </label>
+            <label class="org-search__check">
+                <input type="checkbox" name="optout" value="1"{% if optout %} checked{% endif %}>
+                <span>Отписавшиеся</span>
+            </label>
             <button class="btn btn--primary" type="submit">Найти</button>
         </form>
 
@@ -47,10 +58,12 @@
                 <table class="table org-table">
                     <thead>
                         <tr>
-                            <th scope="col">{{ _self.sort_header('name', 'Название', search, sort, dir, highlight) }}</th>
-                            <th scope="col">{{ _self.sort_header('industry', 'Сфера деятельности', search, sort, dir, highlight) }}</th>
-                            <th scope="col">{{ _self.sort_header('lastCall', 'Последний звонок', search, sort, dir, highlight) }}</th>
-                            <th scope="col">{{ _self.sort_header('nextCall', 'Следующий звонок', search, sort, dir, highlight) }}</th>
+                            <th scope="col">{{ _self.sort_header('name', 'Название', search, sort, dir, highlight, inactive, optout) }}</th>
+                            <th scope="col">{{ _self.sort_header('industry', 'Сфера деятельности', search, sort, dir, highlight, inactive, optout) }}</th>
+                            <th scope="col">{{ _self.sort_header('lastCall', 'Последний звонок', search, sort, dir, highlight, inactive, optout) }}</th>
+                            <th scope="col">{{ _self.sort_header('nextCall', 'Следующий звонок', search, sort, dir, highlight, inactive, optout) }}</th>
+                            <th scope="col">{{ _self.sort_header('isActive', 'Активна', search, sort, dir, highlight, inactive, optout) }}</th>
+                            <th scope="col">{{ _self.sort_header('optedOutAt', 'Дата отписки', search, sort, dir, highlight, inactive, optout) }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -76,9 +89,13 @@
                                 <td class="org-table__next-call">
                                     {{ row.nextScheduledAt ? row.nextScheduledAt|date('d.m.Y') : '—' }}
                                 </td>
+                                <td class="org-table__active">
+                                    <input type="checkbox" disabled{% if organization.isActive %} checked{% endif %} aria-label="Активна">
+                                </td>
+                                <td class="org-table__optout">{{ organization.optedOutAt ? organization.optedOutAt|date('d.m.Y') : '—' }}</td>
                             </tr>
                             <tr class="org-details">
-                                <td colspan="4">
+                                <td colspan="6">
                                     <div class="org-details__box" id="org-details-{{ organization.id }}">
 
                                         <a class="btn btn--secondary btn--sm org-calls__add" href="{{ path('app_call_new_org', { organizationId: organization.id }) }}">Добавить звонок</a>

@@ -17,12 +17,14 @@
             <div class="campaign-recipients__add" style="margin-bottom: 24px;">
                 <form method="post" action="{{ path('app_organization_hide_list') }}" class="campaign-recipients__add-form">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('hide') }}">
-                    <select class="field__input" name="organization" required>
-                        <option value="">Выберите организацию…</option>
-                        {% for org in organizations %}
-                            <option value="{{ org.id }}">{{ org.name }}</option>
-                        {% endfor %}
-                    </select>
+                    <div class="field">
+                        <select class="field__input" name="organization" required data-org-combobox>
+                            <option value="">Выберите организацию…</option>
+                            {% for org in organizations %}
+                                <option value="{{ org.id }}">{{ org.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                     <select class="field__input" name="managers[]">
                         <option value="">— скрыть от всех менеджеров —</option>
                         {% for manager in managers %}

@@ -37,6 +37,9 @@ h6 {
 
 h1 {
     font-size: $font-size-h1;
+    border-left: 0.19em solid $color-info-blue;
+    padding-left: 0.3em;
+    color: $color-info-blue;
 }
 
 h2 {

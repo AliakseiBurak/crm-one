@@ -51,7 +51,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         $this->assertResponseRedirects();
         $this->client->followRedirect();
         $this->assertResponseIsSuccessful();
-        $this->assertSelectorTextContains('h1', 'Панель');
+        $this->assertSelectorTextContains('h1', 'Организации');
 
         $this->em()->clear();
         $call = $this->findCall('Обсудить курсы');

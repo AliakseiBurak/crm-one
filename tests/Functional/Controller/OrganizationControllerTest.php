@@ -35,7 +35,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         // Перенаправление на панель с подсветкой организации.
         $this->client->followRedirect();
         $this->assertResponseIsSuccessful();
-        $this->assertSelectorTextContains('h1', 'Панель');
+        $this->assertSelectorTextContains('h1', 'Организации');
         $this->assertSelectorExists('.org-table__row--highlight');
 
         // Свежая гидратация: коллекция у управляемой сущности не перечитывается.
@@ -378,7 +378,7 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         // Перенаправление на панель с подсветкой организации.
         $this->client->followRedirect();
         $this->assertResponseIsSuccessful();
-        $this->assertSelectorTextContains('h1', 'Панель');
+        $this->assertSelectorTextContains('h1', 'Организации');
         $this->assertSelectorExists('.org-table__row--highlight');
 
         $this->em()->clear();

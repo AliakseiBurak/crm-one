@@ -37,7 +37,7 @@ final class OrganizationHidingReadPathTest extends DatabaseWebTestCase
 
         $crawler = $this->client->request('GET', '/');
         $this->assertStatsTotal($crawler, 2);
-        self::assertSame('1', $this->homeFigure($crawler, 'Ожидают сегодня'));
+        self::assertSame('1', $this->homeFigure($crawler, 'waiting', 'Сегодня'));
 
         // Скрываем организацию (после запросов сущности детачатся — перечитываем).
         $this->em()->clear();
@@ -55,8 +55,8 @@ final class OrganizationHidingReadPathTest extends DatabaseWebTestCase
 
         $crawler = $this->client->request('GET', '/');
         $this->assertStatsTotal($crawler, 1);
-        self::assertSame('0', $this->homeFigure($crawler, 'Ожидают сегодня'));
-        self::assertSame('0', $this->homeFigure($crawler, 'Ожидают на неделе'));
+        self::assertSame('0', $this->homeFigure($crawler, 'waiting', 'Сегодня'));
+        self::assertSame('0', $this->homeFigure($crawler, 'waiting', 'За 7 дней'));
     }
 
     public function testHiddenOrganizationExcludedFromCallAndContactSelects(): void
@@ -265,15 +265,15 @@ final class OrganizationHidingReadPathTest extends DatabaseWebTestCase
         );
     }
 
-    private function homeFigure(\Symfony\Component\DomCrawler\Crawler $crawler, string $caption): ?string
+    private function homeFigure(\Symfony\Component\DomCrawler\Crawler $crawler, string $section, string $caption): ?string
     {
-        foreach ($crawler->filter('.stats__item') as $item) {
+        foreach ($crawler->filter('.stats-home__section--' . $section . ' .stats__item') as $item) {
             $itemCrawler = new \Symfony\Component\DomCrawler\Crawler($item);
             if (trim($itemCrawler->filter('.stats__caption')->text()) === $caption) {
                 return trim($itemCrawler->filter('.stats__figure')->text());
             }
         }
 
-        self::fail('Не найдена секция статистики «' . $caption . '»');
+        self::fail('Не найдена секция статистики «' . $section . ' / ' . $caption . '»');
     }
 }

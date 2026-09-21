@@ -175,12 +175,6 @@ parameters:
 			path: src/Controller/OrganizationController.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between null and string will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 2
-			path: src/Controller/UserController.php
-
-		-
 			message: '#^Property App\\Entity\\Campaign\:\:\$attachments with generic interface Doctrine\\Common\\Collections\\Collection does not specify its types\: TKey, T$#'
 			identifier: missingType.generics
 			count: 1
@@ -233,12 +227,6 @@ parameters:
 			identifier: missingType.generics
 			count: 1
 			path: src/Entity/User.php
-
-		-
-			message: '#^Cannot access offset ''called1''\|''called30''\|''called7''\|''overdue1''\|''overdue30''\|''overdue7''\|''waiting1''\|''waiting30''\|''waiting7'' on array\<string, mixed\>\|false\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: src/Repository/CallRepository.php
 
 		-
 			message: '#^Method App\\Repository\\OrganizationGroupRepository\:\:findAllGroups\(\) return type has no value type specified in iterable type array\.$#'
