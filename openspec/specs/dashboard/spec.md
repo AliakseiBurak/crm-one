@@ -61,11 +61,15 @@ outside the user's access scope.
 ### Requirement: Таблица организаций на панели
 The system SHALL render on the dashboard, below the statistics blocks, a
 table of organizations with columns for the organization name, industry,
-date of the last completed call and date of the next scheduled call. The
-last call date SHALL be derived from the latest `Call.made_at` of the
-organization, the next call date SHALL be derived from the nearest future
-`Call.scheduled_at`. Organizations SHALL be listed within the user's access
-scope, in the sort order selected by the user.
+date of the last completed call, date of the next scheduled call, activity
+status and opt-out date. The last call date SHALL be derived from the
+latest `Call.made_at` of the organization, the next call date SHALL be
+derived from the nearest future `Call.scheduled_at`. The activity status
+column SHALL render `Organization.isActive` as a checkbox, the opt-out date
+column SHALL render `Organization.optedOutAt` as a date or «—» when absent.
+The activity status and opt-out date columns SHALL be rendered after the
+next call date column. Organizations SHALL be listed within the user's
+access scope, in the sort order selected by the user.
 
 #### Scenario: Список организаций с датами звоноков
 - **WHEN** в области доступа пользователя существуют организации с завершёнными и запланированными звонками
@@ -77,6 +81,12 @@ scope, in the sort order selected by the user.
 - **WHEN** в области доступа пользователя существует организация, у которой нет ни одного звонка
 - **AND** пользователь открывает дашборд
 - **THEN** в строке организации вместо дат звоноков отображаются заглушки «—»
+
+#### Scenario: Статус активности и дата отписки
+- **WHEN** в области доступа пользователя существуют активная и неактивная организации, одна из которых отписалась
+- **AND** пользователь открывает дашборд
+- **THEN** для активной организации отображается отмеченный чекбокс активности, для неактивной — неотмеченный
+- **AND** для отписавшейся организации отображается дата отписки, для остальных — «—»
 
 ### Requirement: Контакты организации на панели
 The system SHALL let the user expand an organization row on the dashboard
@@ -187,7 +197,10 @@ SHALL NOT re-fetch data or reload the page.
 The system SHALL provide a search field above the organization table that
 filters the table by organization name and by contact data (contact name,
 phone, email) of the organization's contacts. The search SHALL be
-case-insensitive and applied immediately as the user types.
+case-insensitive and applied immediately as the user types. The search
+SHALL combine with the activity and opt-out filters as an intersection.
+Clearing the search field SHALL reset only the search text and SHALL
+preserve the applied filters.
 
 #### Scenario: Поиск по названию организации
 - **WHEN** пользователь вводит в поле поиска текст, совпадающий с названием одной из организаций
@@ -207,18 +220,20 @@ case-insensitive and applied immediately as the user types.
 #### Scenario: Очистка поиска через крестик в поле
 - **WHEN** в поле поиска есть текст (таблица отфильтрована)
 - **AND** пользователь нажимает нативный крестик очистки поля поиска (`type="search"`)
-- **THEN** поле очищается и таблица снова показывает все организации области доступа
+- **THEN** поле очищается, и таблица показывает организации области доступа без ограничения по поисковому запросу
 - **AND** в строке URL больше нет параметра `q`
+- **AND** ранее отмеченные фильтры сохраняются
 
 ### Requirement: Сортировка таблицы организаций
 The system SHALL let the user sort the organization table by organization
-name, industry, last call date and next call date. By default, without a
-sort parameter, the table SHALL be sorted by organization name in ascending
-order. The sortable column headers SHALL render as plain clickable headers
-with the currently applied sort direction (and column) marked visually.
-Sorting SHALL be toggled by clicking the corresponding header; the first
-click applies ascending order, the second click descending order, both
-within the enabled column sort directions.
+name, industry, last call date, next call date, activity status and opt-out
+date. By default, without a sort parameter, the table SHALL be sorted by
+organization name in ascending order. The sortable column headers SHALL
+render as plain clickable headers with the currently applied sort direction
+(and column) marked visually. Sorting SHALL be toggled by clicking the
+corresponding header; the first click applies ascending order, the second
+click descending order, both within the enabled column sort directions. The
+sort links SHALL preserve the applied search query and filters.
 
 #### Scenario: Сортировка по названию
 - **WHEN** пользователь открывает дашборд без параметров сортировки
@@ -231,6 +246,16 @@ within the enabled column sort directions.
 - **WHEN** пользователь кликает по заголовку «Следующий звонок»
 - **THEN** организации сортируются по дате следующего звонка от ближайшей к самой поздней
 - **AND** организации без запланированных звонков располагаются в конце списка
+
+#### Scenario: Сортировка по статусу активности
+- **WHEN** пользователь кликает по заголовку «Активна»
+- **THEN** организации сортируются по статусу активности
+- **AND** направление сортировки отражается в заголовке
+
+#### Scenario: Сортировка по дате отписки
+- **WHEN** пользователь кликает по заголовку «Дата отписки»
+- **THEN** организации сортируются по дате отписки
+- **AND** организации без даты отписки располагаются в конце списка
 
 ### Requirement: Область доступа списка организаций
 The system SHALL render the organization table on the dashboard within the
@@ -355,26 +380,26 @@ hardcoded.
 #### Scenario: Просроченные вчера
 - **WHEN** в системе существуют организации с запланированными звонками на вчера без `made_at`
 - **AND** пользователь открывает домашнюю страницу
-- **THEN** отображается показатель «Просроченные: вчера» с числом уникальных организаций области доступа
+- **THEN** в секции «Просроченные звонки» отображается показатель с подписью «Вчера» с числом уникальных организаций области доступа
 
 #### Scenario: Просроченные за 7 дней
 - **WHEN** в системе существуют организации с запланированными звонками за последние 7 дней без `made_at`
 - **AND** пользователь открывает домашнюю страницу
-- **THEN** отображается показатель «Просроченные: за 7 дней» с числом уникальных организаций области доступа
+- **THEN** в секции «Просроченные звонки» отображается показатель с подписью «За 7 дней» с числом уникальных организаций области доступа
 
 #### Scenario: Просроченные за 30 дней
 - **WHEN** в системе существуют организации с запланированными звонками за последние 30 дней без `made_at`
 - **AND** пользователь открывает домашнюю страницу
-- **THEN** отображается показатель «Просроченные: за 30 дней» с числом уникальных организаций области доступа
+- **THEN** в секции «Просроченные звонки» отображается показатель с подписью «За 30 дней» с числом уникальных организаций области доступа
 
 #### Scenario: Организация с просроченным и совершённым звонком
 - **WHEN** организация «Ромашка» имеет запланированный звонок на вчера без `made_at` и совершённый звонок сегодня
-- **THEN** организация «Ромашка» учитывается в «Просроченные: вчера»
-- **AND** организация «Ромашка» учитывается в «Звонков сегодня»
+- **THEN** организация «Ромашка» учитывается в показателе «Вчера» секции «Просроченные звонки»
+- **AND** организация «Ромашка» учитывается в показателе «Сегодня» секции «Сделано звонков»
 
 #### Scenario: Организация с частично нереализованными звонками
 - **WHEN** организация «Вектор» запланировала 5 звонков на вчера, из них 3 совершены, 2 — нет
-- **THEN** организация «Вектор» учитывается в «Просроченные: вчера»
+- **THEN** организация «Вектор» учитывается в показателе «Вчера» секции «Просроченные звонки»
 
 ### Requirement: Исключающая логика waiting-категорий
 The system SHALL NOT count an organization in a waiting figure when that
@@ -392,41 +417,43 @@ called figure simultaneously.
 #### Scenario: Организация с звонком сегодня не учитывается в «Ожидают сегодня»
 - **WHEN** в области доступа пользователя организация «Ромашка» имеет звонок с `made_at` сегодня
 - **AND** та же организация «Ромашка» имеет запланированный звонок с `scheduled_at` сегодня
-- **THEN** организация «Ромашка» учитывается в показателе «Звонков сегодня»
-- **AND** организация «Ромашка» НЕ учитывается в показателе «Ожидают сегодня»
+- **THEN** организация «Ромашка» учитывается в показателе «Сегодня» секции «Сделано звонков»
+- **AND** организация «Ромашка» НЕ учитывается в показателе «Сегодня» секции «Ожидают звонка»
 
 #### Scenario: Организация с звонком за неделю не учитывается в «Ожидают на неделе»
 - **WHEN** организация имеет звонок с `made_at` 5 дней назад
 - **AND** та же организация имеет запланированный звонок через 3 дня
-- **THEN** организация учитывается в «Звонков за 7 дней»
-- **AND** организация НЕ учитывается в «Ожидают на неделе»
+- **THEN** организация учитывается в показателе «За 7 дней» секции «Сделано звонков»
+- **AND** организация НЕ учитывается в показателе «За 7 дней» секции «Ожидают звонка»
 
 #### Scenario: Организация с звонком за месяц не учитывается в «Ожидают в месяце»
 - **WHEN** организация имеет звонок с `made_at` 20 дней назад
 - **AND** та же организация имеет запланированный звонок через 15 дней
-- **THEN** организация учитывается в «Звонков за 30 дней»
-- **AND** организация НЕ учитывается в «Ожидают в месяце»
+- **THEN** организация учитывается в показателе «За 30 дней» секции «Сделано звонков»
+- **AND** организация НЕ учитывается в показателе «За 30 дней» секции «Ожидают звонка»
 
 #### Scenario: Организация в разных периодах — разрешено
 - **WHEN** организация имеет звонок с `made_at` сегодня
 - **AND** та же организация имеет запланированный звонок через 10 дней
-- **THEN** организация учитывается в «Звонков сегодня»
-- **AND** организация учитывается в «Ожидают на неделе»
+- **THEN** организация учитывается в показателе «Сегодня» секции «Сделано звонков»
+- **AND** организация учитывается в показателе «За 7 дней» секции «Ожидают звонка»
 
-### Requirement: Переименование подписей показателей
-The system SHALL render the nine dashboard statistics figures with the
-following captions: «Звонков сегодня», «Звонков за 7 дней», «Звонков за
-30 дней», «Ожидают сегодня», «Ожидают на неделе», «Ожидают в месяце»,
-«Просроченные: вчера», «Просроченные: за 7 дней», «Просроченные: за
-30 дней». The previous captions («Обзвонено сегодня», «Сегодня», «В
-течение недели», «В течение месяца») SHALL NOT be used.
+### Requirement: Подписи показателей статистики
+The system SHALL render the caption of each statistics figure as the period
+of the figure only, without repeating the words of the section title: the
+section title SHALL name the category of the figures, the caption SHALL name
+the period. The legacy caption wordings «Обзвонено сегодня», «В течение
+недели» and «В течение месяца» SHALL NOT be used.
 
 #### Scenario: Подписи показателей обновлены
 - **WHEN** пользователь открывает домашнюю страницу
-- **THEN** подписи показателей содержат «Звонков сегодня», «Звонков за 7 дней», «Звонков за 30 дней»
-- **AND** подписи показателей «ждут» содержат «Ожидают сегодня», «Ожидают на неделе», «Ожидают в месяце»
-- **AND** подписи просроченных содержат «Просроченные: вчера», «Просроченные: за 7 дней», «Просроченные: за 30 дней»
-- **AND** старые подписи «Обзвонено сегодня», «Сегодня», «В течение недели», «В течение месяца» отсутствуют
+- **THEN** заголовок секции называет категорию показателей
+- **AND** подпись показателя называет только период
+- **AND** ни одна подпись не повторяет слова своего заголовка секции
+
+#### Scenario: Устаревшие подписи отсутствуют
+- **WHEN** пользователь открывает домашнюю страницу
+- **THEN** подписи «Обзвонено сегодня», «В течение недели» и «В течение месяца» отсутствуют
 
 ### Requirement: Область доступа индикаторов
 The system SHALL compute the by-organization indicators, the total
@@ -453,7 +480,7 @@ indicators.
 The system SHALL render the total organizations card, the dashboard statistics
 in four sections and the by-organization indicators on the home page (`/`)
 below the hero banner for authenticated users. The four sections SHALL be
-«Звонков», «Ожидают», «Просроченные» and «Отписки организаций», twelve figures in total:
+«Сделано звонков», «Ожидают звонка», «Просроченные звонки» and «Отписки организаций», twelve figures in total:
 nine call figures and three optout figures, each optout figure with the
 filter-link sub-metric «Из письма». The by-organization indicators SHALL be rendered under
 the nine call figures. The statistics SHALL NOT be rendered on the home page
@@ -465,7 +492,7 @@ organizations table. After login, the user SHALL be redirected to the home page
 #### Scenario: Вошедший пользователь видит статистику на домашней
 - **WHEN** вошедший пользователь открывает домашнюю страницу `/`
 - **THEN** под hero-баннером отображается карточка «Доступно организаций: Y»
-- **AND** под карточкой отображаются четыре секции статистики: «Звонков», «Ожидают», «Просроченные» и «Отписки организаций»
+- **AND** под карточкой отображаются четыре секции статистики: «Сделано звонков», «Ожидают звонка», «Просроченные звонки» и «Отписки организаций»
 - **AND** в секциях отображается двенадцать показателей
 - **AND** под девятью показателями звонков отображается индикатор «По организациям: N»
 - **AND** под тремя показателями отписок отображается подметрика-ссылка «Из письма: N»
@@ -559,3 +586,42 @@ not hardcoded.
 - **WHEN** менеджер открывает главную страницу дашборда
 - **AND** организация с isOptedOut = true находится вне его области доступа
 - **THEN** показатели блока «Отписки организаций» не учитывают эту организацию
+
+### Requirement: Фильтры организаций по активности и отписке
+The system SHALL render above the organization table two filter checkboxes:
+«Неактивные» and «Отписавшиеся». When «Неактивные» is checked the table
+SHALL show only organizations with `isActive = false`; when «Отписавшиеся»
+is checked — only organizations with `isOptedOut = true`. The filters SHALL
+combine with each other and with the search query as an intersection. When
+neither filter is checked the table SHALL show all organizations of the
+access scope. The applied filters SHALL persist in the form and in the
+column sort links between requests. The filter form SHALL be rendered
+compactly in a single row with the search field.
+
+#### Scenario: Фильтр «Неактивные»
+- **WHEN** пользователь отмечает фильтр «Неактивные»
+- **THEN** в таблице остаются только организации с `isActive = false`
+- **AND** активные организации скрыты
+
+#### Scenario: Фильтр «Отписавшиеся»
+- **WHEN** пользователь отмечает фильтр «Отписавшиеся»
+- **THEN** в таблице остаются только организации с `isOptedOut = true`
+
+#### Scenario: Оба фильтра отмечены
+- **WHEN** пользователь отмечает оба фильтра
+- **THEN** в таблице остаются только неактивные отписавшиеся организации
+
+#### Scenario: Фильтры сохраняются при сортировке
+- **WHEN** пользователь применяет фильтр и кликает по заголовку колонки для сортировки
+- **THEN** сортировка применяется к отфильтрованному списку
+- **AND** фильтр остаётся отмеченным
+
+### Requirement: Заголовок панели организаций
+The dashboard (`/dashboard`) SHALL render a single `h1` heading
+«Организации» above the organization table. The dashboard SHALL NOT render
+the page title «Панель» nor the authenticated-user greeting.
+
+#### Scenario: Заголовок панели
+- **WHEN** пользователь открывает дашборд
+- **THEN** страница содержит заголовок `h1` «Организации»
+- **AND** заголовок «Панель» и приветствие пользователя не отображаются

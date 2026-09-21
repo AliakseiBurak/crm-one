@@ -71,4 +71,4 @@
   - `group-assignment.spec.ts:163` — `ReferenceError: Cannot access 'login' before initialization` (баг в самом тесте)
   - устаревшие фикстуры: `dashboard-organizations.spec.ts:267` ждёт старую последнюю заметку Ромашки (в фикстурах появился более новый отказ), `organization-groups.spec.ts:262` выбирает организацию без e-mail
   - загрязнение dev-БД упавшими прогонами: лишние `organization_hide` и организация `E2E Подсветка`; после восстановления состояния `home-stats.spec.ts` — 12/12, `dashboard-organizations.spec.ts` — 13/15, новые тесты фильтров/колонок/поиска и оба комбобокс-теста зелёные
-- [ ] 9.11 `openspec archive` после коммита и проверка синхронизации main-спек
+- [x] 9.11 `openspec archive` после коммита и проверка синхронизации main-спек
