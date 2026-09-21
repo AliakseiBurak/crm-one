@@ -188,6 +188,76 @@ the period. The legacy caption wordings «Обзвонено сегодня», �
 - **WHEN** пользователь открывает домашнюю страницу
 - **THEN** подписи «Обзвонено сегодня», «В течение недели» и «В течение месяца» отсутствуют
 
+### Requirement: Статистика просроченных звонков
+The system SHALL render three overdue statistics figures counting distinct
+organizations having calls with a scheduled date (`scheduled_at`) in the past
+and no call date (`made_at IS NULL`). The three periods SHALL be: yesterday
+(00:00–23:59 of the previous calendar day), last 7 days (today minus 6 days
+through yesterday), and last 30 days (today minus 29 days through yesterday).
+Figures SHALL update automatically when call data changes and SHALL NOT be
+hardcoded.
+
+#### Scenario: Просроченные вчера
+- **WHEN** в системе существуют организации с запланированными звонками на вчера без `made_at`
+- **AND** пользователь открывает домашнюю страницу
+- **THEN** в секции «Просроченные звонки» отображается показатель с подписью «Вчера» с числом уникальных организаций области доступа
+
+#### Scenario: Просроченные за 7 дней
+- **WHEN** в системе существуют организации с запланированными звонками за последние 7 дней без `made_at`
+- **AND** пользователь открывает домашнюю страницу
+- **THEN** в секции «Просроченные звонки» отображается показатель с подписью «За 7 дней» с числом уникальных организаций области доступа
+
+#### Scenario: Просроченные за 30 дней
+- **WHEN** в системе существуют организации с запланированными звонками за последние 30 дней без `made_at`
+- **AND** пользователь открывает домашнюю страницу
+- **THEN** в секции «Просроченные звонки» отображается показатель с подписью «За 30 дней» с числом уникальных организаций области доступа
+
+#### Scenario: Организация с просроченным и совершённым звонком
+- **WHEN** организация «Ромашка» имеет запланированный звонок на вчера без `made_at` и совершённый звонок сегодня
+- **THEN** организация «Ромашка» учитывается в показателе «Вчера» секции «Просроченные звонки»
+- **AND** организация «Ромашка» учитывается в показателе «Сегодня» секции «Сделано звонков»
+
+#### Scenario: Организация с частично нереализованными звонками
+- **WHEN** организация «Вектор» запланировала 5 звонков на вчера, из них 3 совершены, 2 — нет
+- **THEN** организация «Вектор» учитывается в показателе «Вчера» секции «Просроченные звонки»
+
+### Requirement: Исключающая логика waiting-категорий
+The system SHALL NOT count an organization in a waiting figure when that
+organization has at least one call with a call date (`made_at`) within the
+same period as the waiting figure. Specifically: an organization having a
+call with `made_at` on the current day SHALL NOT appear in `waitingToday`;
+an organization having a call with `made_at` within the last 7 days SHALL
+NOT appear in `waitingWeek`; an organization having a call with `made_at`
+within the last 30 days SHALL NOT appear in `waitingMonth`. An organization
+MAY appear in both a called figure and a waiting figure of a different period
+(e.g., called today AND waiting this week). The overdue figures SHALL be
+independent: an organization MAY appear in both an overdue figure and a
+called figure simultaneously.
+
+#### Scenario: Организация с звонком сегодня не учитывается в «Ожидают сегодня»
+- **WHEN** в области доступа пользователя организация «Ромашка» имеет звонок с `made_at` сегодня
+- **AND** та же организация «Ромашка» имеет запланированный звонок с `scheduled_at` сегодня
+- **THEN** организация «Ромашка» учитывается в показателе «Сегодня» секции «Сделано звонков»
+- **AND** организация «Ромашка» НЕ учитывается в показателе «Сегодня» секции «Ожидают звонка»
+
+#### Scenario: Организация с звонком за неделю не учитывается в «Ожидают на неделе»
+- **WHEN** организация имеет звонок с `made_at` 5 дней назад
+- **AND** та же организация имеет запланированный звонок через 3 дня
+- **THEN** организация учитывается в показателе «За 7 дней» секции «Сделано звонков»
+- **AND** организация НЕ учитывается в показателе «За 7 дней» секции «Ожидают звонка»
+
+#### Scenario: Организация с звонком за месяц не учитывается в «Ожидают в месяце»
+- **WHEN** организация имеет звонок с `made_at` 20 дней назад
+- **AND** та же организация имеет запланированный звонок через 15 дней
+- **THEN** организация учитывается в показателе «За 30 дней» секции «Сделано звонков»
+- **AND** организация НЕ учитывается в показателе «За 30 дней» секции «Ожидают звонка»
+
+#### Scenario: Организация в разных периодах — разрешено
+- **WHEN** организация имеет звонок с `made_at` сегодня
+- **AND** та же организация имеет запланированный звонок через 10 дней
+- **THEN** организация учитывается в показателе «Сегодня» секции «Сделано звонков»
+- **AND** организация учитывается в показателе «За 7 дней» секции «Ожидают звонка»
+
 ## RENAMED Requirements
 
 - FROM: `### Requirement: Переименование подписей показателей`

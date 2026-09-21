@@ -11,6 +11,7 @@
 - **Колонки таблицы**: добавить сортируемые колонки «Активна» (чекбокс) и «Дата отписки» в конец таблицы организаций на дашборде
 - **Комбobox организаций**: добавить `data-org-combobox` (JS-поиск) во все `<select name="organization">`, где его нет; обеспечить позиционирование меню (обёртка/`position: relative`)
 - **Переименование стат-секций** (домашняя страница): «Звонков» → «Сделано звонков», «Ожидают» → «Ожидают звонка», «Просроченные» → «Просроченные звонки»; подписи называют только период и не повторяют слова заголовка
+- **Чистка статического анализа**: исправлены 5 ошибок PHPStan (мёртвые null-сравнения в `UserController`, nullable email в `OrganizationHideController`/`MailingService`) и удалены 2 устаревшие записи baseline
 
 ## Capabilities
 
@@ -34,6 +35,7 @@
 - **Контроллер**: `HomeController::dashboard()` — чтение GET-параметров `inactive`, `optout`; удаление мёртвого `$filter`
 - **DTO**: `DashboardOrganizationRow` не меняется — шаблон читает `row.organization.*`
 - **Спеки**: дельты `specs/dashboard/spec.md`, `specs/web-interface/spec.md`
+- **Статический анализ**: `UserController`, `OrganizationHideController`, `MailingService`, `phpstan-baseline.neon` — `composer stan` без ошибок
 - **Тесты**: `HomeControllerTest`, `OrganizationHidingReadPathTest`, `CallControllerTest`, `ContactControllerTest`, `OrganizationControllerTest`, `e2e/home-stats.spec.ts`, `e2e/dashboard.spec.ts`, `e2e/smoke.spec.ts`, `e2e/dashboard-organizations.spec.ts`
 
 ## Blocking Dependencies
