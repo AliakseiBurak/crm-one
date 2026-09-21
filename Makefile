@@ -110,6 +110,6 @@ quality: cs-dry stan infection
 
 prod-deploy:
 	git pull
-	php bin/console doctrine:migrations:migrate
+	/opt/alt/php85/usr/bin/php bin/console doctrine:migrations:migrate
 	npm run build
-	php bin/console cache:clear
+	/opt/alt/php85/usr/bin/php bin/console cache:clear
