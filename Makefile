@@ -32,6 +32,9 @@ help:
 	@echo "  mysql-log-config  Enable general query log"
 	@echo "  mysql-log-drop    Clear query log"
 	@echo "  mysql-log-tail    Tail query log"
+	@echo ""
+	@echo "Production Deploy"
+	@echo "  prod-deploy       Run deployment in production server"
 
 up:
 	docker compose up -d
@@ -104,3 +107,9 @@ infection-coverage:
 	docker compose exec --user app php vendor/bin/infection --coverage=var/coverage --threads=max
 
 quality: cs-dry stan infection
+
+prod-deploy:
+	git pull
+	php bin/console doctrine:migrations:migrate
+	npm run build
+	php bin/console cache:clear
