@@ -63,6 +63,19 @@ async function deleteCampaign(page: Page, id: number) {
   await expect(page).toHaveURL(/\/campaigns/);
 }
 
+/** Безопасно раскрывает строку организации и секцию «Все звонки». */
+async function expandOrgRowAndCalls(row: Locator) {
+  const orgRow = row.locator('xpath=ancestor::tr[contains(@class,"org-details")]/preceding-sibling::tr[1]');
+  if (!(await orgRow.evaluate((el) => el.classList.contains('org-table__row--expanded')))) {
+    await orgRow.click();
+  }
+  const orgDetails = row.locator('xpath=ancestor::tr[contains(@class,"org-details")]').first();
+  const allCalls = orgDetails.locator('details.org-calls__all').first();
+  if (!(await allCalls.evaluate((el) => (el as HTMLDetailsElement).open))) {
+    await allCalls.locator('summary').click();
+  }
+}
+
 async function deleteCallById(page: Page, callId: string) {
   await page.goto(`/calls/${callId}/delete`);
   await page.click('button:has-text("Удалить")');
@@ -78,14 +91,7 @@ async function openEditableCallModal(page: Page): Promise<Locator> {
     .first();
   await expect(completed).toBeAttached({ timeout: 10_000 });
 
-  // Строка звонка внутри раскрытой секции организации — нужно раскрыть строку организации
-  const orgRow = completed.locator('xpath=ancestor::tr[contains(@class,"org-details")]/preceding-sibling::tr[1]');
-  await orgRow.click();
-  const orgDetails = completed.locator('xpath=ancestor::tr[contains(@class,"org-details")]').first();
-  const allCalls = orgDetails.locator('details.org-calls__all').first();
-  if (!(await allCalls.evaluate((el) => (el as HTMLDetailsElement).open))) {
-    await allCalls.locator('summary').click();
-  }
+  await expandOrgRowAndCalls(completed);
 
   await completed.locator('[data-call-edit]').click();
   await expect(page.locator(editModal)).toBeVisible();
@@ -117,8 +123,13 @@ async function createCompletedCall(page: Page, notes: string): Promise<string> {
 
   const highlighted = page.locator('.org-table__row--highlight');
   const details = highlighted.locator('xpath=./following-sibling::tr[1]').locator('.org-details__box');
-  await highlighted.click();
-  await details.locator('.org-calls__all summary').click();
+  if (!(await highlighted.evaluate((el) => el.classList.contains('org-table__row--expanded')))) {
+    await highlighted.click();
+  }
+  const allCalls = details.locator('details.org-calls__all').first();
+  if (!(await allCalls.evaluate((el) => (el as HTMLDetailsElement).open))) {
+    await allCalls.locator('summary').click();
+  }
   const item = details.locator('.org-calls__item', { hasText: notes }).first();
   await expect(item).toBeVisible();
 
@@ -152,11 +163,7 @@ test('проведённый звонок: выбор рассылки созд�
 
   await page.goto('/dashboard');
   const row = page.locator(`[data-call-row][data-call-id="${callId}"]`);
-  // Строка звонка внутри раскрытой секции организации — нужно раскрыть строку организации
-  const orgRow = row.locator('xpath=ancestor::tr[contains(@class,"org-details")]/preceding-sibling::tr[1]');
-  await orgRow.click();
-  const orgDetails = row.locator('xpath=ancestor::tr[contains(@class,"org-details")]').first();
-  await orgDetails.locator('.org-calls__all summary').click();
+  await expandOrgRowAndCalls(row);
   await row.locator('[data-call-edit]').click();
   await expect(page.locator(editModal)).toBeVisible();
 
@@ -184,12 +191,9 @@ test('дата следующего звонка добавляет строку
 
   await page.goto('/dashboard');
   const row = page.locator(`[data-call-row][data-call-id="${callId}"]`);
-  // Строка звонка внутри раскрытой секции организации — нужно раскрыть строку организации
-  const orgRow = row.locator('xpath=ancestor::tr[contains(@class,"org-details")]/preceding-sibling::tr[1]');
-  await orgRow.click();
+  await expandOrgRowAndCalls(row);
   const orgDetails = row.locator('xpath=ancestor::tr[contains(@class,"org-details")]').first();
   const allCalls = orgDetails.locator('details.org-calls__all').first();
-  await allCalls.locator('summary').click();
 
   const list = allCalls.locator('.org-calls__list');
   const beforeCount = await list.locator('[data-call-row]').count();
@@ -233,11 +237,7 @@ test('сделка и нет ответа сохраняются и видны �
 
   await page.goto('/dashboard');
   const row = page.locator(`[data-call-row][data-call-id="${callId}"]`);
-  // Строка звонка внутри раскрытой секции организации — нужно раскрыть строку организации
-  const orgRow = row.locator('xpath=ancestor::tr[contains(@class,"org-details")]/preceding-sibling::tr[1]');
-  await orgRow.click();
-  const orgDetails = row.locator('xpath=ancestor::tr[contains(@class,"org-details")]').first();
-  await orgDetails.locator('.org-calls__all summary').click();
+  await expandOrgRowAndCalls(row);
   await row.locator('[data-call-edit]').click();
 
   const yesterday = new Date(Date.now() - 86_400_000);
@@ -280,16 +280,16 @@ test('рассылка без фактической даты отклоняет
     .locator('[data-call-row][data-call-next-call-id=""][data-call-made-at=""]')
     .first();
   await expect(planned).toBeAttached({ timeout: 10_000 });
-  // Строка звонка внутри раскрытой секции организации — нужно раскрыть строку организации
-  const orgRow = planned.locator('xpath=ancestor::tr[contains(@class,"org-details")]/preceding-sibling::tr[1]');
-  await orgRow.click();
-  const orgDetails = planned.locator('xpath=ancestor::tr[contains(@class,"org-details")]').first();
-  const allCalls = orgDetails.locator('details.org-calls__all').first();
-  if (!(await allCalls.evaluate((el) => (el as HTMLDetailsElement).open))) {
-    await allCalls.locator('summary').click();
-  }
+  await expandOrgRowAndCalls(planned);
   await planned.locator('[data-call-edit]').click();
   await expect(page.locator(editModal)).toBeVisible();
+
+  // У звонка без fact даты чекбокс «Будущий звонок» активен — normal-fields скрыты.
+  // Снимаем его, чтобы made_at стал видим.
+  const futureToggle = page.locator('[data-call-future-toggle]');
+  if (await futureToggle.isChecked()) {
+    await futureToggle.uncheck();
+  }
 
   await page.locator('[data-call-field="made_at"]').fill('');
   const campaignOption = page.locator('[data-call-field="mailing_campaign"] option').nth(1);
@@ -339,11 +339,7 @@ test('страница удаления предупреждает об адре
 
   await page.goto('/dashboard');
   const row = page.locator(`[data-call-row][data-call-id="${callId}"]`);
-  // Строка звонка внутри раскрытой секции организации — нужно раскрыть строку организации
-  const orgRow = row.locator('xpath=ancestor::tr[contains(@class,"org-details")]/preceding-sibling::tr[1]');
-  await orgRow.click();
-  const orgDetails = row.locator('xpath=ancestor::tr[contains(@class,"org-details")]').first();
-  await orgDetails.locator('.org-calls__all summary').click();
+  await expandOrgRowAndCalls(row);
   await row.locator('[data-call-edit]').click();
 
   const yesterday = new Date(Date.now() - 86_400_000);

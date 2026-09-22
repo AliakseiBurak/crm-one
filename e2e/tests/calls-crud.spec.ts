@@ -31,10 +31,12 @@ async function expectStillSamePage(page: Page) {
 
 async function openFirstCallEditModal(page: Page) {
   await page.goto('/dashboard');
-  const row = page.locator('[data-call-row]').first();
+  const row = page.locator('[data-call-row][data-call-made-at]:not([data-call-made-at=""])').first();
   // Строка звонка внутри раскрытой секции организации — нужно раскрыть строку организации
   const orgRow = row.locator('xpath=ancestor::tr[contains(@class,"org-details")]/preceding-sibling::tr[1]');
-  await orgRow.click();
+  if (!(await orgRow.evaluate((el) => el.classList.contains('org-table__row--expanded')))) {
+    await orgRow.click();
+  }
   const orgDetails = row.locator('xpath=ancestor::tr[contains(@class,"org-details")]').first();
   const allCalls = orgDetails.locator('details.org-calls__all').first();
   if (!(await allCalls.evaluate((el) => (el as HTMLDetailsElement).open))) {
@@ -122,9 +124,13 @@ test('создание проведённого звонка с только ф�
 
   // Звонок появился у организации как проведённый (☎️), без запланированной даты
   const details = highlighted.locator('xpath=./following-sibling::tr[1]').locator('.org-details__box');
-  await highlighted.click();
-  const allCalls = details.locator('.org-calls__all summary');
-  await allCalls.click();
+  if (!(await highlighted.evaluate((el) => el.classList.contains('org-table__row--expanded')))) {
+    await highlighted.click();
+  }
+  const allCalls = details.locator('details.org-calls__all').first();
+  if (!(await allCalls.evaluate((el) => (el as HTMLDetailsElement).open))) {
+    await allCalls.locator('summary').click();
+  }
   const item = details.locator('.org-calls__item', { hasText: 'e2e факт без плана' }).first();
   await expect(item).toBeVisible();
   await expect(item.locator('.org-calls__status')).toHaveAttribute('title', 'Проведён');

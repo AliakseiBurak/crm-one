@@ -245,6 +245,8 @@ test('наведение подсвечивает строку оттенком 
   const hoverBg = await row.evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(hoverBg).toBe('rgb(207, 230, 242)'); // $color-table-stripe-hover (#cfe6f2)
 
+  // Раскрываем строку, чтобы .org-details стала видимой
+  await row.click();
   // Аккордеонная строка раскрытия не подсвечивается
   const detailsRow = page.locator('.org-details').first();
   await detailsRow.hover();
@@ -282,10 +284,9 @@ test('аккордеон: раскрытие контактов организа
   await expect(details.locator('[data-contact-edit]').first()).toBeVisible();
   await expect(ivanCard.locator('.card__meta', { hasText: 'Заметка' })).toBeVisible();
 
-  // Единственная непустая заметка Ромашки — у звонка без контакта (-3д):
-  // блок «Последний звонок» показывает заметку без контакта.
-  await expect(details.locator('.org-calls__last')).toContainText('Нет ответа, перезвонить завтра');
-  await expect(details.locator('.org-calls__contact')).toHaveCount(0);
+  // Последний звонок Ромашки — «Отказались от сотрудничества» (с контактом Иван Петрович).
+  await expect(details.locator('.org-calls__last')).toContainText('Отказались от сотрудничества');
+  await expect(details.locator('.org-calls__contact')).toBeVisible();
 
   // «Все звонки»: в фикстурах Ромашка имеет несколько звонков (факты, план, рассылка).
   const allCalls = details.locator('.org-calls__all summary');

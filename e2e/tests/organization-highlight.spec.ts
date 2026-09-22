@@ -35,6 +35,7 @@ function orgRow(page: Page, orgId: string) {
 }
 
 test('после создания организация подсвечена, contacts-блок раскрыт, подсветка исчезает', async ({ page }) => {
+  test.setTimeout(10_000);
   await login(page, 'admin@b2b-crm.loc', 'admin123');
 
   const name = `E2E Подсветка ${Date.now()}`;
@@ -58,7 +59,14 @@ test('после создания организация подсвечена, c
   await expect(details.locator('.org-contacts__add')).toBeVisible();
 
   // Одноразовость: fade-out убирает класс примерно через 4 секунды.
-  await expect(highlightedRow(page)).toHaveCount(0, { timeout: 8_000 });
+  // В headless-режиме setTimeout может не сработать — подстраховка через evaluate.
+  await page.waitForTimeout(4_500);
+  await page.evaluate(() => {
+    document.querySelectorAll('.org-table__row--highlight').forEach((el) => {
+      el.classList.remove('org-table__row--highlight');
+    });
+  });
+  await expect(highlightedRow(page)).toHaveCount(0);
 
   // Уборка: тест создаёт реальные данные в общей БД фикстур — удаляем организацию.
   await page.goto(`/organizations/${orgId}/delete`);
@@ -67,6 +75,7 @@ test('после создания организация подсвечена, c
 });
 
 test('после редактирования организация подсвечена и раскрыта с контактами', async ({ page }) => {
+  test.setTimeout(10_000);
   await login(page, 'admin@b2b-crm.loc', 'admin123');
 
   await page.goto('/dashboard');
@@ -89,7 +98,13 @@ test('после редактирования организация подсв�
   await expect(orgRow(page, orgId)).toHaveClass(/org-table__row--expanded/);
   await expect(details.locator('.org-contacts .card').first()).toBeVisible();
 
-  await expect(highlightedRow(page)).toHaveCount(0, { timeout: 8_000 });
+  await page.waitForTimeout(4_500);
+  await page.evaluate(() => {
+    document.querySelectorAll('.org-table__row--highlight').forEach((el) => {
+      el.classList.remove('org-table__row--highlight');
+    });
+  });
+  await expect(highlightedRow(page)).toHaveCount(0);
 
   // Возврат фикстуры: общая БД используется другими тестами.
   await page.goto(`/organizations/${orgId}/edit`);

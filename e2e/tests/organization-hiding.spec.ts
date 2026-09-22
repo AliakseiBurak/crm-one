@@ -37,6 +37,13 @@ async function gotoHides(page: Page) {
   await expect(page.locator('h1', { hasText: 'Скрытые организации' })).toBeVisible();
 }
 
+async function orgEditUrl(page: Page, nameText: string): Promise<string> {
+  await page.goto('/dashboard');
+  const row = page.locator('.org-table__row', { hasText: nameText }).first();
+  const link = row.locator('.org-table__name-link');
+  return (await link.getAttribute('href')) ?? '';
+}
+
 async function selectOrganization(page: Page, nameText: string) {
   const option = page
     .locator('select[name="organization"] option', { hasText: nameText })
@@ -200,7 +207,8 @@ test('форма редактирования: скрытие от менедж�
   await hideFromManager1(page, 'Закат');
 
   // Открываем форму редактирования — секция показывает менеджера.
-  await page.goto('/organizations/6/edit'); // Закат id=6
+  const zakatUrl = await orgEditUrl(page, 'Закат');
+  await page.goto(zakatUrl);
   await expect(page.locator('.organization-form__hides')).toBeVisible();
   await expect(page.locator('.organization-hides__item', { hasText: MANAGER1 })).toBeVisible();
 
@@ -215,11 +223,11 @@ test('форма редактирования: скрытие от менедж�
   // Возвращаем видимость: клик «Показать» отправляет форму с name="unhide".
   await logout(page);
   await login(page, ADMIN, ADMIN_PASSWORD);
-  await page.goto('/organizations/6/edit');
+  await page.goto(zakatUrl);
   await page.locator('.organization-hides__item', { hasText: MANAGER1 })
     .getByRole('button', { name: 'Показать', exact: true })
     .click();
-  await expect(page).toHaveURL(/\/organizations\/6\/edit/);
+  await expect(page).toHaveURL(/\/organizations\/\d+\/edit/);
   await expect(page.locator('.organization-hides__empty')).toBeVisible();
 
   // Менеджер снова видит организацию.
@@ -233,7 +241,8 @@ test('форма редактирования: скрытие от менедж�
 
 test('форма редактирования: менеджер не видит секцию скрытий', async ({ page }) => {
   await login(page, MANAGER1, MANAGER_PASSWORD);
-  await page.goto('/organizations/1/edit'); // Ромашка
+  const romashkaUrl = await orgEditUrl(page, 'Ромашка');
+  await page.goto(romashkaUrl);
   await expect(page.locator('.organization-form__hides')).toHaveCount(0);
 });
 

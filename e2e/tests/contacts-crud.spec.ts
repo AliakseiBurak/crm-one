@@ -36,7 +36,9 @@ async function openEditModal(page: Page) {
   const card = page.locator('[data-contact-card-wrap]').first();
   // Карточка контакта внутри раскрытой секции организации — нужно раскрыть строку организации
   const orgRow = card.locator('xpath=ancestor::tr[contains(@class,"org-details")]/preceding-sibling::tr[1]');
-  await orgRow.click();
+  if (!(await orgRow.evaluate((el) => el.classList.contains('org-table__row--expanded')))) {
+    await orgRow.click();
+  }
   await card.locator('[data-contact-edit]').click();
   await expect(page.locator(editModal)).toBeVisible();
 
@@ -49,7 +51,9 @@ async function openCreateModal(page: Page) {
   const orgId = (await button.getAttribute('data-org-id')) ?? '';
   // Кнопка «Добавить контакт» внутри раскрытой секции организации — нужно раскрыть строку организации
   const orgRow = button.locator('xpath=ancestor::tr[contains(@class,"org-details")]/preceding-sibling::tr[1]');
-  await orgRow.click();
+  if (!(await orgRow.evaluate((el) => el.classList.contains('org-table__row--expanded')))) {
+    await orgRow.click();
+  }
   await button.click();
   await expect(page.locator(createModal)).toBeVisible();
 
