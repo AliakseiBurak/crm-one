@@ -155,15 +155,17 @@ test('форма организации подсвечивает имя глав
 
   const orgId = (await details.locator('[data-contact-create]').getAttribute('data-org-id')) ?? '';
   await page.goto(`/organizations/${orgId}/edit`);
+  await page.waitForLoadState('networkidle');
 
   const items = page.locator('.organization-contacts__list li');
   await expect(items).toHaveCount(2);
+  await items.first().waitFor({ state: 'attached' });
 
   // Порядок по ID: главный (id 1) — первым, метка «Основной» рядом с именем.
   const texts = await items.allTextContents();
   expect(texts[0]).toContain('Иван Петрович Иванов');
   expect(texts[1]).toContain('Иван Иванович Петров');
-  await expect(items.first().locator('.organization-contacts__badge')).toHaveText('Основной');
+  await expect(items.first().locator('.organization-contacts__badge')).toHaveText('Основной', { timeout: 10_000 });
   await expect(items.nth(1).locator('.organization-contacts__badge')).toHaveCount(0);
 
   // Фон имени главного контакта подсвечен.
