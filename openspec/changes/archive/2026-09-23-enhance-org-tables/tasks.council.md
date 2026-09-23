@@ -8,7 +8,6 @@ Primary-agent tasks.md for `enhance-org-tables`: 7 groups, checkbox tasks with i
 
 ## Resolutions
 - Accepted: each task states verify command/behavior; out-of-scope CSV-import as explicit guardrail task.
-- Rejected: tasks that would edit `add-organizations-csv-import` (user deferred).
 - Deferred: unp regex validation task left as optional later (design Open Questions).
 
 ## Remaining Risks

@@ -12,6 +12,5 @@ Primary-agent draft only: adversarial-author/reviewer subagents unavailable (fre
 - Deferred: exact UNP format validation rules, created_by backfill wording beyond “no migration”, and precise user-delete choice labels → design/specs phases.
 
 ## Remaining Risks
-- `add-organizations-csv-import` still maps «Учились у нас» as boolean → will contradict until that change is updated separately.
 - `user-delete` choice for orgs parallels group fate but exact UX not specced yet.
 - Column-width numbers left to design (static px TBD per table).

@@ -5,7 +5,7 @@ CRUD-операции с организациями: создание, реда�
 ## Requirements
 
 ### Requirement: Администратор создаёт организацию
-The system SHALL let the administrator create an organization with name and optional fields (industry, annualPlan, description, hasUsedServices, isActive, isOptedOut, optOutReason) through a form, and SHALL validate required fields. Industry SHALL be optional. The optOutReason field SHALL be shown in the form only when isOptedOut is selected.
+The system SHALL let the administrator create an organization with name and optional fields (industry, annualPlan, description, unp, coursesAttended as free text, isActive, isOptedOut, optOutReason) through a form, and SHALL validate required fields. Industry SHALL be optional. The unp field SHALL be optional. The coursesAttended field SHALL be a free-text input, not a checkbox. The optOutReason field SHALL be shown in the form only when isOptedOut is selected. On successful create the system SHALL set created_by to the administrator.
 
 #### Scenario: Успешное создание организации
 - **WHEN** администратор открывает форму создания организации
@@ -20,9 +20,11 @@ The system SHALL let the administrator create an organization with name and opti
 - **AND** вводит название "ООО Ромашка" и отрасль "IT"
 - **AND** заполняет годовой план "Сентябрь 2026"
 - **AND** заполняет описание "Крупный клиент"
-- **AND** отмечает "пользовались услугами"
+- **AND** вводит УНП "100123456"
+- **AND** вводит в поле "Учились у нас" текст "Курс по продажам"
 - **AND** нажимает кнопку "Создать"
 - **THEN** организация "ООО Ромашка" сохраняется в системе со всеми указанными полями
+- **AND** created_by организации равен администратору
 - **AND** администратор перенаправляется на панель
 - **AND** созданная организация подсвечена в таблице организаций
 
@@ -53,7 +55,7 @@ The system SHALL let the administrator create an organization with name and opti
 - **AND** поле "Отказ от рассылки" не отмечено по умолчанию
 
 ### Requirement: Менеджер создаёт организацию с выбором групп
-The system SHALL let the manager create an organization with name and optional fields (industry, annualPlan, description, hasUsedServices, isActive, isOptedOut, optOutReason), and select the groups available to them (`created_by` + assigned) via checkboxes. If no group is selected, the organization SHALL exist ungrouped.
+The system SHALL let the manager create an organization with name and optional fields (industry, annualPlan, description, unp, coursesAttended as free text, isActive, isOptedOut, optOutReason), and select the groups available to them (`created_by` + assigned) via checkboxes. If no group is selected, the organization SHALL exist ungrouped. On successful create the system SHALL set created_by to the manager.
 
 #### Scenario: Менеджер создаёт организацию
 - **WHEN** менеджер открывает форму создания организации
@@ -62,18 +64,21 @@ The system SHALL let the manager create an organization with name and optional f
 - **AND** нажимает кнопку "Создать"
 - **THEN** организация "ООО Ромашка" сохраняется в системе
 - **AND** организация добавляется в отмеченные группы
+- **AND** created_by организации равен менеджеру
 - **AND** isActive по умолчанию true
 
 #### Scenario: Менеджер создаёт организацию с новыми полями
 - **WHEN** менеджер открывает форму создания организации
 - **AND** вводит название "ООО Ромашка" и описание "Новый клиент"
+- **AND** вводит УНП "100123456"
+- **AND** вводит в поле "Учились у нас" текст "Курс по продажам"
 - **AND** отмечает доступную группу
 - **AND** нажимает кнопку "Создать"
-- **THEN** организация "ООО Ромашка" сохраняется в системе с указанным описанием
+- **THEN** организация "ООО Ромашка" сохраняется в системе с указанными описанием, УНП и текстом поля «Учились у нас»
 - **AND** организация добавляется в отмеченные группы
 
 ### Requirement: Администратор редактирует организацию
-The system SHALL let the administrator update organization name and optional fields (industry, annualPlan, description, hasUsedServices, isActive, isOptedOut, optOutReason) through a form. The optOutReason SHALL be visible in the edit form only when isOptedOut is true.
+The system SHALL let the administrator update organization name and optional fields (industry, annualPlan, description, unp, coursesAttended as free text, isActive, isOptedOut, optOutReason) through a form. The optOutReason SHALL be visible in the edit form only when isOptedOut is true. The unp field SHALL be optional. The coursesAttended field SHALL be a free-text input.
 
 #### Scenario: Успешное редактирование организации
 - **WHEN** администратор открывает форму редактирования организации "ООО Ромашка"
@@ -87,11 +92,13 @@ The system SHALL let the administrator update organization name and optional fie
 - **WHEN** администратор открывает форму редактирования организации "ООО Ромашка"
 - **AND** изменяет отрасль на "Маркетинг"
 - **AND** заполняет описание "Новое описание"
-- **AND** отмечает "пользовались услугами"
+- **AND** изменяет УНП на "100987654"
+- **AND** вводит в поле "Учились у нас" текст "Курс по переговорам"
 - **AND** нажимает кнопку "Сохранить"
 - **THEN** отрасль организации становится "Маркетинг"
 - **AND** описание становится "Новое описание"
-- **AND** hasUsedServices установлен в true
+- **AND** УНП становится "100987654"
+- **AND** coursesAttended хранит текст "Курс по переговорам"
 - **AND** администратор перенаправляется на панель
 - **AND** отредактированная организация подсвечена в таблице организаций
 
@@ -176,16 +183,18 @@ The system SHALL let the administrator delete an organization, and SHALL cascade
 - **THEN** организация "ООО Ромашка" остаётся в системе
 
 ### Requirement: Модальное окно быстрого редактирования
-The system SHALL provide a modal window for quick organization editing from the dashboard table without page reload. The modal SHALL contain a Delete button that navigates to the delete confirmation page.
+The system SHALL provide a modal window for quick organization editing from the dashboard table without page reload. The modal SHALL contain fields for name, industry, description, annualPlan, unp (optional free-text), coursesAttended (free-text), isActive and isOptedOut-related fields. The modal SHALL contain a Delete button that navigates to the delete confirmation page.
 
 #### Scenario: Открытие модального окна
 - **WHEN** пользователь нажимает кнопку "Изменить" в строке организации на дашборде
 - **THEN** открывается модальное окно с формой редактирования организации
 - **AND** данные организации загружаются в форму
+- **AND** поле "Учились у нас" отображается как текстовое поле, а не чекбокс
 - **AND** кнопка "Удалить" ссылается на страницу подтверждения удаления организации
 
 #### Scenario: Сохранение изменений в модальном окне
 - **WHEN** пользователь изменяет отрасль в модальном окне
+- **AND** изменяет УНП и текст поля "Учились у нас"
 - **AND** нажимает кнопку "Сохранить"
 - **THEN** изменения сохраняются
 - **AND** модальное окно закрывается

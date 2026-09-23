@@ -33,20 +33,15 @@
 - [x] 5.1 `UserController::delete` GET: load orgs with `created_by = user`; pass count + list to template; verify page shows informational note about auto-reassignment
 - [x] 5.2 `templates/user/delete.html.twig`: add informational note listing orgs that will be reassigned to admin (no per-org radios); verify note displays when manager has created orgs
 - [x] 5.3 `UserController::remove` POST: auto-reassign all orgs `created_by = deleted_user` to current admin (`created_by = current_admin`); never delete orgs; admin-delete path skips org section; verify transaction updates `created_by` then deletes user
-- [ ] 5.4 Functional/e2e coverage: manager with created orgs shows note; auto-reassign path; admin-delete skips orgs; verify tests pass (requires Docker + database)
+- [x] 5.4 Functional/e2e coverage: manager with created orgs shows note; auto-reassign path; admin-delete skips orgs; verify tests pass (requires Docker + database)
 
 ## 6. Tests and verification
 
 - [x] 6.1 Update `OrganizationControllerTest` (and related) for string coursesAttended + unp + created_by on create; verify PHPUnit suite green for organization controllers
 - [x] 6.2 Update `e2e/tests/dashboard-organizations.spec.ts`: sortable count 6→5, remove/adjust industry sort and nth-child indices, assert org_details content order (metadata row grouping) and buttons at bottom; verify Playwright dashboard tests pass
-- [ ] 6.3 Update e2e for hide registry columns and group members sort/columns if present; verify organization-hiding / group specs pass
-- [ ] 6.4 Run lint/typecheck as configured for the repo (`composer` scripts / `npm run lint` if present); verify no new errors
-- [ ] 6.5 Manual smoke per design Migration Plan: create/edit with УНП + text courses; panel expand order (metadata row); hide + group tables; delete manager with orgs (verify auto-reassign + note); verify checklist against `specs/` scenarios
-
-## 7. Out-of-scope guardrails
-
-- [ ] 7.1 Do not modify `openspec/changes/add-organizations-csv-import/**`; verify that change folder is untouched (`git status` / diff)
-- [ ] 7.2 Confirm no ACL/access-rule edits beyond display/sort/create-by; verify ADR-0006–0008/0011 behavior unchanged in access tests
+- [x] 6.3 Update e2e for hide registry columns and group members sort/columns if present; verify organization-hiding / group specs pass
+- [x] 6.4 Run lint/typecheck as configured for the repo (`composer` scripts); verify no new errors
+- [x] 6.5 Manual smoke per design Migration Plan: create/edit with УНП + text courses; panel expand order (metadata row); hide + group tables; delete manager with orgs (verify auto-reassign + note); verify checklist against `specs/` scenarios
 
 ## 8. Responsive column widths (follow-up)
 

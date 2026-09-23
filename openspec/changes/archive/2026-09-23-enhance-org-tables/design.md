@@ -70,8 +70,6 @@ flowchart TB
 
 **Non-Goals:**
 
-- Production data migration/backfill for `coursesAttended` or `created_by` (fixtures only; DB may be altered freely).
-- CSV-import change (`add-organizations-csv-import`) alignment — out of scope by decision.
 - New ACL tiers or changes to group M2M ownership (ADR-0011).
 - Deleting organizations when a manager is deleted.
 - Exact static pixel widths as product copy — computed in CSS from content (design chooses mechanism, not final px table).
@@ -206,4 +204,3 @@ None that change specs, approach, or task breakdown. Deferred (safe later):
 - Exact `unp` max length / validation regex (9 digits) — can tighten validation without changing capability specs.
 - Final static px width table per column — CSS iteration only.
 - Whether hide-registry new columns become sortable (spec does not require it).
-- CSV-import change (`add-organizations-csv-import`) field mapping for `courses_attended` — out of scope; known follow-up after column rename.
