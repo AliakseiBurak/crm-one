@@ -100,7 +100,7 @@ cs-dry:
 	docker compose exec --user app php vendor/bin/php-cs-fixer fix --dry-run --diff
 
 infection:
-	docker compose exec --user app php vendor/bin/infection --threads=max --no-progress
+	docker compose exec --user app php -d memory_limit=-1 vendor/bin/infection --threads=max --no-progress
 
 infection-coverage:
 	docker compose exec --user app php vendor/bin/phpunit --coverage-xml=var/coverage/coverage-xml --log-junit=var/coverage/junit.xml
