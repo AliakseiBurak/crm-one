@@ -277,7 +277,8 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
             'industry' => 'IT',
             'annualPlan' => 'Сентябрь 2026',
             'description' => 'Крупный клиент',
-            'hasUsedServices' => true,
+            'coursesAttended' => 'Курс по продажам',
+            'unp' => '100123456',
         ]);
 
         $this->assertResponseRedirects();
@@ -290,15 +291,18 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         self::assertSame('IT', $organization->industry);
         self::assertSame('Сентябрь 2026', $organization->annualPlan);
         self::assertSame('Крупный клиент', $organization->description);
-        self::assertTrue($organization->hasUsedServices);
+        self::assertSame('Курс по продажам', $organization->coursesAttended);
+        self::assertSame('100123456', $organization->unp);
+        self::assertNotNull($organization->createdBy);
     }
 
-    public function testEditOrganizationTogglesHasUsedServicesToFalse(): void
+    public function testEditOrganizationUpdatesCoursesAttendedAndUnp(): void
     {
         $organization = new Organization()
             ->setName('ООО Ромашка')
             ->setIndustry('IT')
-            ->setHasUsedServices(true);
+            ->setCoursesAttended('Старый курс')
+            ->setUnp('100000000');
         $this->em()->persist($organization);
         $this->em()->flush();
         $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
@@ -307,14 +311,40 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         $this->submitFormByButton('Сохранить', [
             'name' => 'ООО Ромашка',
             'industry' => 'IT',
-            'hasUsedServices' => false,
+            'coursesAttended' => 'Новый курс',
+            'unp' => '100999999',
         ]);
 
         $this->assertResponseRedirects();
         $this->em()->clear();
         $reloaded = $this->findOrganization('ООО Ромашка');
         self::assertNotNull($reloaded);
-        self::assertFalse($reloaded->hasUsedServices);
+        self::assertSame('Новый курс', $reloaded->coursesAttended);
+        self::assertSame('100999999', $reloaded->unp);
+    }
+
+    public function testEditOrganizationClearsCoursesAttendedToNull(): void
+    {
+        $organization = new Organization()
+            ->setName('ООО Ромашка')
+            ->setIndustry('IT')
+            ->setCoursesAttended('Старый курс');
+        $this->em()->persist($organization);
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->open('/organizations/' . $organization->id . '/edit');
+        $this->submitFormByButton('Сохранить', [
+            'name' => 'ООО Ромашка',
+            'industry' => 'IT',
+            'coursesAttended' => '',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+        $reloaded = $this->findOrganization('ООО Ромашка');
+        self::assertNotNull($reloaded);
+        self::assertNull($reloaded->coursesAttended);
     }
 
     public function testManagerCannotEditInaccessibleOrganization(): void

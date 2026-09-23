@@ -52,7 +52,7 @@ test('кнопка Изменить открывает модальное окн
     (await row.locator('[data-organization-cell="name"]').textContent()) ?? '',
   );
   await expect(form.locator('[data-organization-field="industry"]')).toHaveValue(
-    (await row.locator('[data-organization-cell="industry"]').textContent()) ?? '',
+    await row.getAttribute('data-org-industry'),
   );
 });
 
@@ -60,8 +60,7 @@ test('сохранение в модальном окне обновляет т�
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   const row = await openEditModal(page);
 
-  const industry = row.locator('[data-organization-cell="industry"]');
-  const previous = (await industry.textContent()) ?? '';
+  const previous = (await row.getAttribute('data-org-industry')) ?? '';
   const next = previous === 'Маркетинг' ? 'Маркетинг-2' : 'Маркетинг';
 
   await markAlive(page);
@@ -69,7 +68,13 @@ test('сохранение в модальном окне обновляет т�
   await page.locator(modalWindow).getByRole('button', { name: 'Сохранить' }).click();
 
   await expect(page.locator(modalWindow)).toBeHidden();
-  await expect(industry).toHaveText(next);
+  // Row dataset updated
+  await expect(row).toHaveAttribute('data-org-industry', next);
+  // Details section updated (expand row to check visible text)
+  await row.click();
+  const orgId = await row.getAttribute('data-org-id');
+  const meta = page.locator(`#org-details-${orgId} [data-organization-cell="industry"]`);
+  await expect(meta).toHaveText(next);
   await expectStillSamePage(page);
 });
 
@@ -77,15 +82,15 @@ test('отмена закрывает модальное окно без сох�
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   const row = await openEditModal(page);
 
-  const industry = row.locator('[data-organization-cell="industry"]');
-  const previous = (await industry.textContent()) ?? '';
+  const previous = (await row.getAttribute('data-org-industry')) ?? '';
 
   await markAlive(page);
   await page.locator(`${modalWindow} [data-organization-field="industry"]`).fill(previous + '-изменено');
   await page.locator(modalWindow).getByRole('button', { name: 'Отмена' }).click();
 
   await expect(page.locator(modalWindow)).toBeHidden();
-  await expect(industry).toHaveText(previous);
+  // Value unchanged
+  await expect(row).toHaveAttribute('data-org-industry', previous);
   await expectStillSamePage(page);
 });
 
@@ -102,4 +107,23 @@ test('ошибка валидации в модальном окне показ�
   await expect(error).toHaveText('Название обязательно для заполнения');
   await expect(page.locator(modalWindow)).toBeVisible();
   await expectStillSamePage(page);
+});
+
+// --- Форма редактирования: информация о создателе и дате создания ---
+
+test('форма редактирования организации показывает создателя и дату создания', async ({ page }) => {
+  await login(page, 'admin@b2b-crm.loc', 'admin123');
+  await page.goto('/dashboard');
+
+  // Открываем форму редактирования существующей организации (Ромашка из фикстур)
+  const row = page.locator('.org-table__row', { hasText: 'Ромашка' });
+  const editLink = row.locator('a[href*="/edit"]');
+  await editLink.click();
+  await expect(page.locator('h1', { hasText: 'Редактирование организации' })).toBeVisible();
+
+  // Мета-информация о создателе и дате отображается
+  const meta = page.locator('.organization-form__meta');
+  await expect(meta).toBeVisible();
+  await expect(meta).toContainText('Создатель:');
+  await expect(meta).toContainText('Дата создания:');
 });

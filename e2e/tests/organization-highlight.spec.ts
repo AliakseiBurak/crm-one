@@ -82,7 +82,7 @@ test('после редактирования организация подсв�
   const row = page.locator('[data-organization-row]', { hasText: 'Ромашка' }).first();
   const orgId = (await row.getAttribute('data-org-id')) ?? '';
   expect(orgId).not.toBe('');
-  const previousIndustry = (await row.locator('[data-organization-cell="industry"]').textContent()) ?? '';
+  const previousIndustry = (await row.getAttribute('data-org-industry')) ?? '';
 
   // Страничная форма редактирования (не модальное окно — нужен редирект).
   await page.goto(`/organizations/${orgId}/edit`);

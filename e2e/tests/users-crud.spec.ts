@@ -178,3 +178,96 @@ test('отмена удаления возвращает к списку', async
   await expect(page).toHaveURL(/\/admin\/users/);
   await expect(page.locator('tr', { hasText: email.split('@')[0] })).toBeVisible();
 });
+
+// --- Организации, созданные пользователем: auto-reassign ---
+
+test('удаление менеджера показывает примечание о переназначении организаций', async ({ page }) => {
+  // Менеджер manager@b2b-crm.loc создаёт организацию через форму
+  await login(page, 'manager@b2b-crm.loc', 'manager123');
+  await page.goto('/organizations/new');
+  const orgName = `Org-${Date.now()}`;
+  await page.fill('input[name="name"]', orgName);
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
+  await page.waitForLoadState('networkidle');
+
+  // Выходим из менеджера перед входом админа
+  await page.goto('/logout');
+  await page.waitForLoadState('networkidle');
+
+  // Админ удаляет менеджера — страница подтверждения показывает организации
+  await login(page, 'admin@b2b-crm.loc', 'admin123');
+  await page.goto('/admin/users');
+  const managerRow = page.locator('[data-user-row]', { hasText: 'manager@b2b-crm.loc' }).first();
+  await expect(managerRow).toBeVisible();
+  await managerRow.locator('a:has-text("Удалить")').click();
+
+  await expect(page.locator('h1', { hasText: 'Удаление пользователя' })).toBeVisible();
+  await expect(page.locator('.user-delete__orgs')).toBeVisible();
+  await expect(page.locator('.user-delete__orgs')).toContainText(orgName);
+  await expect(page.locator('.user-delete__orgs')).toContainText('переназначены вам');
+
+  // Уборка: удаляем организацию
+  await page.goto('/dashboard');
+  const orgRow = page.locator('.org-table__row', { hasText: orgName });
+  if (await orgRow.count() > 0) {
+    const editLink = orgRow.locator('a[href*="/edit"]');
+    const href = await editLink.getAttribute('href');
+    if (href) {
+      await page.goto(href);
+      await page.click('a:has-text("Удалить")');
+      await page.locator('button:has-text("Удалить")').click();
+      await page.waitForLoadState('networkidle');
+    }
+  }
+});
+
+test('удаление менеджера переназначает его организации текущему админу', async ({ page }) => {
+  // Менеджер создаёт организацию
+  await login(page, 'manager@b2b-crm.loc', 'manager123');
+  await page.goto('/organizations/new');
+  const orgName = `Reassign-${Date.now()}`;
+  await page.fill('input[name="name"]', orgName);
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
+  await page.waitForLoadState('networkidle');
+
+  // Выходим из менеджера перед входом админа
+  await page.goto('/logout');
+  await page.waitForLoadState('networkidle');
+
+  // Админ удаляет менеджера
+  await login(page, 'admin@b2b-crm.loc', 'admin123');
+  await page.goto('/admin/users');
+  const managerRow = page.locator('[data-user-row]', { hasText: 'manager@b2b-crm.loc' }).first();
+  await managerRow.locator('a:has-text("Удалить")').click();
+  await page.locator('button:has-text("Удалить")').last().click();
+  await page.waitForLoadState('networkidle');
+
+  // Организация остаётся可见имой для админа (переназначена, не удалена)
+  await page.goto('/dashboard');
+  await expect(page.locator('.org-table__row', { hasText: orgName })).toBeVisible();
+
+  // Уборка: админ удаляет созданную организацию
+  const orgRow = page.locator('.org-table__row', { hasText: orgName });
+  const editLink = orgRow.locator('a[href*="/edit"]');
+  const href = await editLink.getAttribute('href');
+  if (href) {
+    await page.goto(href);
+    await page.click('a:has-text("Удалить")');
+    await page.locator('button:has-text("Удалить")').click();
+    await page.waitForLoadState('networkidle');
+  }
+});
+
+test('удаление администратора не требует переназначения организаций', async ({ page }) => {
+  // Создаём временного админа
+  const email = uniqueEmail('admin-temp');
+  const loginName = email.split('@')[0];
+  await login(page, 'admin@b2b-crm.loc', 'admin123');
+  await createUser(page, email, 'admin');
+
+  // Удаляем временного админа — нет секции org
+  const row = page.locator('tr', { hasText: loginName });
+  await row.getByRole('link', { name: 'Удалить' }).click();
+  await expect(page.locator('h1', { hasText: 'Удаление пользователя' })).toBeVisible();
+  await expect(page.locator('.user-delete__orgs')).toHaveCount(0);
+});

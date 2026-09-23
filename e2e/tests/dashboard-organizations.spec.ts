@@ -48,27 +48,28 @@ test('даты звоноков берутся из звонков; без зв�
   await page.goto('/dashboard');
 
   const romashka = page.locator('.org-table__row', { hasText: 'Ромашка' });
-  await expect(romashka.locator('td').nth(2)).toHaveText(/\d{2}\.\d{2}\.\d{4}/);
+  // Industry column removed: lastCall is now td:nth-child(2), nextCall is td:nth-child(3)
+  await expect(romashka.locator('td').nth(1)).toHaveText(/\d{2}\.\d{2}\.\d{4}/);
   // У Ромашки есть план на завтра (+1д в фикстурах) — дата, не заглушка.
-  await expect(romashka.locator('td').nth(3)).toHaveText(/\d{2}\.\d{2}\.\d{4}/);
+  await expect(romashka.locator('td').nth(2)).toHaveText(/\d{2}\.\d{2}\.\d{4}/);
   // Кнопки переноса даты у следующего звонка больше нет — редактирование
   // звонка выполняется из списка «Все звонки»
   await expect(romashka.locator('a', { hasText: 'Изменить дату' })).toHaveCount(0);
-  await expect(romashka.locator('td').nth(3).locator('a')).toHaveCount(0);
+  await expect(romashka.locator('td').nth(2).locator('a')).toHaveCount(0);
 
   const sidorov = page.locator('.org-table__row', { hasText: 'Сидоров' });
+  await expect(sidorov.locator('td').nth(1)).toHaveText(/\d{2}\.\d{2}\.\d{4}/);
   await expect(sidorov.locator('td').nth(2)).toHaveText(/\d{2}\.\d{2}\.\d{4}/);
-  await expect(sidorov.locator('td').nth(3)).toHaveText(/\d{2}\.\d{2}\.\d{4}/);
 
   // Организация с контактом, но без звонков: обе даты — заглушка «—»
   const zakat = page.locator('.org-table__row', { hasText: 'Закат' });
+  await expect(zakat.locator('td').nth(1)).toHaveText('—');
   await expect(zakat.locator('td').nth(2)).toHaveText('—');
-  await expect(zakat.locator('td').nth(3)).toHaveText('—');
 
   // Организация без звонков вовсе: обе даты — заглушка «—»
   const horizon = page.locator('.org-table__row', { hasText: 'Горизонт' });
+  await expect(horizon.locator('td').nth(1)).toHaveText('—');
   await expect(horizon.locator('td').nth(2)).toHaveText('—');
-  await expect(horizon.locator('td').nth(3)).toHaveText('—');
 });
 
 test('организация без контактов и звонков: только кнопки действия', async ({ page }) => {
@@ -126,7 +127,7 @@ test('поиск по названию организации и по конта
   await expect(page.locator('.org-table__empty')).toHaveText('Ничего не найдено');
 });
 
-test('сортировка по названию, отрасли и дате следующего звонка', async ({ page }) => {
+test('сортировка по названию и дате следующего звонка', async ({ page }) => {
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await page.goto('/dashboard');
 
@@ -139,12 +140,8 @@ test('сортировка по названию, отрасли и дате с�
   expect(names[0]).toContain('Вектор');
   expect(names[names.length - 1]).toContain('Ромашка');
 
-  await page.getByRole('link', { name: 'Сфера деятельности' }).click();
-  const industries = await page.locator('.org-table__row td:nth-child(2)').allTextContents();
-  expect([...industries].sort()).toEqual(industries);
-
   await page.getByRole('link', { name: 'Следующий звонок' }).click();
-  const nextDates = await page.locator('.org-table__row td:nth-child(4)').allTextContents();
+  const nextDates = await page.locator('.org-table__row td:nth-child(3)').allTextContents();
   const dateless = nextDates.filter((d) => d !== '—');
   expect(dateless.length).toBeGreaterThan(0);
 });
@@ -154,14 +151,15 @@ test('колонки «Активна» и «Дата отписки»: стат
   await page.goto('/dashboard');
 
   // Горизонт (isActive = false): чекбокс не отмечен, даты отписки нет.
+  // After industry removal: isActive is td:nth-child(4), optedOutAt is td:nth-child(5)
   const horizon = page.locator('.org-table__row', { hasText: 'Горизонт' });
-  await expect(horizon.locator('td').nth(4).locator('input[type="checkbox"]')).not.toBeChecked();
-  await expect(horizon.locator('td').nth(5)).toHaveText('—');
+  await expect(horizon.locator('td').nth(3).locator('input[type="checkbox"]')).not.toBeChecked();
+  await expect(horizon.locator('td').nth(4)).toHaveText('—');
 
   // Закат (отписка из письма −20 дней): чекбокс отмечен, дата в формате d.m.Y.
   const zakat = page.locator('.org-table__row', { hasText: 'Закат' });
-  await expect(zakat.locator('td').nth(4).locator('input[type="checkbox"]')).toBeChecked();
-  await expect(zakat.locator('td').nth(5)).toHaveText(/\d{2}\.\d{2}\.\d{4}/);
+  await expect(zakat.locator('td').nth(3).locator('input[type="checkbox"]')).toBeChecked();
+  await expect(zakat.locator('td').nth(4)).toHaveText(/\d{2}\.\d{2}\.\d{4}/);
 });
 
 test('фильтры «Неактивные» и «Отписавшиеся»: пересечение и сохранение при сортировке', async ({ page }) => {
@@ -228,7 +226,7 @@ test('сортировка по «Активна» и «Дата отписки�
   // По дате отписки: организации без даты — в конце списка.
   await page.getByRole('link', { name: 'Дата отписки' }).click();
   await expect(page.locator('.table__sortable--active', { hasText: 'Дата отписки' })).toBeVisible();
-  const optoutDates = await page.locator('.org-table__row td:nth-child(6)').allTextContents();
+  const optoutDates = await page.locator('.org-table__row td:nth-child(5)').allTextContents();
   const dated = optoutDates.filter((d) => d !== '—');
   expect(dated.length).toBe(2);
   expect(optoutDates.slice(dated.length)).toEqual(
@@ -258,8 +256,9 @@ test('сортировочные заголовки — обычные клик�
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await page.goto('/dashboard');
 
+  // Industry column removed: now 5 sortable headers
   const sortables = page.locator('.table__sortable');
-  await expect(sortables).toHaveCount(6);
+  await expect(sortables).toHaveCount(5);
   await expect(sortables.first()).toBeVisible();
   // Активная колонка подсвечивается после клика
   await page.getByRole('link', { name: 'Название' }).click();
@@ -324,4 +323,78 @@ test('добавление контакта доступно в раскрыто
   const details = romashka.locator('xpath=./following-sibling::tr[1]').locator('.org-details__box');
   await romashka.click();
   await expect(details.locator('a.org-contacts__add', { hasText: 'Добавить контакт' })).toBeVisible();
+});
+
+test('раскрытая секция показывает описание и строку метаданных', async ({ page }) => {
+  await login(page, 'admin@b2b-crm.loc', 'admin123');
+  await page.goto('/dashboard');
+
+  const romashka = page.locator('.org-table__row', { hasText: 'Ромашка' });
+  const details = romashka.locator('xpath=./following-sibling::tr[1]').locator('.org-details__box');
+  await romashka.click();
+
+  // Описание отображается
+  await expect(details.locator('.org-details__description')).toContainText('Крупный ритейлер');
+
+  // Строка метаданных содержит сферу деятельности, УНП и курсы
+  const meta = details.locator('.org-details__meta');
+  await expect(meta).toContainText('Сфера деятельности:');
+  await expect(meta).toContainText('УНП:');
+  await expect(meta).toContainText('Учились у нас:');
+
+  // Кнопки действий внизу секции
+  const addCall = details.locator('a.org-calls__add', { hasText: 'Добавить звонок' });
+  const addContact = details.locator('a.org-contacts__add', { hasText: 'Добавить контакт' });
+  await expect(addCall).toBeVisible();
+  await expect(addContact).toBeVisible();
+
+  // Кнопки внизу: после контактов
+  const box = await details.boundingBox();
+  const callBox = await addCall.boundingBox();
+  const contactBox = await addContact.boundingBox();
+  expect(callBox!.y).toBeGreaterThan(box!.y);
+  expect(contactBox!.y).toBeGreaterThan(box!.y);
+});
+
+test('порядок блоков в раскрытой секции: описание → метаданные → звонки → контакты → кнопки', async ({ page }) => {
+  await login(page, 'admin@b2b-crm.loc', 'admin123');
+  await page.goto('/dashboard');
+
+  const romashka = page.locator('.org-table__row', { hasText: 'Ромашка' });
+  const details = romashka.locator('xpath=./following-sibling::tr[1]').locator('.org-details__box');
+  await romashka.click();
+
+  // Собираем y-координаты ключевых блоков для проверки порядка
+  const description = details.locator('.org-details__description');
+  const meta = details.locator('.org-details__meta');
+  const lastCall = details.locator('.org-calls__last');
+  const allCalls = details.locator('.org-calls__all');
+  const contacts = details.locator('.org-contacts');
+  const addCall = details.locator('a.org-calls__add');
+  const addContact = details.locator('a.org-contacts__add');
+
+  await expect(description).toBeVisible();
+  await expect(meta).toBeVisible();
+
+  const descBox = await description.boundingBox();
+  const metaBox = await meta.boundingBox();
+  expect(descBox!.y).toBeLessThan(metaBox!.y);
+
+  // Если есть последний звонок — он ниже метаданных
+  if (await lastCall.count() > 0 && await lastCall.isVisible()) {
+    const lastCallBox = await lastCall.boundingBox();
+    expect(lastCallBox!.y).toBeGreaterThan(metaBox!.y);
+  }
+
+  // Если есть все звонки — они ниже последнего звонка (или метаданных)
+  if (await allCalls.count() > 0 && await allCalls.isVisible()) {
+    const allCallsBox = await allCalls.boundingBox();
+    expect(allCallsBox!.y).toBeGreaterThan(metaBox!.y);
+  }
+
+  // Кнопки в самом низу
+  const callBox = await addCall.boundingBox();
+  const contactBox = await addContact.boundingBox();
+  expect(callBox!.y).toBeGreaterThan(descBox!.y);
+  expect(contactBox!.y).toBeGreaterThan(descBox!.y);
 });

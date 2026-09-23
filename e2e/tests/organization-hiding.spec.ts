@@ -317,3 +317,38 @@ test('реестр скрытий: поисковый выпадающий сп�
   await form.locator('.org-combobox__option', { hasText: 'Вектор' }).first().click();
   await expect(page.locator('select[name="organization"]')).toHaveValue(/\d+/);
 });
+
+// --- Реестр скрытий: колонки "Дата создания" и "Отрасль" ---
+
+test('реестр скрытий показывает колонки "Дата создания" и "Отрасль"', async ({ page }) => {
+  await login(page, ADMIN, ADMIN_PASSWORD);
+  await gotoHides(page);
+
+  // Таблица содержит заголовки "Дата создания" и "Отрасль"
+  const headers = page.locator('th');
+  await expect(headers.filter({ hasText: 'Дата создания' })).toBeVisible();
+  await expect(headers.filter({ hasText: 'Отрасль' })).toBeVisible();
+
+  // Строки таблицы содержат данные в этих колонках (дата — формат DD.MM.YYYY, отрасль — текст или «—»)
+  const rows = page.locator('tbody tr');
+  const rowCount = await rows.count();
+  expect(rowCount).toBeGreaterThanOrEqual(1);
+
+  const firstRow = rows.first();
+  // Дата создания: ищем ячейку с датой
+  const cells = firstRow.locator('td');
+  const cellCount = await cells.count();
+  let foundDate = false;
+  let foundIndustry = false;
+  for (let i = 0; i < cellCount; i++) {
+    const text = await cells.nth(i).textContent();
+    if (text && /\d{2}\.\d{2}\.\d{4}/.test(text)) {
+      foundDate = true;
+    }
+    if (text !== null) {
+      foundIndustry = true;
+    }
+  }
+  expect(foundDate).toBe(true);
+  expect(foundIndustry).toBe(true);
+});
