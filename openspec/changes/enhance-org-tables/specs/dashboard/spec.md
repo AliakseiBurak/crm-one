@@ -13,9 +13,9 @@ column SHALL render `Organization.optedOutAt` as a date or «—» when absent.
 The activity status and opt-out date columns SHALL be rendered after the
 next call date column. Organizations SHALL be listed within the user's
 access scope, in the sort order selected by the user. The organization
-name column SHALL be fixed and take the maximum available width; the
-remaining columns SHALL use static computed widths based on their
-content.
+name column SHALL occupy the maximum available width and allow text
+wrapping; the remaining columns SHALL be at least as wide as their header
+text (including sort arrows) on one line and grow to fit cell content.
 
 #### Scenario: Список организаций с датами звоноков
 - **WHEN** в области доступа пользователя существуют организации с завершёнными и запланированными звонками
@@ -35,10 +35,11 @@ content.
 - **THEN** для активной организации отображается отмеченный чекбокс активности, для неактивной — неотмеченный
 - **AND** для отписавшейся организации отображается дата отписки, для остальных — «—»
 
-#### Scenario: Колонка названия занимает максимум, остальные статичны
+#### Scenario: Name column absorbs remaining width, other columns grow
 - **WHEN** пользователь открывает дашборд
-- **THEN** колонка названия организации занимает максимально возможную фиксированную ширину
-- **AND** остальные колонки имеют статические вычисленные ширины
+- **THEN** колонка названия организации занимает максимально возможное место и допускает перенос текста
+- **AND** остальные колонки неже заголовка с стрелкой сортировки и расширяются под содержимое
+- **AND** таблица прокручивается горизонтально внутри контейнера, если не помещается в окно
 
 ### Requirement: Контакты организации на панели
 The system SHALL let the user expand an organization row on the dashboard

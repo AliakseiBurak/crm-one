@@ -10,10 +10,11 @@ headers SHALL be bold 16px in `#5a5a5a` with bottom padding, and the table
 SHALL have a bottom margin of 3rem. The contact name column SHALL be bold,
 and the phone column SHALL be rendered in orange `#d66a2b` as a clickable
 link. In organization tables (dashboard panel, hidden organizations
-registry, group composition), the organization-name column SHALL be fixed
-and occupy the maximum available width; the remaining columns SHALL use
-static widths computed from their content so the layout does not reflow
-with dynamic data.
+registry, group composition), the organization-name column SHALL occupy
+the maximum available width and allow text wrapping; the remaining
+columns SHALL be at least as wide as their header text (including sort
+arrows) on one line, grow to fit cell content, and be contained within
+the table scroll container.
 
 #### Scenario: Зебра-таблица списка контактов
 - **WHEN** пользователь открывает список контактов
@@ -33,7 +34,8 @@ with dynamic data.
 - **AND** телефон — оранжевая `#d66a2b` кликабельная ссылка
 - **AND** остальные столбцы — обычный серый текст `#5a5a5a`
 
-#### Scenario: Фиксированная ширина колонки названия организации
+#### Scenario: Adaptive column widths in organization tables
 - **WHEN** отображается любая из таблиц организаций: панель, «Скрытые организации» или «Состав группы»
-- **THEN** колонка названия организации имеет фиксированную ширину и занимает максимально возможное место
-- **AND** остальные колонки имеют статические вычисленные ширины
+- **THEN** колонка названия организации занимает максимально возможное место и допускает перенос текста
+- **AND** остальные колонки не уже заголовка с стрелкой сортировки и расширяются под содержимое
+- **AND** таблица прокручивается горизонтально внутри контейнера вместо выхода за пределы страницы

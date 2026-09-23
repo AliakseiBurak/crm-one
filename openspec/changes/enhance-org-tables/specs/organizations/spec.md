@@ -31,7 +31,7 @@ identification number, string, nullable) on Organization. The UNP SHALL be
 editable in the organization create/edit form and in the quick-edit modal,
 and SHALL be displayed in the expanded organization details row on the
 dashboard. The UNP SHALL NOT be rendered as a column of the dashboard
-organization table. The UNP SHALL NOT be part of CSV import mapping.
+organization table.
 
 #### Scenario: Создание организации с УНП
 - **WHEN** администратор создаёт организацию "ООО Ромашка" с УНП "100123456"

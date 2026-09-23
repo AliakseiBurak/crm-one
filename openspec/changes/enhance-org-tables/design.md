@@ -129,15 +129,17 @@ Row datasets: set `data-org-description`, `data-org-industry`, `data-org-unp`, `
 
 ### D5. Column widths mechanism
 
-**Decision:** For the three org tables, use `table-layout: fixed` **or** explicit `colgroup`/`th` widths in SCSS:
+**Decision:** For the three org tables, use CSS `table-layout: auto` (default) with header-driven sizing:
 
-- Name column: `width: 100%` / `max-content` strategy — implement as first column taking remaining space (`width: auto` with others fixed, or `table-layout: fixed` + name col percentage ~40–50% + `min-width`).
-- Remaining columns: fixed `px` (or `ch`) from content type: dates `7.5rem`, checkbox `3rem`, industry `8rem`, creator `10rem`, actions `4rem` — tune in CSS, not in specs.
-- Apply shared classes under `.table--org` (new) used by dashboard, hide list, group members; zebra/hover rules stay in `table.scss`.
+- Name column: `width: 100%` on `.table--org__name` th/td — absorbs remaining space, allows text wrapping; `min-width: 10rem` prevents crushing.
+- Remaining columns: `th { white-space: nowrap }` → each column is at least its header width (including sort arrow); cells grow to content (no truncation).
+- Dashboard `colspan` details row: `.org-details__box { width: 0; min-width: 100% }` prevents wide child elements (contact card grid) from inflating the auto-layout columns.
+- Tables overflow horizontally inside `.table-wrap { overflow: overflow-x: auto }` when they do not fit the viewport; nothing overflows the page.
+- Shared `.table--org` class used by dashboard, hide list, group members; zebra/hover rules stay in `table.scss`.
 
-**Why:** Spec asks for fixed max name + static others; CSS-only avoids JS resize observers.
+**Why:** Fixed `table-layout: fixed` + nth-child widths caused clipping on the 6-column hide table and 4-column group table (rules tuned only for the 5-column dashboard). Auto layout with header-driven sizing works for any column count without per-column rules.
 
-**Alternatives:** JS auto-width (rejected — complexity); pure `auto` layout (rejected — dynamic data reflows).
+**Alternatives:** `table-layout: fixed` + explicit widths per table (rejected — fragile across tables with different column counts); stacked cards on mobile (user chose horizontal scroll only).
 
 ### D6. Group composition sorting
 
