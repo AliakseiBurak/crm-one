@@ -24,7 +24,6 @@ class OrganizationRepository extends ServiceEntityRepository
      */
     private const SQL_SORT_COLUMNS = [
         'name' => 'o.name',
-        'industry' => 'o.industry',
         'isActive' => 'o.isActive',
     ];
 
@@ -112,7 +111,7 @@ class OrganizationRepository extends ServiceEntityRepository
      * Область доступа: null $organizationIds — все организации (админ/гость).
      * Фильтры: $isActive/$isOptedOut (null — без ограничения) пересекаются
      * с поиском.
-     * Сортировка: name/industry/isActive — в SQL (whitelist-путь к полю);
+     * Сортировка: name/isActive — в SQL (whitelist-путь к полю);
      * lastCall/nextCall/optedOutAt — в PHP с NULL в конец и вторичным ключом
      * name ASC.
      *
@@ -156,7 +155,7 @@ class OrganizationRepository extends ServiceEntityRepository
                 ->setParameter('isOptedOut', $isOptedOut);
         }
 
-        // name/industry/isActive — whitelist-сортировка в SQL; вторичный ключ name ASC.
+        // name/isActive — whitelist-сортировка в SQL; вторичный ключ name ASC.
         // Без параметра сортировки — по умолчанию по имени организации (А–Я).
         if (\array_key_exists($sort, self::SQL_SORT_COLUMNS)) {
             $qb->orderBy(self::SQL_SORT_COLUMNS[$sort], strtolower($dir) === 'desc' ? 'DESC' : 'ASC')
@@ -177,7 +176,7 @@ class OrganizationRepository extends ServiceEntityRepository
     {
         $field = $this->dateSortField($sort);
         if (null === $field) {
-            // name/industry — уже отсортированы в SQL; просто маппим в DTO.
+            // name/isActive — уже отсортированы в SQL; просто маппим в DTO.
             return array_values(array_map($this->rowToDto(...), $rows));
         }
 

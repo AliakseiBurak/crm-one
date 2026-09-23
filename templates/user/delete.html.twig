@@ -1,9 +1,11 @@
 {#
-    Подтверждение удаления пользователя (change add-new-user, organization-groups).
+    Подтверждение удаления пользователя (change add-new-user, organization-groups, enhance-org-tables).
     Предупреждает о необратимости действия; показывает группы, созданные
     пользователем, с числом организаций и назначенными менеджерами.
     Для каждой группы необходимо выбрать: переназначить администратору или удалить.
-    Ожидает: user (User), createdGroups (OrganizationGroup[]).
+    Показывает организации, созданные пользователем, с примечанием об автоматическом
+    переназначении администратору.
+    Ожидает: user (User), createdGroups (OrganizationGroup[]), createdOrgs (Organization[]).
 #}
 {% extends 'base.html.twig' %}
 
@@ -20,6 +22,18 @@
 
             <form method="post" action="{{ path('app_user_remove', { id: user.id }) }}" class="user-delete__form">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('user') }}">
+
+                {% if createdOrgs is not empty %}
+                    <div class="user-delete__orgs">
+                        <h2>Организации, созданные пользователем</h2>
+                        <p>Следующие организации ({{ createdOrgs|length }}) будут переназначены вам:</p>
+                        <ul>
+                            {% for org in createdOrgs %}
+                                <li>{{ org.name }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
 
                 {% if createdGroups is not empty %}
                     <div class="user-delete__groups">

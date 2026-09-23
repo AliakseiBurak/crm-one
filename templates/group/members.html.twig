@@ -4,11 +4,25 @@
     canEdit=false: только просмотр состава (назначенная группа — право
     изменения остаётся у создателя или администратора).
     Ожидает: group (OrganizationGroup), canEdit (bool), organizations (Organization[]),
-    members (Organization[]), memberIds (int[]).
+    members (Organization[]), memberIds (int[]), sort (string), dir (string).
 #}
 {% extends 'base.html.twig' %}
 
 {% block title %}Состав группы «{{ group.name }}»{% endblock %}
+
+{% macro sort_url(route, params, field, currentSort, currentDir) -%}
+    {{ path(route, params|merge({ sort: field, dir: currentSort == field and currentDir == 'ASC' ? 'DESC' : 'ASC' })) }}
+{%- endmacro %}
+
+{% macro sort_header(route, params, label, field, currentSort, currentDir) -%}
+    {% if currentSort == field %}
+        <a class="table__sortable table__sortable--active" href="{{ _self.sort_url(route, params, field, currentSort, currentDir) }}">
+            {{ label }}{{ currentDir == 'DESC' ? ' ↓' : ' ↑' }}
+        </a>
+    {% else %}
+        <a class="table__sortable" href="{{ _self.sort_url(route, params, field, currentSort, currentDir) }}">{{ label }}</a>
+    {% endif %}
+{%- endmacro %}
 
 {% block body %}
     <section class="section section--white">
@@ -22,22 +36,35 @@
                 </p>
 
                 {% if members is not empty %}
-                    <table class="table" style="margin-top: 24px;">
+                    <div class="table-wrap">
+                    <table class="table table--org" style="margin-top: 24px;">
                         <thead>
                             <tr>
-                                <th>Название</th>
-                                <th>Отрасль</th>
+                                <th class="table--org__name">{{ _self.sort_header('app_group_members', {id: group.id}, 'Название', 'name', sort, dir) }}</th>
+                                <th>{{ _self.sort_header('app_group_members', {id: group.id}, 'Отрасль', 'industry', sort, dir) }}</th>
+                                <th>{{ _self.sort_header('app_group_members', {id: group.id}, 'Дата создания', 'createdAt', sort, dir) }}</th>
+                                <th>{{ _self.sort_header('app_group_members', {id: group.id}, 'Создатель', 'creator', sort, dir) }}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for org in members %}
                                 <tr data-member-row>
-                                    <td>{{ org.name }}</td>
+                                    <td class="table--org__name">{{ org.name }}</td>
                                     <td>{{ org.industry|default('—') }}</td>
+                                    <td>{{ org.createdAt|date('d.m.Y') }}</td>
+                                    <td>
+                                        {% if org.createdBy %}
+                                            {% set creatorName = (org.createdBy.name|default('') ~ ' ' ~ org.createdBy.surname|default(''))|trim %}
+                                            {{ creatorName ?: org.createdBy.email }}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
                                 </tr>
                             {% endfor %}
                         </tbody>
                     </table>
+                    </div>
                 {% else %}
                     <p>В группе пока нет организаций.</p>
                 {% endif %}
@@ -59,12 +86,15 @@
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('group') }}">
 
                     {% if organizations is not empty %}
-                        <table class="table">
+                        <div class="table-wrap">
+                        <table class="table table--org">
                             <thead>
                                 <tr>
                                     <th><input type="checkbox" id="select-all"></th>
-                                    <th>Название</th>
-                                    <th>Отрасль</th>
+                                    <th class="table--org__name">{{ _self.sort_header('app_group_members', {id: group.id}, 'Название', 'name', sort, dir) }}</th>
+                                    <th>{{ _self.sort_header('app_group_members', {id: group.id}, 'Отрасль', 'industry', sort, dir) }}</th>
+                                    <th>{{ _self.sort_header('app_group_members', {id: group.id}, 'Дата создания', 'createdAt', sort, dir) }}</th>
+                                    <th>{{ _self.sort_header('app_group_members', {id: group.id}, 'Создатель', 'creator', sort, dir) }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -78,12 +108,22 @@
                                                 {% if org.id in memberIds %}checked{% endif %}
                                             >
                                         </td>
-                                        <td>{{ org.name }}</td>
+                                        <td class="table--org__name">{{ org.name }}</td>
                                         <td>{{ org.industry|default('—') }}</td>
+                                        <td>{{ org.createdAt|date('d.m.Y') }}</td>
+                                        <td>
+                                            {% if org.createdBy %}
+                                                {% set creatorName = (org.createdBy.name|default('') ~ ' ' ~ org.createdBy.surname|default(''))|trim %}
+                                                {{ creatorName ?: org.createdBy.email }}
+                                            {% else %}
+                                                —
+                                            {% endif %}
+                                        </td>
                                     </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
+                        </div>
                     {% else %}
                         <p>Нет доступных организаций.</p>
                     {% endif %}

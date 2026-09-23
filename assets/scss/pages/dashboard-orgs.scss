@@ -201,6 +201,10 @@
     border: 0;
     background: $color-bg-card-section;
     padding: 1rem 1.2rem;
+    // Prevent wide child elements (contact card grid) from inflating
+    // auto-layout columns via the colspan cell's max-content contribution.
+    width: 0;
+    min-width: 100%;
 }
 
 
@@ -359,4 +363,64 @@
     font-size: $font-size-body;
     color: $color-text-body;
     padding: 2rem 0;
+}
+
+// Shared org-table column widths (change enhance-org-tables, D5):
+// Auto layout: name column absorbs remaining width; non-name columns
+// sized to header (nowrap) and grow to content; horizontal scroll
+// inside .table-wrap when table doesn't fit viewport.
+.table--org {
+    width: 100%;
+
+    th {
+        white-space: nowrap;
+    }
+
+    td {
+        white-space: nowrap;
+    }
+
+    // Name column: absorbs remaining space, allows wrapping
+    th.table--org__name,
+    td.table--org__name {
+        width: 100%;
+        min-width: 10rem;
+        white-space: normal;
+    }
+
+    // Actions / last column: keep nowrap so button stays on one line
+    th:last-child,
+    td:last-child {
+        white-space: nowrap;
+    }
+}
+
+// Org details: description and metadata row
+.org-details__description {
+    margin-bottom: 0.8em;
+
+    p {
+        margin: 0.2em 0 0;
+        color: $color-text-body;
+    }
+}
+
+.org-details__label {
+    font-family: $font-heading;
+    font-weight: 700;
+    color: $color-info-blue;
+}
+
+.org-details__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+    padding: 0.6em 1em;
+    background: #fff;
+}
+
+.org-details__meta-item {
+    font-size: $font-size-body;
+    color: $color-text-body;
 }

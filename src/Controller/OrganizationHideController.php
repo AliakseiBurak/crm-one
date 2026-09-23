@@ -56,6 +56,9 @@ class OrganizationHideController extends AbstractController
                         (string) ($a['hides'][0]->manager->email ?? ''),
                         (string) ($b['hides'][0]->manager->email ?? ''),
                     ),
+                    'createdAt' => $a['organization']->createdAt <=> $b['organization']->createdAt,
+                    'industry' => strcmp((string) $a['organization']->industry, (string) $b['organization']->industry),
+                    'hiddenAt' => $a['hides'][0]->hiddenAt <=> $b['hides'][0]->hiddenAt,
                     default => strcmp(
                         (string) $a['organization']->name,
                         (string) $b['organization']->name,

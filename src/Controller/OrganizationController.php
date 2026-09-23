@@ -54,6 +54,9 @@ class OrganizationController extends AbstractController
 
         $organization = new Organization();
         $errors = $this->applyRequest($request, $validator, $organization);
+        /** @var User $user */
+        $user = $this->getUser();
+        $organization->setCreatedBy($user);
         $selectedGroupIds = $this->normalizeGroupSelection($request, $this->getUser());
         if ([] !== $errors) {
             return $this->render('organization/form.html.twig', [
@@ -166,7 +169,8 @@ class OrganizationController extends AbstractController
                     'industry' => $organization->industry,
                     'annualPlan' => $organization->annualPlan,
                     'description' => $organization->description,
-                    'hasUsedServices' => $organization->hasUsedServices,
+                    'coursesAttended' => $organization->coursesAttended,
+                    'unp' => $organization->unp,
                     'isActive' => $organization->isActive,
                 ],
             ]);
@@ -224,7 +228,10 @@ class OrganizationController extends AbstractController
             $optOutReason = $request->request->get('optOutReason');
             $organization->setOptOutReason($optOutReason !== null && $optOutReason !== '' ? trim((string) $optOutReason) : null);
         }
-        $organization->setHasUsedServices((bool) $request->request->get('hasUsedServices', false));
+        $coursesAttended = $request->request->get('coursesAttended');
+        $organization->setCoursesAttended($coursesAttended !== null && $coursesAttended !== '' ? trim((string) $coursesAttended) : null);
+        $unp = $request->request->get('unp');
+        $organization->setUnp($unp !== null && $unp !== '' ? trim((string) $unp) : null);
 
         $violations = $validator->validate($organization);
 

@@ -9,6 +9,7 @@ use App\Entity\Enum\UserRole;
 use App\Entity\GroupAssignment;
 use App\Entity\User;
 use App\Repository\OrganizationGroupRepository;
+use App\Repository\OrganizationRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -26,6 +27,7 @@ class UserController extends AbstractController
     public function __construct(
         private readonly UserRepository $users,
         private readonly OrganizationGroupRepository $groups,
+        private readonly OrganizationRepository $organizations,
         private readonly EntityManagerInterface $em,
     ) {}
 
@@ -122,10 +124,12 @@ class UserController extends AbstractController
         }
 
         $createdGroups = $this->groups->findCreatedBy($user);
+        $createdOrgs = $this->organizations->findBy(['createdBy' => $user]);
 
         return $this->render('user/delete.html.twig', [
             'user' => $user,
             'createdGroups' => $createdGroups,
+            'createdOrgs' => $createdOrgs,
         ]);
     }
 
@@ -163,7 +167,15 @@ class UserController extends AbstractController
 
         $this->em->flush();
 
+        // Auto-reassign organizations created by deleted user to current admin
+        // (change enhance-org-tables: spec user-delete).
+        $createdOrgs = $this->organizations->findBy(['createdBy' => $user]);
+        foreach ($createdOrgs as $org) {
+            $org->setCreatedBy($currentUser);
+        }
+
         // Теперь удаляем пользователя: группы уже обработаны выше (ADR-0011)
+        $this->em->flush();
         $this->em->remove($user);
         $this->em->flush();
 

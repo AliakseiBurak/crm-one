@@ -26,6 +26,23 @@
             >
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('organization') }}">
 
+                {% if isEdit %}
+                    <div class="organization-form__meta">
+                        {% if organization.createdBy %}
+                            <span class="organization-form__meta-item">
+                                Создатель:
+                                {{ (organization.createdBy.name|default('') ~ ' ' ~ organization.createdBy.surname|default(''))|trim
+                                    ?: organization.createdBy.email }}
+                            </span>
+                        {% endif %}
+                        {% if organization.createdAt %}
+                            <span class="organization-form__meta-item">
+                                Дата создания: {{ organization.createdAt|date('d.m.Y H:i') }}
+                            </span>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
                 {{ include('components/form_field.html.twig', {
                     name: 'name',
                     label: 'Название',
@@ -38,6 +55,13 @@
                     label: 'Сфера деятельности',
                     value: organization.industry|default(''),
                     error: errors.industry|default(null),
+                }) }}
+
+                {{ include('components/form_field.html.twig', {
+                    name: 'unp',
+                    label: 'УНП',
+                    value: organization.unp|default(''),
+                    error: errors.unp|default(null),
                 }) }}
 
                 {{ include('components/form_field.html.twig', {
@@ -76,13 +100,12 @@
                     <textarea class="field__input" id="organization-optOutReason" name="optOutReason" rows="3">{{ organization.optOutReason|default('') }}</textarea>
                 </div>
 
-                <div class="field">
-                    <label class="field__label">
-                        <input type="hidden" name="hasUsedServices" value="0">
-                        <input type="checkbox" name="hasUsedServices" value="1" {% if organization.hasUsedServices|default(false) %}checked{% endif %}>
-                        Пользовались услугами
-                    </label>
-                </div>
+                {{ include('components/form_field.html.twig', {
+                    name: 'coursesAttended',
+                    label: 'Учились у нас',
+                    value: organization.coursesAttended|default(''),
+                    error: errors.coursesAttended|default(null),
+                }) }}
 
                 {% if groups is defined and groups is not empty %}
                     <div class="field">

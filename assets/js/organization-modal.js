@@ -12,10 +12,11 @@ if (modal) {
     const fields = {
         name: modal.querySelector('[data-organization-field="name"]'),
         industry: modal.querySelector('[data-organization-field="industry"]'),
+        unp: modal.querySelector('[data-organization-field="unp"]'),
         annualPlan: modal.querySelector('[data-organization-field="annualPlan"]'),
         description: modal.querySelector('[data-organization-field="description"]'),
+        coursesAttended: modal.querySelector('[data-organization-field="coursesAttended"]'),
     };
-    const hasUsedServicesCheckbox = modal.querySelector('[data-organization-field="hasUsedServices"]');
     const isActiveCheckbox = modal.querySelector('[data-organization-field="isActive"]');
     const isOptedOutCheckbox = modal.querySelector('[data-organization-field="isOptedOut"]');
     const optOutReasonContainer = modal.querySelector('.js-opt-out-reason');
@@ -32,12 +33,9 @@ if (modal) {
             if (!input) {
                 return;
             }
-            const dataKey = `org${key[0].toUpperCase()}${key.slice(1)}`;
+            const dataKey = `org${key.charAt(0).toUpperCase()}${key.slice(1).toLowerCase()}`;
             input.value = row.dataset[dataKey] ?? '';
         });
-        if (hasUsedServicesCheckbox) {
-            hasUsedServicesCheckbox.checked = row.dataset.orgHasusedservices === '1';
-        }
         if (isActiveCheckbox) {
             isActiveCheckbox.checked = row.dataset.orgIsactive !== '0';
         }
@@ -150,13 +148,21 @@ if (modal) {
         // Обновление таблицы дашборда без перезагрузки страницы.
         if (payload.organization) {
             activeRow.dataset.orgName = payload.organization.name;
-            activeRow.dataset.orgIndustry = payload.organization.industry;
+            activeRow.dataset.orgIndustry = payload.organization.industry ?? '';
             activeRow.dataset.orgAnnualplan = payload.organization.annualPlan ?? '';
             activeRow.dataset.orgDescription = payload.organization.description ?? '';
-            activeRow.dataset.orgHasusedservices = payload.organization.hasUsedServices ? '1' : '0';
+            activeRow.dataset.orgCoursesattended = payload.organization.coursesAttended ?? '';
+            activeRow.dataset.orgUnp = payload.organization.unp ?? '';
             activeRow.dataset.orgIsactive = payload.organization.isActive ? '1' : '0';
-            activeRow.querySelectorAll('[data-organization-cell]').forEach((cell) => {
-                cell.textContent = payload.organization[cell.dataset.organizationCell] ?? cell.textContent;
+            const orgId = activeRow.dataset.orgId;
+            const detailsBox = document.getElementById(`org-details-${orgId}`);
+            const cellsToUpdate = detailsBox
+                ? [...activeRow.querySelectorAll('[data-organization-cell]'), ...detailsBox.querySelectorAll('[data-organization-cell]')]
+                : activeRow.querySelectorAll('[data-organization-cell]');
+            cellsToUpdate.forEach((cell) => {
+                const key = cell.dataset.organizationCell;
+                const value = payload.organization[key];
+                cell.textContent = value !== null && value !== undefined ? value : '—';
             });
         }
 

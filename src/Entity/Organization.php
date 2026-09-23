@@ -35,8 +35,11 @@ class Organization
     #[ORM\Column(type: 'text', nullable: true)]
     public private(set) ?string $description = null;
 
-    #[ORM\Column(name: 'has_used_services', options: ['default' => false])]
-    public private(set) bool $hasUsedServices = false;
+    #[ORM\Column(name: 'courses_attended', length: 255, nullable: true)]
+    public private(set) ?string $coursesAttended = null;
+
+    #[ORM\Column(length: 32, nullable: true)]
+    public private(set) ?string $unp = null;
 
     #[ORM\Column(name: 'is_active', options: ['default' => true])]
     public private(set) bool $isActive = true;
@@ -49,6 +52,10 @@ class Organization
 
     #[ORM\Column(name: 'opted_out_at', type: 'datetime_immutable', nullable: true)]
     public private(set) ?\DateTimeImmutable $optedOutAt = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'created_by', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    public private(set) ?User $createdBy = null;
 
     #[ORM\Column(name: 'created_at', type: 'datetime_immutable')]
     public private(set) \DateTimeImmutable $createdAt;
@@ -99,9 +106,16 @@ class Organization
         return $this;
     }
 
-    public function setHasUsedServices(bool $hasUsedServices): self
+    public function setCoursesAttended(?string $coursesAttended): self
     {
-        $this->hasUsedServices = $hasUsedServices;
+        $this->coursesAttended = $coursesAttended;
+
+        return $this;
+    }
+
+    public function setUnp(?string $unp): self
+    {
+        $this->unp = $unp;
 
         return $this;
     }
@@ -139,6 +153,13 @@ class Organization
     public function setOptedOutAt(?\DateTimeImmutable $optedOutAt): self
     {
         $this->optedOutAt = $optedOutAt;
+
+        return $this;
+    }
+
+    public function setCreatedBy(?User $createdBy): self
+    {
+        $this->createdBy = $createdBy;
 
         return $this;
     }

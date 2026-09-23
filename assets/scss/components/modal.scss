@@ -64,6 +64,21 @@
     max-width: none;
 }
 
+.organization-form__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem 0;
+    font-size: 0.875rem;
+    color: #5a5a5a;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.organization-form__meta-item {
+    white-space: nowrap;
+}
+
 .organization-form__actions {
     display: flex;
     width: 100%;

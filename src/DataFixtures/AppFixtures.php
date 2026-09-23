@@ -127,10 +127,23 @@ class AppFixtures extends Fixture
         }
         $manager->flush();
 
+        // created_by (change enhance-org-tables):管理者・admin を設定.
+        $organizations[0]->setCreatedBy($manager1);
+        $organizations[1]->setCreatedBy($manager1);
+        $organizations[2]->setCreatedBy($manager1);
+        $organizations[3]->setCreatedBy($manager2);
+        $organizations[4]->setCreatedBy($admin);
+        $organizations[5]->setCreatedBy($admin);
+        $organizations[6]->setCreatedBy($manager1);
+
         // Примеры новых полей (change organization-fields-expansion).
         $organizations[0]->setAnnualPlan('Сентябрь 2026')->setDescription('Крупный ритейлер');
-        $organizations[1]->setHasUsedServices(true);
+        $organizations[1]->setCoursesAttended('Курс по логистике');
         $organizations[2]->setDescription('Постоянный клиент');
+
+        // УНП (change enhance-org-tables).
+        $organizations[0]->setUnp('100123456');
+        $organizations[1]->setUnp('100987654');
 
         // Примеры новых полей (change call-result-deal-and-optout):
         // Горизонт (индекс 4) — isActive = false;

@@ -39,10 +39,10 @@ class OrganizationGroup
     #[ORM\Column(name: 'created_at', type: 'datetime_immutable')]
     public private(set) \DateTimeImmutable $createdAt;
 
-    #[ORM\OneToMany(mappedBy: 'group', targetEntity: GroupAssignment::class)]
+    #[ORM\OneToMany(mappedBy: 'group', targetEntity: GroupAssignment::class, cascade: ['remove'])]
     public private(set) Collection $assignments;
 
-    #[ORM\OneToMany(mappedBy: 'group', targetEntity: OrgGroupMembership::class)]
+    #[ORM\OneToMany(mappedBy: 'group', targetEntity: OrgGroupMembership::class, cascade: ['remove'])]
     public private(set) Collection $memberships;
 
     public function __construct()

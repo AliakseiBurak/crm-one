@@ -29,6 +29,13 @@
             </div>
 
             <div class="field">
+                <label class="field__label" for="modal-organization-unp">УНП</label>
+                <input class="field__input" type="text" id="modal-organization-unp" name="unp"
+                       placeholder="100123456" data-organization-field="unp">
+                <span class="field__error" role="alert" data-organization-error="unp" hidden></span>
+            </div>
+
+            <div class="field">
                 <label class="field__label" for="modal-organization-annualPlan">Годовой план</label>
                 <input class="field__input" type="text" id="modal-organization-annualPlan" name="annualPlan"
                        placeholder="Сентябрь 2026" data-organization-field="annualPlan">
@@ -67,12 +74,10 @@
             </div>
 
             <div class="field">
-                <label class="field__label">
-                    <input type="hidden" name="hasUsedServices" value="0">
-                    <input type="checkbox" name="hasUsedServices" value="1"
-                           data-organization-field="hasUsedServices">
-                    Пользовались услугами
-                </label>
+                <label class="field__label" for="modal-organization-coursesAttended">Учились у нас</label>
+                <input class="field__input" type="text" id="modal-organization-coursesAttended" name="coursesAttended"
+                       data-organization-field="coursesAttended">
+                <span class="field__error" role="alert" data-organization-error="coursesAttended" hidden></span>
             </div>
 
             <div class="organization-form__actions">

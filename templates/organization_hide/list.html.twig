@@ -64,25 +64,30 @@
 {%- endmacro %}
 
             {% if grouped is not empty %}
-                <table class="table">
+                <div class="table-wrap">
+                <table class="table table--org">
                     <thead>
                         <tr>
-                            <th>{{ _self.sort_header('app_organization_hide_list', 'Название', 'name', sort, direction) }}</th>
+                            <th class="table--org__name">{{ _self.sort_header('app_organization_hide_list', 'Название', 'name', sort, direction) }}</th>
+                            <th>{{ _self.sort_header('app_organization_hide_list', 'Дата создания', 'createdAt', sort, direction) }}</th>
+                            <th>{{ _self.sort_header('app_organization_hide_list', 'Отрасль', 'industry', sort, direction) }}</th>
+                            <th>{{ _self.sort_header('app_organization_hide_list', 'Скрыта', 'hiddenAt', sort, direction) }}</th>
                             <th>{{ _self.sort_header('app_organization_hide_list', 'Создатель', 'manager', sort, direction) }}</th>
-                            <th>Скрыта</th>
-                            <th style="white-space:nowrap"></th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for entry in grouped %}
                             {% for hide in entry.hides %}
                                 <tr data-hide-row data-hide-id="{{ hide.id }}">
-                                    <td><a href="{{ path('app_organization_edit', { id: entry.organization.id }) }}">{{ entry.organization.name }}</a></td>
+                                    <td class="table--org__name"><a href="{{ path('app_organization_edit', { id: entry.organization.id }) }}">{{ entry.organization.name }}</a></td>
+                                    <td>{{ entry.organization.createdAt|date('d.m.Y') }}</td>
+                                    <td>{{ entry.organization.industry|default('—') }}</td>
+                                    <td>{{ hide.hiddenAt|date('d.m.Y H:i') }}</td>
                                     <td>
                                         {% set managerName = (hide.manager.name|default('') ~ ' ' ~ hide.manager.surname|default(''))|trim %}
                                         {{ managerName ?: hide.manager.email }}
                                     </td>
-                                    <td>{{ hide.hiddenAt|date('d.m.Y H:i') }}</td>
                                     <td>
                                         <form method="post" action="{{ path('app_organization_hide_delete', { id: hide.id }) }}" style="display:inline">
                                             <input type="hidden" name="_csrf_token" value="{{ csrf_token('hide') }}">
@@ -94,6 +99,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
             {% else %}
                 <p>Скрытых организаций нет.</p>
             {% endif %}

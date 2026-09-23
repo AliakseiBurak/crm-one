@@ -215,10 +215,13 @@ class GroupController extends AbstractController
 
     #[Route('/{id}/members', name: 'app_group_members', methods: ['GET'], requirements: ['id' => '\d+'])]
     #[IsGranted('ROLE_MANAGER')]
-    public function members(int $id): Response
+    public function members(int $id, Request $request): Response
     {
         $group = $this->viewableGroup($id);
         $canEdit = $this->canManageGroup($group);
+
+        $sort = $request->query->get('sort', 'name');
+        $dir = strtoupper($request->query->get('dir', 'ASC'));
 
         $memberIds = array_map(
             static fn(OrgGroupMembership $m): int => (int) $m->organization->id,
@@ -242,16 +245,21 @@ class GroupController extends AbstractController
                 ));
             }
 
+            $members = $this->sortMembers($members, $sort, $dir);
+
             return $this->render('group/members.html.twig', [
                 'group' => $group,
                 'canEdit' => false,
                 'organizations' => [],
                 'members' => $members,
                 'memberIds' => $memberIds,
+                'sort' => $sort,
+                'dir' => $dir,
             ]);
         }
 
         $organizations = $this->organizations->findAccessibleOrganizations($this->getUser());
+        $organizations = $this->sortMembers($organizations, $sort, $dir);
 
         return $this->render('group/members.html.twig', [
             'group' => $group,
@@ -259,7 +267,43 @@ class GroupController extends AbstractController
             'organizations' => $organizations,
             'members' => [],
             'memberIds' => $memberIds,
+            'sort' => $sort,
+            'dir' => $dir,
         ]);
+    }
+
+    /**
+     * @param Organization[] $members
+     * @return Organization[]
+     */
+    private function sortMembers(array $members, string $sort, string $dir): array
+    {
+        $asc = strtoupper($dir) !== 'DESC';
+
+        usort($members, static function (Organization $a, Organization $b) use ($sort, $asc): int {
+            $cmp = match ($sort) {
+                'industry' => strcmp((string) $a->industry, (string) $b->industry),
+                'createdAt' => $a->createdAt <=> $b->createdAt,
+                'creator' => strcmp(
+                    self::creatorName($a),
+                    self::creatorName($b),
+                ),
+                default => strcmp((string) $a->name, (string) $b->name),
+            };
+
+            return $asc ? $cmp : -$cmp;
+        });
+
+        return $members;
+    }
+
+    private static function creatorName(Organization $org): string
+    {
+        if (null === $org->createdBy) {
+            return '';
+        }
+
+        return trim(($org->createdBy->name ?? '') . ' ' . ($org->createdBy->surname ?? ''));
     }
 
     #[Route('/{id}/members', name: 'app_group_update_members', methods: ['POST'], requirements: ['id' => '\d+'])]

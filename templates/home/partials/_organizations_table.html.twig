@@ -55,11 +55,10 @@
             <p class="org-table__empty">Ничего не найдено</p>
         {% else %}
             <div class="table-wrap">
-                <table class="table org-table">
+                <table class="table org-table table--org">
                     <thead>
                         <tr>
-                            <th scope="col">{{ _self.sort_header('name', 'Название', search, sort, dir, highlight, inactive, optout) }}</th>
-                            <th scope="col">{{ _self.sort_header('industry', 'Сфера деятельности', search, sort, dir, highlight, inactive, optout) }}</th>
+                            <th scope="col" class="table--org__name">{{ _self.sort_header('name', 'Название', search, sort, dir, highlight, inactive, optout) }}</th>
                             <th scope="col">{{ _self.sort_header('lastCall', 'Последний звонок', search, sort, dir, highlight, inactive, optout) }}</th>
                             <th scope="col">{{ _self.sort_header('nextCall', 'Следующий звонок', search, sort, dir, highlight, inactive, optout) }}</th>
                             <th scope="col">{{ _self.sort_header('isActive', 'Активна', search, sort, dir, highlight, inactive, optout) }}</th>
@@ -78,13 +77,13 @@
                                 data-org-industry="{{ organization.industry }}"
                                 data-org-annualplan="{{ organization.annualPlan|default('') }}"
                                 data-org-description="{{ organization.description|default('') }}"
-                                data-org-hasusedservices="{{ organization.hasUsedServices ? '1' : '0' }}">
-                                <td class="org-table__name">
+                                data-org-coursesattended="{{ organization.coursesAttended|default('') }}"
+                                data-org-unp="{{ organization.unp|default('') }}">
+                                <td class="org-table__name table--org__name">
                                     <a class="org-table__name-link" href="{{ path('app_organization_edit', { id: organization.id }) }}"
                                        data-organization-cell="name">{{ organization.name }}</a>
                                     <button class="btn btn--secondary btn--sm org-table__edit" type="button" data-organization-edit>Изменить</button>
                                 </td>
-                                <td><span data-organization-cell="industry">{{ organization.industry }}</span></td>
                                 <td>{{ row.lastMadeAt ? row.lastMadeAt|date('d.m.Y') : '—' }}</td>
                                 <td class="org-table__next-call">
                                     {{ row.nextScheduledAt ? row.nextScheduledAt|date('d.m.Y') : '—' }}
@@ -95,10 +94,28 @@
                                 <td class="org-table__optout">{{ organization.optedOutAt ? organization.optedOutAt|date('d.m.Y') : '—' }}</td>
                             </tr>
                             <tr class="org-details">
-                                <td colspan="6">
+                                <td colspan="5">
                                     <div class="org-details__box" id="org-details-{{ organization.id }}">
 
-                                        <a class="btn btn--secondary btn--sm org-calls__add" href="{{ path('app_call_new_org', { organizationId: organization.id }) }}">Добавить звонок</a>
+                                        <div class="org-details__description">
+                                            <span class="org-details__label">Описание</span>
+                                            <p data-organization-cell="description">{{ organization.description|default('—') }}</p>
+                                        </div>
+
+                                        <div class="org-details__meta">
+                                            <span class="org-details__meta-item">
+                                                <span class="org-details__label">Сфера деятельности:</span>
+                                                <span data-organization-cell="industry">{{ organization.industry|default('—') }}</span>
+                                            </span>
+                                            <span class="org-details__meta-item">
+                                                <span class="org-details__label">УНП:</span>
+                                                <span data-organization-cell="unp">{{ organization.unp|default('—') }}</span>
+                                            </span>
+                                            <span class="org-details__meta-item">
+                                                <span class="org-details__label">Учились у нас:</span>
+                                                <span data-organization-cell="coursesAttended">{{ organization.coursesAttended|default('—') }}</span>
+                                            </span>
+                                        </div>
 
                                         {% set calls = callsByOrganization[organization.id]|default([]) %}
                                         {% set lastCallContact = contactById[row.lastCallContactId]|default(null) %}
@@ -131,7 +148,6 @@
                                         {% endif %}
 
                                         {% set contacts = contactsByOrganization[organization.id]|default([]) %}
-                                        <a class="btn btn--secondary btn--sm org-contacts__add" href="{{ path('app_contact_new', { organization: organization.id }) }}" data-contact-create data-org-id="{{ organization.id }}">Добавить контакт</a>
                                         {% if contacts|length > 0 %}
                                             <div class="org-contacts">
                                                 {{ include('contact/_grid.html.twig', {
@@ -141,6 +157,9 @@
                                                 }) }}
                                             </div>
                                         {% endif %}
+
+                                        <a class="btn btn--secondary btn--sm org-calls__add" href="{{ path('app_call_new_org', { organizationId: organization.id }) }}">Добавить звонок</a>
+                                        <a class="btn btn--secondary btn--sm org-contacts__add" href="{{ path('app_contact_new', { organization: organization.id }) }}" data-contact-create data-org-id="{{ organization.id }}">Добавить контакт</a>
                                     </div>
                                 </td>
                             </tr>
