@@ -18,7 +18,7 @@ controller-driven chunk processing.
 ## Goals / Non-Goals
 
 **Goals:**
-- Interactive wizard: upload → parse → review/approve chunks of 10 → persist
+- Interactive wizard: upload → parse → review/approve chunks of 25 → persist
 - Heuristic parsing of unstructured CSV columns (contacts, interactions)
 - User can edit, add, remove, or skip rows before approving each chunk
 - Duplicate detection with merge/create-new choice
@@ -33,8 +33,6 @@ controller-driven chunk processing.
 - Import of «Следующий контакт», «Для чего звонок?» and «Текущее состояние»
   as calls — only «Взаимодействия» produces made calls
 - Storing the sample export in the repository — the format is declared in the spec
-- Converting «Учились у нас» into a text field — separate change; this import
-  keeps the boolean mapping
 
 ## Decisions
 
@@ -55,15 +53,17 @@ perspective. Messenger with sync transport would add complexity without benefit.
 ### D2: ImportSession entity for progress tracking
 
 **Choice:** A dedicated `ImportSession` entity stores filename, storageKey,
-totalRows, processedRows, createdBy, and timestamps. There is no status
-field.
+totalRows, processedRows, savedRows, createdBy, and timestamps. There is no
+status field.
 
 **Rationale:** Matches existing patterns (Campaign entity tracks progress).
 The only state that matters is how far processing got: `processedRows`
 against `totalRows`. Resuming is available while `processedRows < totalRows`
 and unavailable once they are equal; a user pause and a chunk failure are
 indistinguishable and need no persisted status. The error message is shown
-when it occurs and is not stored on the session.
+when it occurs and is not stored on the session. `savedRows` counts rows
+actually persisted (not skipped) for the completion flash; the cumulative
+total is the sum of `savedRows` across all sessions.
 
 ### D3: Heuristic contact parsing with user verification
 
@@ -135,11 +135,54 @@ can replace the CSV file and continue from `processedRows`.
 **Choice:** A replacement upload validates the new file, stores it, updates
 filename and `totalRows`, and keeps `processedRows`; a file with fewer records
 than `processedRows` is rejected. Replacement is available while
-`processedRows < totalRows`.
+`processedRows < totalRows`. The already-processed prefix is frozen: row
+content that changed in the replaced file within `processedRows` is never
+re-parsed, re-reviewed, or re-inserted — resume always skips the first
+`processedRows` records of the new file.
 
 **Rationale:** The source export may be corrected while an import is paused or
 stopped by an error; the reviewed/saved prefix must not be re-imported.
-Rejecting a shorter file avoids an out-of-range resume position.
+Rejecting a shorter file avoids an out-of-range resume position; freezing the
+prefix keeps inserted data unchanged when the corrected file edits early rows.
+
+### D9: Single active session enforced on upload
+
+**Choice:** A new upload SHALL be rejected while any `ImportSession` has
+`processedRows < totalRows`. Completing or abandoning a session is out of
+band; the check is a simple existence query at upload time.
+
+**Rationale:** The proposal promises at most one active import. UI-only
+coordination fails with two tabs or two admins; a reject-on-upload rule is
+cheap and covers the practical case without a status field or DB lock.
+
+**Alternatives considered:**
+- UI-only limitation: documented, but not enforced.
+- Drop the single-session claim: contradicts the proposal.
+
+### D10: Duplicate check runs at insert time against the DB
+
+**Choice:** Name uniqueness is checked when each row is persisted, not only
+when the chunk is rendered for review. The check matches against the database
+at that moment, so it catches pre-existing organizations and names inserted
+earlier in the same chunk or session. On conflict, persistence stops like a
+row save error and the merge/create dialog is shown; resume continues from
+`processedRows`.
+
+**Rationale:** Review-time checking misses within-file duplicates (the first
+row inserts «Нафтан» before the second is saved). Insert-time checking puts
+duplicates in the same stop/resume path as other insert failures. Date and
+other field errors stay review-time edits only — they never pause insert.
+
+### D11: Completion flash with session and cumulative counts
+
+**Choice:** When `processedRows` reaches `totalRows`, the system flashes
+«Импортировано в этой сессии: X, импортировано всего: Y», where X is rows
+saved during this `ImportSession` (tracked in a `savedRows` counter,
+skipped rows not counted) and Y is the sum of `savedRows` across all import
+sessions. No summary page and no per-entity breakdown.
+
+**Rationale:** Enough signal for a one-shot migration without schema beyond
+one counter or a summary view.
 
 ## Architecture
 
@@ -176,6 +219,7 @@ Rejecting a shorter file avoids an out-of-range resume position.
 │  │ ImportProcessor                                      │   │
 │  │ ├── processChunk(): parse 25 rows → review DTOs      │   │
 │  │ ├── persistRows(): per-row transaction → DB          │   │
+│  │ │   └── checkDuplicates() at insert (DB, within-file)│   │
 │  │ └── checkDuplicates(): match org names               │   │
 │  └──────────────────────────────────────────────────────┘   │
 │                                                             │
@@ -189,10 +233,11 @@ Rejecting a shorter file avoids an out-of-range resume position.
 │  ├── id               ├── id             ├── id             │
 │  ├── filename         ├── name           ├── organization_id│
 │  ├── storage_key      ├── annual_plan    ├── name           │
-│  ├── total_rows       ├── has_used_...   ├── phone          │
+│  ├── total_rows       ├── courses_...    ├── phone          │
 │  ├── processed_rows   ├── description    ├── email          │
-│  ├── created_by       └── ...            ├── position       │
-│  └── ...                                 └── ...            │
+│  ├── saved_rows       ├── created_by     ├── position       │
+│  ├── created_by       └── ...            └── ...            │
+│  └── ...                                                      │
 │  call                                                       │
 │  ├── id                                                     │
 │  ├── organization_id                                        │
@@ -279,7 +324,11 @@ Admin                 ImportController        Services           DB
 - **CSV replacement assumes the same record order up to `processedRows`** →
   Only the already-processed prefix is trusted; a reordered file would shift
   the resume point. The requirement only rejects shorter files, not reordered
-  ones; documented as an accepted limitation.
-- **Single active import session** → The proposal states only one import can be
-  active. Not enforced at DB level — relies on UI flow. Could be extended by
-  rejecting an upload while another session has `processedRows < totalRows`.
+  ones; changed content inside the processed prefix is skipped (frozen), not
+  re-inserted; documented as an accepted limitation.
+- **Single active import session** → Enforced on upload (D9): a new upload is
+  rejected while any session has `processedRows < totalRows`. Does not stop
+  two admins from interleaving review actions on the one active session.
+- **`savedRows` vs `processedRows`** → Skipped rows increment `processedRows`
+  only; the completion flash uses `savedRows` for the session count so skips
+  are not reported as imported.

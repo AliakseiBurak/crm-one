@@ -53,7 +53,7 @@ The columns SHALL be interpreted as follows:
 | `Следующий контакт` | a date or a placeholder (`-`, `_`) | not imported |
 | `Для чего звонок?` | free text: purpose of the next contact | not imported |
 | `Текущее состояние` | free text log | not imported |
-| `Учились у нас` | free text about previous training | `Organization.hasUsedServices` |
+| `Учились у нас` | free text about previous training | `Organization.coursesAttended` (truncated to 255 characters) |
 | `Составление плана на год` | free text | `Organization.annualPlan` (truncated to 255 characters) |
 
 A `Взаимодействия` entry SHALL begin with a date token in one of the forms
@@ -98,20 +98,27 @@ discarded.
 ### Requirement: Загрузка CSV-файла
 
 The system SHALL provide an upload form that accepts a single CSV file.
-On upload, the system SHALL validate the file against the declared format
-(«Формат CSV-файла»): the header row SHALL contain the expected columns,
-and the file SHALL contain at least one non-empty data record. The system
-SHALL reject files with missing or unexpected non-empty columns and SHALL
-display the list of expected headers. The system SHALL store the uploaded
-file and create an `ImportSession` record with `totalRows` equal to the
-number of non-empty data records (excluding the header) and
-`processedRows` = 0.
+On upload, the system SHALL reject the request when any existing
+`ImportSession` has `processedRows < totalRows` (at most one active
+import session). Otherwise the system SHALL validate the file against
+the declared format («Формат CSV-файла»): the header row SHALL contain
+the expected columns, and the file SHALL contain at least one non-empty
+data record. The system SHALL reject files with missing or unexpected
+non-empty columns and SHALL display the list of expected headers. The
+system SHALL store the uploaded file and create an `ImportSession`
+record with `totalRows` equal to the number of non-empty data records
+(excluding the header) and `processedRows` = 0.
 
 #### Scenario: Успешная загрузка CSV-файла
 
 - **WHEN** администратор загружает CSV-файл с правильными заголовками и 400 строками данных
 - **THEN** файл сохраняется на сервере
 - **AND** создаётся запись импорта с totalRows = 400 и processedRows = 0
+
+#### Scenario: Загрузка при наличии активной сессии импорта
+
+- **WHEN** администратор загружает CSV-файл, пока существует импорт с processedRows < totalRows
+- **THEN** загрузка отклоняется с сообщением о незавершённом импорте
 
 #### Scenario: Загрузка файла с неправильными заголовками
 
@@ -127,6 +134,7 @@ number of non-empty data records (excluding the header) and
 #### Scenario: Повторная загрузка того же файла
 
 - **WHEN** администратор загружает файл с именем, идентичным ранее загруженному
+- **AND** незавершённых импортов нет
 - **THEN** создаётся новая запись импорта (допускаются дубли файлов)
 
 ### Requirement: Список импортов
@@ -174,9 +182,11 @@ heuristically: extract phone numbers by regex (`+ digits, spaces, dashes,
 parentheses`), email addresses by regex (`@` with domain), and remaining
 text as contact name and position. Multiple contacts in one cell SHALL be
 split when a new name-like pattern is detected. The system SHALL truncate
-`Organization.name` and `Organization.annualPlan` to 255 characters and
-SHALL treat `hasUsedServices` as true only for the truthy values
-да/yes/1/true (case-insensitive); any other text SHALL produce false.
+`Organization.name`, `Organization.annualPlan`, and
+`Organization.coursesAttended` to 255 characters. The system SHALL store
+the «Учились у нас» cell as free text on `Organization.coursesAttended`
+without boolean coercion; an empty or whitespace-only cell SHALL yield
+null.
 
 #### Scenario: Парсинг одной строки с одной организацией
 
@@ -209,13 +219,20 @@ SHALL treat `hasUsedServices` as true only for the truthy values
 - **WHEN** CSV-строка содержит «Компания» длиной 280 символов
 - **THEN** значение Organization.name обрезается до 255 символов
 
-#### Scenario: Преобразование «Учились у нас» в булево
+#### Scenario: Обрезка «Учились у нас» до 255 символов
 
-- **WHEN** CSV-строка содержит «Учились у нас» = «Да»
-- **THEN** Organization.hasUsedServices устанавливается в true
+- **WHEN** CSV-строка содержит «Учились у нас» длиной 300 символов
+- **THEN** значение Organization.coursesAttended обрезается до 255 символов
 
-- **WHEN** CSV-строка содержит «Учились у нас» = «Нет»
-- **THEN** Organization.hasUsedServices устанавливается в false
+#### Scenario: Сохранение текста «Учились у нас» без приведения к булеву
+
+- **WHEN** CSV-строка содержит «Учились у нас» = «Курс по переговорам»
+- **THEN** Organization.coursesAttended сохраняет значение «Курс по переговорам»
+
+#### Scenario: Пустое «Учились у нас»
+
+- **WHEN** CSV-строка содержит пустую колонку «Учились у нас»
+- **THEN** Organization.coursesAttended устанавливается в null
 
 ### Requirement: Отображение пакета для проверки
 
@@ -224,7 +241,8 @@ file in an editable form. The chunk size SHALL define only how many rows the
 user reviews at a time and SHALL NOT affect how rows are persisted (each row
 is saved independently — «Утверждение пакета»). Each row SHALL show
 pre-parsed fields:
-Organization name, description, annualPlan, hasUsedServices, an
+Organization name, description, annualPlan, coursesAttended (editable
+free-text input labeled «Учились у нас», not a checkbox), an
 editable list of contacts (name, phone, email, position), and an
 editable list of calls (date, notes). The user SHALL be able to edit
 any field, add or remove contacts, add or remove calls, and skip
@@ -250,7 +268,7 @@ a row entirely. The page SHALL display the current progress
 #### Scenario: Все строки обработаны
 
 - **WHEN** processedRows = totalRows
-- **THEN** система отображает итоги импорта (количество сохранённых организаций, контактов, звонков)
+- **THEN** отображается flash-сообщение об итогах: сколько строк импортировано в этой сессии и сколько всего по всем сессиям
 
 ### Requirement: Утверждение пакета
 
@@ -259,10 +277,11 @@ the approval form. A chunk is only the number of rows the user reviews at a
 time (up to 25) and SHALL NOT be a transaction boundary: each row SHALL be
 saved in its own database transaction. For each row the system SHALL create
 an Organization entity, associated Contact entities, and associated Call
-entities, and SHALL increment `processedRows` by one (skipped rows count as
-processed as well). The system SHALL redirect back to the review page for
-the next chunk, or to the import list when `processedRows` equals
-`totalRows`.
+entities, SHALL increment `processedRows` by one (skipped rows count as
+processed as well), and SHALL increment `savedRows` by one only when a row
+is actually saved (skipped rows do not count). The system SHALL redirect
+back to the review page for the next chunk, or to the import list when
+`processedRows` equals `totalRows`.
 
 If a row fails to save, its transaction SHALL roll back (no partial data for
 that row), rows already saved in the same chunk SHALL remain, processing
@@ -281,6 +300,7 @@ processed row. The error message SHALL NOT be stored on the session.
 - **WHEN** администратор утверждает пакет из 25 строк, 3 пропущены
 - **THEN** создаётся 22 организации
 - **AND** processedRows увеличивается на 25 (включая пропущенные)
+- **AND** savedRows увеличивается на 22 (без пропущенных)
 
 #### Scenario: Ошибка при сохранении строки
 
@@ -293,41 +313,51 @@ processed row. The error message SHALL NOT be stored on the session.
 #### Scenario: Завершение импорта
 
 - **WHEN** processedRows становится равным totalRows после сохранения пакета
-- **THEN** отображается страница с итогами
+- **THEN** отображается flash-сообщение: «Импортировано в этой сессии: X, импортировано всего: Y», где X — savedRows текущей сессии, Y — сумма savedRows по всем сессиям
 - **AND** в списке импортов действия недоступны
 
 ### Requirement: Обнаружение дубликатов названий
 
-The system SHALL check Organization.name uniqueness during chunk
-processing. When an organization name already exists in the system,
-the system SHALL pause and display a conflict dialog offering the
-user a choice: merge (add contacts and calls to the existing
-organization) or create new. The merge option SHALL append contacts
-and calls to the existing organization without modifying its fields.
-The create-new option SHALL create a new organization with the same
-name.
+The system SHALL check Organization.name uniqueness when each row is
+persisted (at insert time), against the database state at that moment —
+including organizations inserted earlier in the same chunk or session.
+When an organization name already exists, the system SHALL stop
+persistence for that row (the same stop/resume path as a row save error)
+and display a conflict dialog offering the user a choice: merge (add
+contacts and calls to the existing organization) or create new. The merge
+option SHALL append contacts and calls to the existing organization
+without modifying its fields. The create-new option SHALL create a new
+organization with the same name. The dialog SHALL NOT be shown during
+chunk review — only when the row is being saved.
 
 #### Scenario: Обнаружен дубликат — выбор слияния
 
-- **WHEN** в пакете есть строка с организацией «Нафтан», и в системе уже существует «Нафтан»
+- **WHEN** при вставке строки организация «Нафтан» уже существует в системе
 - **AND** администратор выбирает «Слить с существующей»
 - **THEN** контакты и звонки из строки добавляются к существующей организации «Нафтан»
 
 #### Scenario: Обнаружен дубликат — выбор создания нового
 
-- **WHEN** в пакете есть строка с организацией «Нафтан», и в системе уже существует «Нафтан»
+- **WHEN** при вставке строки организация «Нафтан» уже существует в системе
 - **AND** администратор выбирает «Создать новую»
 - **THEN** создаётся новая организация «Нафтан» (допускается дублирование имени)
 
+#### Scenario: Дубликат внутри того же файла
+
+- **WHEN** в файле две строки с названием «Нафтан»
+- **AND** первая строка уже сохранена этим же импортом
+- **THEN** при вставке второй строки система останавливается с диалогом дубликата
+- **AND** продолжение возможно с места остановки
+
 ### Requirement: Обработка ошибочных данных
 
-The system SHALL validate each row during chunk display. When a
-required field (Organization.name) is empty, the system SHALL
-highlight the field with an error state. When a date field cannot
-be parsed, the system SHALL show the raw text and let the user
-correct it. Invalid data SHALL NOT prevent saving the rest of the
-chunk — skipped or corrected rows are handled as described in the
-approval requirement.
+The system SHALL validate each row during chunk display (review time
+only — this SHALL NOT pause persistence). When a required field
+(Organization.name) is empty, the system SHALL highlight the field with
+an error state. When a date field cannot be parsed, the system SHALL show
+the raw text and let the user correct it. Invalid data SHALL NOT prevent
+saving the rest of the chunk — skipped or corrected rows are handled as
+described in the approval requirement.
 
 #### Scenario: Пустое название организации
 
@@ -339,7 +369,8 @@ approval requirement.
 
 - **WHEN** в колонке «Взаимодействия» встречается запись без даты в формате (DD.MM.YYYY)
 - **THEN** запись отображается как звонок без даты с исходным текстом в поле заметки
-- **AND** пользователь может исправить дату или пропустить запись
+- **AND** пользователь может исправить дату или пропустить запись при проверке пакета
+- **AND** при утверждении пакета отдельная остановка для этой даты не происходит
 
 ### Requirement: Замена CSV-файла
 
@@ -349,7 +380,10 @@ SHALL be validated against the declared format («Формат CSV-файла»)
 success the system SHALL store the new file, update the filename and
 `totalRows` to the new file's non-empty record count, and SHALL preserve
 `processedRows` so that processing continues from the same position in the
-new file. The system SHALL reject a replacement whose non-empty record count
+new file. The already-processed prefix (the first `processedRows` records)
+SHALL be frozen: row content that changed within that prefix in the
+replacement file SHALL NOT be re-parsed, re-reviewed, or re-inserted.
+The system SHALL reject a replacement whose non-empty record count
 is less than `processedRows`, keeping the current file and `processedRows`
 unchanged and showing an error. When `processedRows` equals `totalRows`, the
 replacement form SHALL NOT be available.
@@ -360,6 +394,12 @@ replacement form SHALL NOT be available.
 - **THEN** новый файл сохраняется, имя файла и totalRows обновляются
 - **AND** processedRows остаётся равным 50
 - **AND** следующий пакет начинается с 51-й строки нового файла
+
+#### Scenario: Изменение строк в уже обработанном префиксе
+
+- **WHEN** администратор заменяет файл, в котором изменены строки 1–50, а processedRows = 50
+- **THEN** изменённые строки префикса не переобрабатываются и не вставляются повторно
+- **AND** обработка продолжается с 51-й строки нового файла
 
 #### Scenario: Замена файла с недостаточным количеством строк
 
@@ -382,15 +422,21 @@ replacement form SHALL NOT be available.
 
 The system SHALL record the admin user who initiated each import
 (`createdBy`). Imported organizations SHALL NOT be assigned to any
-group. Imported calls SHALL have `madeBy` set to the admin who
-ran the import. Imported calls SHALL have `madeAt` set to the
-parsed date from the CSV (with time 12:00) and SHALL NOT have
+group. Imported organizations SHALL have `created_by` set to the
+admin who ran the import. Imported calls SHALL have `madeBy` set to
+the admin who ran the import. Imported calls SHALL have `madeAt` set
+to the parsed date from the CSV (with time 12:00) and SHALL NOT have
 result flags (isDeal, isRefusal, isNoAnswer) set.
 
 #### Scenario: Импортированные организации без групп
 
 - **WHEN** администратор завершает импорт организации «Нафтан»
 - **THEN** организация «Нафтан» не принадлежит ни одной группе
+
+#### Scenario: Импортированные организации с создателем
+
+- **WHEN** администратор «admin» завершает импорт организации «Нафтан»
+- **THEN** created_by организации «Нафтан» равен пользователю «admin»
 
 #### Scenario: Импортированные звонки с автором
 
