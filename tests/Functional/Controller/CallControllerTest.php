@@ -624,6 +624,209 @@ final class CallControllerTest extends DatabaseWebTestCase
         $this->assertResponseRedirects('/login');
     }
 
+    public function testCreateCallRejectsInvalidCsrfToken(): void
+    {
+        $organization = $this->makeOrganization('ООО Ромашка');
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/calls/new', [
+            '_csrf_token' => 'invalid',
+            'organization' => (string) $organization->id,
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        self::assertNull($this->findOrganizationCall($organization));
+    }
+
+    public function testUpdateCallRejectsInvalidCsrfToken(): void
+    {
+        $call = $this->makeCallWithOrganization(notes: 'Заметка');
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/calls/' . $call->id . '/edit', [
+            '_csrf_token' => 'invalid',
+            'notes' => 'Взлом',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertSame('Заметка', $this->findCallById($call->id)->notes);
+    }
+
+    public function testRemoveCallRejectsInvalidCsrfToken(): void
+    {
+        $organization = $this->makeOrganization('ООО Ромашка');
+        $call = $this->makeCallFor($organization);
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/calls/' . $call->id . '/delete', [
+            '_csrf_token' => 'invalid',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertNotNull($this->findCallById($call->id));
+    }
+
+    public function testCreate422ReRendersContactsAndUsersForAdmin(): void
+    {
+        [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
+        $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->open('/organizations/' . $organization->id . '/calls/new');
+        $this->submitFormByButton('Создать', [
+            'organization' => (string) $organization->id,
+            'is_future_call' => '1',
+            'scheduled_at' => '20.08.2020 10:00',
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
+
+        $crawler = $this->client->getCrawler();
+        // Контакты организации присутствуют в форме при 422.
+        self::assertGreaterThanOrEqual(1, $crawler->filter('#contact option[value="' . $contact->id . '"]')->count());
+        // Админ видит выпадающий список «Кто совершил звонок».
+        self::assertGreaterThanOrEqual(1, $crawler->filter('#made_by option')->count());
+    }
+
+    public function testCreateWithoutOrganizationKeyReturns422(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/calls/new', [
+            '_csrf_token' => $this->open('/calls/new')->filter('input[name="_csrf_token"]')->attr('value'),
+            'made_at' => '',
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
+        $this->assertSelectorTextContains('.field__error', 'Организация обязательна для выбора');
+    }
+
+    public function testCreateRefusalWithBothMarksShowsFlashesAndRedirects(): void
+    {
+        [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->open('/organizations/' . $organization->id . '/calls/new');
+        $this->submitFormByButton('Создать', [
+            'organization' => (string) $organization->id,
+            'contact' => (string) $contact->id,
+            'made_at' => '24.08.2026 15:30',
+            'is_refusal' => '1',
+            'refusal_mark_opt_out' => '1',
+            'refusal_mark_inactive' => '1',
+        ]);
+
+        $this->assertResponseRedirects();
+        self::assertStringContainsString('highlight=' . $organization->id, (string) $this->client->getResponse()->headers->get('Location'));
+        $this->client->followRedirect();
+        $this->assertResponseIsSuccessful();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('Организация отписана от рассылок', $html);
+        self::assertStringContainsString('Организация отмечена как неактивная', $html);
+
+        $this->em()->clear();
+        self::assertTrue($this->em()->find(Organization::class, $organization->id)->isOptedOut);
+        self::assertFalse($this->em()->find(Organization::class, $organization->id)->isActive);
+    }
+
+    public function testEditGetAdminSeesMadeByOptions(): void
+    {
+        $call = $this->makeCallWithOrganization();
+        $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $crawler = $this->open('/calls/' . $call->id . '/edit');
+
+        // Админ видит выпадающий список «Кто совершил звонок».
+        self::assertGreaterThanOrEqual(1, $crawler->filter('#made_by option')->count());
+    }
+
+    public function testUpdate422ReRendersMadeByForAdmin(): void
+    {
+        $call = $this->makeCallWithOrganization();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->open('/calls/' . $call->id . '/edit');
+        $this->submitFormByButton('Сохранить', [
+            'made_at' => '',
+            'is_deal' => '1',
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
+
+        $crawler = $this->client->getCrawler();
+        self::assertGreaterThanOrEqual(1, $crawler->filter('#made_by option')->count());
+    }
+
+    public function testUpdateOptOutAndInactiveFlashes(): void
+    {
+        [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
+        $call = $this->makeCallFor($organization, $contact);
+        $call->setMadeAt(new \DateTimeImmutable('2026-08-24 15:30'));
+        $call->setMadeBy($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $this->em()->flush();
+        $this->login($this->em()->getRepository(User::class)->findOneBy(['email' => 'admin@b2b-crm.loc']));
+
+        $this->open('/calls/' . $call->id . '/edit');
+        $this->submitFormByButton('Сохранить', [
+            'made_at' => '24.08.2026 15:30',
+            'is_refusal' => '1',
+            'refusal_mark_opt_out' => '1',
+            'refusal_mark_inactive' => '1',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->client->followRedirect();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('Организация отписана от рассылок', $html);
+        self::assertStringContainsString('Организация отмечена как неактивная', $html);
+    }
+
+    public function testUpdateResendFlashOnLaunchedCampaignWithExistingRecipient(): void
+    {
+        [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');
+        $contact->setEmail('ivan@romashka.example');
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $campaign = $this->persistLaunchedCampaign('Акция');
+        $this->em()->persist(new CampaignRecipient($campaign, $organization, $contact));
+        $call = $this->makeCallFor($organization, $contact);
+        $call->setMadeAt(new \DateTimeImmutable('2026-08-24 15:30'));
+        $call->setMadeBy($admin);
+        $this->em()->flush();
+        $this->login($admin);
+
+        $this->open('/calls/' . $call->id . '/edit');
+        $this->submitFormByButton('Сохранить', [
+            'made_at' => '24.08.2026 15:30',
+            'mailing_campaign' => (string) $campaign->id,
+            'mailing_contact' => (string) $contact->id,
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->client->followRedirect();
+        $this->assertSelectorTextContains('.alert--warning', 'Письмо будет отправлено повторно');
+    }
+
+    public function testUpdateRedirectContainsHighlight(): void
+    {
+        $call = $this->makeCallWithOrganization(notes: 'Заметка');
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->open('/calls/' . $call->id . '/edit');
+        $this->submitFormByButton('Сохранить', [
+            'is_future_call' => '1',
+            'scheduled_at' => new \DateTimeImmutable('+5 days')->format('Y-m-d\TH:i'),
+            'notes' => 'Обновлено',
+        ]);
+
+        $this->assertResponseRedirects();
+        $location = (string) $this->client->getResponse()->headers->get('Location');
+        self::assertStringContainsString('highlight=' . $call->organization->id, $location);
+    }
+
     public function testOrganizationContactsEndpointReturnsAccessibleContacts(): void
     {
         [$organization, $contact] = $this->makeOrganizationWithContact('ООО Ромашка');

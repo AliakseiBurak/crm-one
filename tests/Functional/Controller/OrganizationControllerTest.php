@@ -552,6 +552,54 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         $this->assertResponseRedirects('/login');
     }
 
+    public function testCreateOrganizationRejectsInvalidCsrfToken(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/organizations/new', [
+            '_csrf_token' => 'invalid',
+            'name' => 'ООО Взлом',
+            'industry' => 'IT',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        self::assertSame(0, $this->em()->getRepository(Organization::class)->count([]));
+    }
+
+    public function testEditOrganizationRejectsInvalidCsrfToken(): void
+    {
+        $organization = new Organization()->setName('ООО Ромашка')->setIndustry('IT');
+        $this->em()->persist($organization);
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/organizations/' . $organization->id . '/edit', [
+            '_csrf_token' => 'invalid',
+            'name' => 'Взлом',
+            'industry' => 'Хак',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertSame('ООО Ромашка', $this->findOrganization('ООО Ромашка')->name);
+    }
+
+    public function testDeleteOrganizationRejectsInvalidCsrfToken(): void
+    {
+        $organization = new Organization()->setName('ООО Ромашка')->setIndustry('IT');
+        $this->em()->persist($organization);
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/organizations/' . $organization->id . '/delete', [
+            '_csrf_token' => 'invalid',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertNotNull($this->findOrganization('ООО Ромашка'));
+    }
+
     /**
      * @return array{0: User, 1: User}
      */
@@ -765,5 +813,67 @@ final class OrganizationControllerTest extends DatabaseWebTestCase
         self::assertFalse($reloaded->isOptedOut);
         self::assertNull($reloaded->optOutReason);
         self::assertNull($reloaded->optedOutAt);
+    }
+
+    /**
+     * trim() в applyRequest() — пробелы по краям имени обрезаются.
+     * Убийца UnwrapTrim (lines 214-220).
+     */
+    public function testCreateOrganizationTrimsWhitespaceFromFields(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/organizations/new');
+        $this->submitFormByButton('Создать', [
+            'name' => '  ООО Ромашка  ',
+            'industry' => '  IT  ',
+            'annualPlan' => '  100  ',
+            'coursesAttended' => '  Курсы  ',
+            'unp' => '  12345  ',
+            'description' => '  Описание  ',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+
+        $org = $this->findOrganization('ООО Ромашка');
+        self::assertNotNull($org);
+        self::assertSame('IT', $org->industry);
+        self::assertSame('100', $org->annualPlan);
+        self::assertSame('Курсы', $org->coursesAttended);
+        self::assertSame('12345', $org->unp);
+        self::assertSame('Описание', $org->description);
+    }
+
+    /**
+     * AJAX-редактирование возвращает JSON со всеми ключами организации.
+     * Убийца ArrayItem (lines 167-174).
+     */
+    public function testAjaxEditOrganizationReturnsAllExpectedKeys(): void
+    {
+        $organization = new Organization()->setName('ООО Ромашка')->setIndustry('IT');
+        $this->em()->persist($organization);
+        $this->em()->flush();
+
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $url = '/organizations/' . $organization->id . '/edit';
+        $this->submitOrganizationAjax($url, $url, [
+            'name' => 'ООО Ромашка Обновлённая',
+            'industry' => 'Фарма',
+        ]);
+
+        $this->assertResponseIsSuccessful();
+        $payload = json_decode((string) $this->client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertTrue($payload['ok']);
+        self::assertArrayHasKey('id', $payload['organization']);
+        self::assertArrayHasKey('name', $payload['organization']);
+        self::assertArrayHasKey('industry', $payload['organization']);
+        self::assertArrayHasKey('annualPlan', $payload['organization']);
+        self::assertArrayHasKey('description', $payload['organization']);
+        self::assertArrayHasKey('coursesAttended', $payload['organization']);
+        self::assertArrayHasKey('unp', $payload['organization']);
+        self::assertArrayHasKey('isActive', $payload['organization']);
+        self::assertSame('ООО Ромашка Обновлённая', $payload['organization']['name']);
     }
 }

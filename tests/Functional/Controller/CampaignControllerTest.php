@@ -339,6 +339,137 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $this->assertResponseRedirects('/login');
     }
 
+    // --- CSRF rejection tests ---
+
+    public function testCreateCampaignRejectsInvalidCsrfToken(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/campaigns/new', [
+            '_csrf_token' => 'invalid',
+            'name' => 'Рассылка',
+            'subject' => 'Тема',
+            'body' => 'Текст',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        self::assertSame(0, $this->em()->getRepository(Campaign::class)->count([]));
+    }
+
+    public function testUpdateCampaignRejectsInvalidCsrfToken(): void
+    {
+        $campaign = $this->persistCampaign('Акция');
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/campaigns/' . $campaign->id . '/edit', [
+            '_csrf_token' => 'invalid',
+            'name' => 'Взлом',
+            'subject' => 'Тема',
+            'body' => 'Текст',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertSame('Акция', $this->findCampaign('Акция')->name);
+    }
+
+    public function testLaunchCampaignRejectsInvalidCsrfToken(): void
+    {
+        $campaign = $this->persistCampaign('Акция');
+        $campaign->setStatus(CampaignStatus::Ready);
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', $this->launchPath($campaign->id), [
+            '_csrf_token' => 'invalid',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertSame(CampaignStatus::Ready, $this->findCampaign('Акция')->status);
+    }
+
+    public function testStopCampaignRejectsInvalidCsrfToken(): void
+    {
+        $campaign = $this->persistCampaign('Акция');
+        $campaign->launch();
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/campaigns/' . $campaign->id . '/stop', [
+            '_csrf_token' => 'invalid',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertSame(CampaignStatus::Launched, $this->findCampaign('Акция')->status);
+    }
+
+    public function testResetCampaignRejectsInvalidCsrfToken(): void
+    {
+        $campaign = $this->persistCampaign('Акция');
+        $campaign->launch();
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/campaigns/' . $campaign->id . '/reset', [
+            '_csrf_token' => 'invalid',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertSame(CampaignStatus::Launched, $this->findCampaign('Акция')->status);
+    }
+
+    public function testDeleteCampaignRejectsInvalidCsrfToken(): void
+    {
+        $campaign = $this->persistCampaign('Акция');
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/campaigns/' . $campaign->id . '/delete', [
+            '_csrf_token' => 'invalid',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertNotNull($this->findCampaign('Акция'));
+    }
+
+    public function testCloneCampaignRejectsInvalidCsrfToken(): void
+    {
+        $campaign = $this->persistCampaign('Оригинал');
+        $campaign->setStatus(CampaignStatus::Ready);
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/campaigns/' . $campaign->id . '/clone', [
+            '_csrf_token' => 'invalid',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertCount(0, $this->em()->getRepository(Campaign::class)->findBy(['name' => 'Оригинал (копия)']));
+    }
+
+    public function testBulkAddByGroupRejectsInvalidCsrfToken(): void
+    {
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $group = (new OrganizationGroup())->setName('Группа А')->setCreatedBy($manager);
+        $this->em()->persist($group);
+        $this->em()->flush();
+        $campaign = $this->persistCampaign('Рассылка');
+        $this->login($manager);
+
+        $this->client->request('POST', '/campaigns/' . $campaign->id . '/recipients/bulk-by-group', [
+            '_csrf_token' => 'invalid',
+            'group_id' => $group->id,
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertCount(0, $this->findCampaign('Рассылка')->recipients);
+    }
+
     public function testManagerCannotAddInaccessibleOrganizationAsRecipient(): void
     {
         [$manager1, , $romashka, $zavod] = $this->makeTwoManagersWithOrganizations();

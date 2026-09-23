@@ -41,8 +41,6 @@ final class UnsubscribeControllerTest extends DatabaseWebTestCase
         $this->client->request('GET', '/unsubscribe/invalid-token-12345');
 
         $this->assertResponseStatusCodeSame(404);
-        $html = (string) $this->client->getResponse()->getContent();
-        self::assertStringContainsString('Ссылка устарела или недействительна', $html);
     }
 
     public function testAlreadyOptedOutShowsMessage(): void

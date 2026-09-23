@@ -807,6 +807,90 @@ final class GroupControllerTest extends DatabaseWebTestCase
         );
     }
 
+    // --- CSRF rejection tests ---
+
+    public function testCreateGroupRejectsInvalidCsrfToken(): void
+    {
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $this->em()->flush();
+        $this->login($manager);
+
+        $this->client->request('POST', '/groups/new', [
+            '_csrf_token' => 'invalid',
+            'name' => 'Новая группа',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        self::assertNull($this->em()->getRepository(OrganizationGroup::class)->findOneBy(['name' => 'Новая группа']));
+    }
+
+    public function testEditGroupRejectsInvalidCsrfToken(): void
+    {
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $group = $this->makeGroup('My Group', $manager);
+        $this->em()->persist($group);
+        $this->em()->flush();
+        $this->login($manager);
+
+        $this->client->request('POST', '/groups/' . $group->id . '/edit', [
+            '_csrf_token' => 'invalid',
+            'name' => 'Взлом',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertSame('My Group', $this->em()->find(OrganizationGroup::class, $group->id)->name);
+    }
+
+    public function testDeleteGroupRejectsInvalidCsrfToken(): void
+    {
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $group = $this->makeGroup('My Group', $manager);
+        $this->em()->persist($group);
+        $this->em()->flush();
+        $this->login($manager);
+
+        $this->client->request('POST', '/groups/' . $group->id . '/delete', [
+            '_csrf_token' => 'invalid',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertNotNull($this->em()->find(OrganizationGroup::class, $group->id));
+    }
+
+    public function testMembersUpdateRejectsInvalidCsrfToken(): void
+    {
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $group = $this->makeGroup('My Group', $manager);
+        $this->em()->persist($group);
+        $this->em()->flush();
+        $this->login($manager);
+
+        $this->client->request('POST', '/groups/' . $group->id . '/members', [
+            '_csrf_token' => 'invalid',
+            'organizations' => [],
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+    }
+
+    public function testAssignRejectsInvalidCsrfToken(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $group = $this->makeGroup('Assign Group', $admin);
+        $this->em()->persist($group);
+        $this->em()->flush();
+        $this->login($admin);
+
+        $this->client->request('POST', '/groups/' . $group->id . '/assign', [
+            '_csrf_token' => 'invalid',
+            'managers' => [],
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+    }
+
     private function makeUser(string $login, string $email, UserRole $role): User
     {
         $user = new User()
@@ -825,5 +909,52 @@ final class GroupControllerTest extends DatabaseWebTestCase
         return (new OrganizationGroup())
             ->setName($name)
             ->setCreatedBy($createdBy);
+    }
+
+    /**
+     * trim() в create/update — пробелы по краям полей обрезаются.
+     * Убийцы UnwrapTrim (lines 100-102, 156-158).
+     */
+    public function testCreateGroupTrimsWhitespaceFromFields(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/groups/new');
+        $this->submitFormByButton('Создать', [
+            'name' => '  VIP-клиенты  ',
+            'description' => '  Важные клиенты  ',
+            'color' => '  #FF0000  ',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+
+        $group = $this->em()->getRepository(OrganizationGroup::class)->findOneBy(['name' => 'VIP-клиенты']);
+        self::assertNotNull($group);
+        self::assertSame('Важные клиенты', $group->description);
+        self::assertSame('#FF0000', $group->color);
+    }
+
+    public function testUpdateGroupTrimsWhitespaceFromFields(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $group = $this->makeGroup('Группа', $admin);
+        $this->em()->persist($group);
+        $this->em()->flush();
+
+        $this->login($admin);
+        $this->open('/groups/' . $group->id . '/edit');
+        $this->submitFormByButton('Сохранить', [
+            'name' => '  Обновлённая  ',
+            'description' => '  Новое описание  ',
+            'color' => '  #00FF00  ',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+
+        $reloaded = $this->em()->getRepository(OrganizationGroup::class)->find($group->id);
+        self::assertSame('Обновлённая', $reloaded->name);
+        self::assertSame('Новое описание', $reloaded->description);
+        self::assertSame('#00FF00', $reloaded->color);
     }
 }

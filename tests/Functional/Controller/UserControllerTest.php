@@ -551,6 +551,59 @@ final class UserControllerTest extends DatabaseWebTestCase
         );
     }
 
+    // --- CSRF rejection tests ---
+
+    public function testCreateUserRejectsInvalidCsrfToken(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/admin/users/new', [
+            '_csrf_token' => 'invalid',
+            'login' => 'newuser',
+            'email' => 'new@example.com',
+            'role' => 'manager',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        self::assertSame(0, $this->em()->getRepository(User::class)->count(['email' => 'new@example.com']));
+    }
+
+    public function testDeleteUserRejectsInvalidCsrfToken(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $target = $this->makeUser('target', 'target@b2b-crm.loc', UserRole::Manager);
+        $this->em()->flush();
+        $this->login($admin);
+
+        $this->client->request('POST', '/admin/users/' . $target->id . '/delete', [
+            '_csrf_token' => 'invalid',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertNotNull($this->em()->find(User::class, $target->id));
+    }
+
+    public function testAssignGroupsRejectsInvalidCsrfToken(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $group = (new OrganizationGroup())->setName('Shared Group')->setCreatedBy($admin);
+        $this->em()->persist($group);
+        $this->em()->flush();
+        $this->login($admin);
+
+        $this->client->request('POST', '/admin/users/' . $manager->id . '/assign', [
+            '_csrf_token' => 'invalid',
+            'groups' => [$group->id],
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertNull($this->em()->getRepository(GroupAssignment::class)
+            ->findOneBy(['user' => $manager->id, 'group' => $group->id]));
+    }
+
     // --- Helpers ---
 
     private function makeUser(string $login, string $email, UserRole $role): User

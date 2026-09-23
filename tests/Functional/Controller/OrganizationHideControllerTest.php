@@ -359,6 +359,47 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
         self::assertNotNull($this->repo()->find($hideId));
     }
 
+    // --- CSRF rejection tests ---
+
+    public function testAdminCreateHideRejectsInvalidCsrfToken(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $org = $this->makeOrganization('ООО Ромашка');
+        $this->em()->flush();
+        $this->login($admin);
+
+        $this->client->request('POST', '/admin/hides', [
+            '_csrf_token' => 'invalid',
+            'organization' => $org->id,
+            'managers' => [$manager->id],
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertCount(0, $this->repo()->findAll());
+    }
+
+    public function testAdminDeleteHideRejectsInvalidCsrfToken(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $org = $this->makeOrganization('ООО Ромашка');
+        $hide = new OrganizationHide($org, $manager);
+        $this->em()->persist($hide);
+        $this->em()->flush();
+        $hideId = $hide->id;
+        $this->login($admin);
+
+        $this->client->request('POST', '/admin/hides/' . $hideId . '/delete', [
+            '_csrf_token' => 'invalid',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertNotNull($this->repo()->find($hideId));
+    }
+
     private function organizations(): \Doctrine\Persistence\ObjectRepository
     {
         return $this->em()->getRepository(Organization::class);

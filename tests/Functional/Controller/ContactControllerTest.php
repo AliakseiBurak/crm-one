@@ -408,6 +408,50 @@ final class ContactControllerTest extends DatabaseWebTestCase
         self::assertNotNull($this->em()->find(Contact::class, $contact->id));
     }
 
+    public function testCreateRejectsInvalidCsrfToken(): void
+    {
+        $organization = $this->makeOrganization('ООО Ромашка');
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/contacts/new', [
+            '_csrf_token' => 'invalid',
+            'organization' => (string) $organization->id,
+            'name' => 'Иван Петров',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        self::assertSame(0, $this->em()->getRepository(Contact::class)->count([]));
+    }
+
+    public function testEditRejectsInvalidCsrfToken(): void
+    {
+        $contact = $this->makeContactWithOrganization();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/contacts/' . $contact->id . '/edit', [
+            '_csrf_token' => 'invalid',
+            'name' => 'Взлом',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertSame('Иван Петров', $this->em()->find(Contact::class, $contact->id)->name);
+    }
+
+    public function testRemoveRejectsInvalidCsrfToken(): void
+    {
+        $contact = $this->makeContactWithOrganization();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/contacts/' . $contact->id . '/delete', [
+            '_csrf_token' => 'invalid',
+        ]);
+
+        $this->assertResponseStatusCodeSame(403);
+        $this->em()->clear();
+        self::assertNotNull($this->em()->find(Contact::class, $contact->id));
+    }
+
     public function testGuestCannotAccessContactPages(): void
     {
         $this->client->request('GET', '/contacts/new');
@@ -523,5 +567,89 @@ final class ContactControllerTest extends DatabaseWebTestCase
             [],
             $ajax ? ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'] : [],
         );
+    }
+
+    /**
+     * trim() в applyRequest() — пробелы по краям имени контакта обрезаются.
+     * Убийца UnwrapTrim (line 192).
+     */
+    public function testCreateContactTrimsWhitespaceFromName(): void
+    {
+        $organization = $this->makeOrganization('ООО Ромашка');
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/contacts/new?organization=' . $organization->id);
+        $this->submitFormByButton('Создать', [
+            'name' => '  Иван Петров  ',
+            'phone' => '  +7-900-111-11-11  ',
+            'email' => '  ivan@example.com  ',
+            'position' => '  Директор  ',
+            'notes' => '  Заметка  ',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+
+        $contact = $this->findContact('Иван Петров');
+        self::assertNotNull($contact);
+        self::assertSame('+7-900-111-11-11', $contact->phone);
+        self::assertSame('ivan@example.com', $contact->email);
+        self::assertSame('Директор', $contact->position);
+        self::assertSame('Заметка', $contact->notes);
+    }
+
+    /**
+     * AJAX-обновление контакта возвращает JSON с grid.
+     * Убийца ArrayItem (line 154).
+     */
+    public function testAjaxUpdateContactReturnsGridInJson(): void
+    {
+        $contact = $this->makeContactWithOrganization();
+
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->submitContactAjax(
+            '/contacts/' . $contact->id . '/edit',
+            '/contacts/' . $contact->id . '/edit',
+            ['name' => 'Иван Петров', 'phone' => '+7-900-111-11-11'],
+        );
+
+        $this->assertResponseIsSuccessful();
+        $payload = json_decode((string) $this->client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertTrue($payload['ok']);
+        self::assertArrayHasKey('grid', $payload);
+        self::assertStringContainsString('org-contacts__grid', $payload['grid']);
+    }
+
+    /**
+     * Edit-форма контакта отображает имя организации.
+     * Убийца ArrayItemRemoval (line 98), ArrayItem (lines 99, 101).
+     */
+    public function testEditContactFormShowsOrganizationName(): void
+    {
+        $contact = $this->makeContactWithOrganization();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->open('/contacts/' . $contact->id . '/edit');
+
+        $this->assertResponseIsSuccessful();
+        self::assertStringContainsString('ООО Ромашка', $this->client->getResponse()->getContent());
+    }
+
+    /**
+     * Create-форма контакта с пустым именем возвращает ошибки.
+     * Убийца ArrayItemRemoval (line 122), ArrayItem (line 123).
+     */
+    public function testCreateContactWithBlankNameShowsErrors(): void
+    {
+        $organization = $this->makeOrganization('ООО Ромашка');
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/contacts/new?organization=' . $organization->id);
+        $this->submitFormByButton('Создать', [
+            'name' => '',
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
+        $this->assertSelectorTextContains('.field__error', 'Имя обязательно для заполнения');
     }
 }
