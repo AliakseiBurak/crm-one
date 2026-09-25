@@ -18,10 +18,13 @@ use App\Repository\CampaignRepository;
 use App\Repository\OrganizationGroupRepository;
 use App\Repository\OrganizationRepository;
 use App\Service\CampaignAttachmentStorage;
+use App\Service\CampaignBodySanitizer;
+use App\Service\CampaignEmailRenderer;
 use App\Service\CampaignRecipientService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -39,6 +42,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 #[Route(requirements: ['id' => '\d+'])]
 class CampaignController extends AbstractController
 {
+    private const int MAX_BODY_LENGTH = 200_000;
+
     public function __construct(
         private readonly CampaignRepository $campaigns,
         private readonly CampaignRecipientRepository $campaignRecipients,
@@ -46,6 +51,8 @@ class CampaignController extends AbstractController
         private readonly OrganizationGroupRepository $groups,
         private readonly CampaignAttachmentStorage $storage,
         private readonly CampaignRecipientService $recipientService,
+        private readonly CampaignBodySanitizer $bodySanitizer,
+        private readonly CampaignEmailRenderer $emailRenderer,
         private readonly EntityManagerInterface $em,
     ) {}
 
@@ -127,6 +134,50 @@ class CampaignController extends AbstractController
             'campaign' => $campaign,
             'statusLabels' => $statusLabels,
         ]);
+    }
+
+    /**
+     * Предпросмотр письма с демо-значениями токенов (design D7): отдаётся
+     * готовый email-документ без CRM-обвязки, чтобы страница показывала ровно
+     * то, что уйдёт получателю. CSP sandbox — защита на случай сбоя санитайзера.
+     */
+    #[Route('/campaigns/{id}/preview', name: 'app_campaign_preview', methods: ['GET'])]
+    public function preview(int $id): Response
+    {
+        $campaign = $this->campaign($id);
+
+        return new Response($this->emailRenderer->renderDemo($campaign)->html, Response::HTTP_OK, [
+            'Content-Type' => 'text/html; charset=utf-8',
+            'Content-Security-Policy' => 'sandbox',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    /**
+     * Живое превью из формы (design D7): рендерит несохранённое тело и
+     * возвращает HTML-фрагмент, в БД ничего не пишет.
+     */
+    #[Route('/campaigns/preview', name: 'app_campaign_preview_live', methods: ['POST'])]
+    public function previewLive(Request $request): JsonResponse
+    {
+        $this->assertCsrfToken($request, 'campaign_preview');
+
+        $rawBody = (string) $request->request->get('body', '');
+        if (mb_strlen($rawBody) > self::MAX_BODY_LENGTH) {
+            return $this->json(
+                ['error' => 'Текст письма не должен превышать 200 000 символов'],
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
+
+        $previewText = trim((string) $request->request->get('preview_text', ''));
+        $campaign = new Campaign()
+            ->setName('Предпросмотр')
+            ->setSubject(trim((string) $request->request->get('subject', '')))
+            ->setPreviewText('' !== $previewText ? $previewText : null)
+            ->setBody($this->bodySanitizer->sanitize($rawBody));
+
+        return $this->json(['html' => $this->emailRenderer->renderDemo($campaign)->html]);
     }
 
     #[Route('/campaigns/{id}/edit', name: 'app_campaign_edit', methods: ['GET'])]
@@ -713,7 +764,21 @@ class CampaignController extends AbstractController
         $campaign->setSubject(trim((string) $request->request->get('subject', '')));
         $previewText = trim((string) $request->request->get('preview_text', ''));
         $campaign->setPreviewText('' !== $previewText ? $previewText : null);
-        $campaign->setBody((string) $request->request->get('body', ''));
+
+        // Тело письма — HTML (change wysiwyg-email-body): лимит проверяется до
+        // санитизации, чтобы усечение max_input_length санитайзера не пропустило
+        // слишком большое тело; очистка — после (design D4).
+        $rawBody = (string) $request->request->get('body', '');
+        if (mb_strlen($rawBody) > self::MAX_BODY_LENGTH) {
+            $errors['body'] = 'Текст письма не должен превышать 200 000 символов';
+            $campaign->setBody($rawBody);
+        } else {
+            $sanitizedBody = $this->bodySanitizer->sanitize($rawBody);
+            $campaign->setBody($sanitizedBody);
+            if ('' === $sanitizedBody && '' !== trim($rawBody)) {
+                $errors['body'] = 'Тело письма не содержит допустимого содержимого';
+            }
+        }
 
         // Статус выбирается из фиксированного списка draft/ready/launched/archived.
         // failed — технический статус, устанавливаемый MailingService, недоступен в форме.
@@ -762,10 +827,10 @@ class CampaignController extends AbstractController
      * Защита state-changing форм от CSRF; для AJAX-запросов токен передаётся
      * в заголовке X-CSRF-Token.
      */
-    private function assertCsrfToken(Request $request): void
+    private function assertCsrfToken(Request $request, string $tokenId = 'campaign'): void
     {
         $token = $request->headers->get('X-CSRF-Token') ?? (string) $request->request->get('_csrf_token', '');
-        if (!$this->isCsrfTokenValid('campaign', $token)) {
+        if (!$this->isCsrfTokenValid($tokenId, $token)) {
             throw new AccessDeniedHttpException('Недействительный CSRF-токен');
         }
     }

@@ -27,6 +27,7 @@
                     : path('app_campaign_create') }}"
             >
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('campaign') }}">
+                <input type="hidden" name="_csrf_preview" value="{{ csrf_token('campaign_preview') }}">
 
                 {{ include('components/form_field.html.twig', {
                     name: 'name',
@@ -116,6 +117,12 @@
                     }) }}
                     {{ include('components/button.html.twig', {
                         variant: 'secondary',
+                        text: 'Предпросмотр',
+                        type: 'button',
+                        attr: { 'data-campaign-preview-open': '' },
+                    }) }}
+                    {{ include('components/button.html.twig', {
+                        variant: 'secondary',
                         text: 'Отмена',
                         href: isEdit ? path('app_campaign_show', { id: campaign.id }) : path('app_campaign_index'),
                         type: 'button',
@@ -132,6 +139,10 @@
             </form>
         </div>
     </section>
+
+    {{ include('campaign/_preview_modal.html.twig', {
+        livePreviewUrl: path('app_campaign_preview_live'),
+    }) }}
 
     <script>
         (() => {

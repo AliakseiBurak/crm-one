@@ -7,7 +7,7 @@
 const modal = document.querySelector('[data-organization-edit-modal] .modal')
     ?? document.querySelector('.modal[data-modal]');
 
-if (modal) {
+if (modal && modal.querySelector('[data-organization-edit-form]')) {
     const form = modal.querySelector('[data-organization-edit-form]');
     const fields = {
         name: modal.querySelector('[data-organization-field="name"]'),

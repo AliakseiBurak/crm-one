@@ -1,0 +1,25 @@
+{#
+    Модалка предпросмотра письма (change wysiwyg-email-body): email-документ
+    в sandbox-iframe. На карточке кампании iframe грузится по previewUrl; в
+    форме — по livePreviewUrl: JS отправляет несохранённое тело и подставляет
+    полученный HTML через srcdoc. Ожидает: previewUrl (?string),
+    livePreviewUrl (?string).
+#}
+<div data-campaign-preview-modal>
+    {% embed 'components/modal.html.twig' %}
+        {% block modal_title %}
+            <h2 class="modal__title">Предпросмотр письма</h2>
+        {% endblock %}
+
+        {% block modal_body %}
+            <iframe
+                class="campaign-preview__frame"
+                title="Предпросмотр письма"
+                sandbox
+                data-campaign-preview-frame
+                {% if previewUrl is defined and previewUrl %}src="{{ previewUrl }}"{% endif %}
+                {% if livePreviewUrl is defined and livePreviewUrl %}data-preview-url="{{ livePreviewUrl }}"{% endif %}
+            ></iframe>
+        {% endblock %}
+    {% endembed %}
+</div>

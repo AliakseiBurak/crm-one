@@ -7,94 +7,15 @@ namespace App\Tests\Unit\Entity;
 use App\Entity\Campaign;
 use App\Entity\CampaignAttachment;
 use App\Entity\CampaignRecipient;
-use App\Entity\Contact;
 use App\Entity\Enum\CampaignStatus;
 use App\Entity\Organization;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit-тесты Campaign: renderBody(), cloneFrom(), launch(), fail().
+ * Unit-тесты Campaign: cloneFrom(), launch(), fail().
  */
 final class CampaignTest extends TestCase
 {
-    public function testRenderBodyWithContact(): void
-    {
-        $campaign = new Campaign()
-            ->setBody('{{greeting}}! {{contact_name}}, добро пожаловать.');
-
-        $org = new Organization()->setName('ООО Ромашка');
-        $contact = new Contact()->setOrganization($org)->setName('Иван Петров');
-
-        $rendered = $campaign->renderBody($contact, $org);
-
-        self::assertSame('Уважаемый(ая) Иван Петров! Иван Петров, добро пожаловать.', $rendered);
-    }
-
-    public function testRenderBodyWithoutContact(): void
-    {
-        $campaign = new Campaign()
-            ->setBody('{{greeting}}! Ждём вас.');
-
-        $org = new Organization()->setName('ООО Ромашка');
-
-        $rendered = $campaign->renderBody(null, $org);
-
-        self::assertSame('Уважаемые сотрудники ООО Ромашка! Ждём вас.', $rendered);
-    }
-
-    public function testRenderBodyOrganizationNameToken(): void
-    {
-        $campaign = new Campaign()
-            ->setBody('Компания {{organization_name}} приглашает.');
-
-        $org = new Organization()->setName('АО Вектор');
-
-        $rendered = $campaign->renderBody(null, $org);
-
-        self::assertSame('Компания АО Вектор приглашает.', $rendered);
-    }
-
-    public function testRenderBodyContactNameToken(): void
-    {
-        $campaign = new Campaign()
-            ->setBody('{{contact_name}}, здравствуйте.');
-
-        $org = new Organization()->setName('ООО Ромашка');
-        $contact = new Contact()->setOrganization($org)->setName('Мария Ивановна');
-
-        $rendered = $campaign->renderBody($contact, $org);
-
-        self::assertSame('Мария Ивановна, здравствуйте.', $rendered);
-    }
-
-    public function testRenderBodyWithoutContactUsesOrganizationNameEvenWithMainContact(): void
-    {
-        $campaign = new Campaign()
-            ->setBody('{{greeting}}! {{contact_name}}, добро пожаловать.');
-
-        $org = new Organization()->setName('ООО Ромашка');
-        // isMain не влияет на токены: при отсутствии адресата {{contact_name}}
-        // и {{greeting}} подставляются названием организации.
-        new Contact()->setOrganization($org)->setName('Мария Смирнова')->setIsMain(true);
-
-        $rendered = $campaign->renderBody(null, $org);
-
-        self::assertSame('Уважаемые сотрудники ООО Ромашка! ООО Ромашка, добро пожаловать.', $rendered);
-    }
-
-    public function testRenderBodyAllTokensCombined(): void
-    {
-        $campaign = new Campaign()
-            ->setBody('{{greeting}}! {{organization_name}} предлагает {{contact_name}} скидку.');
-
-        $org = new Organization()->setName('ООО Закат');
-        $contact = new Contact()->setOrganization($org)->setName('Ольга');
-
-        $rendered = $campaign->renderBody($contact, $org);
-
-        self::assertSame('Уважаемый(ая) Ольга! ООО Закат предлагает Ольга скидку.', $rendered);
-    }
-
     public function testLaunchSetsStatusAndLaunchedAt(): void
     {
         $campaign = new Campaign()->setName('Тест');
@@ -142,20 +63,6 @@ final class CampaignTest extends TestCase
 
         self::assertSame(CampaignStatus::Launched, $campaign->status);
         self::assertNull($campaign->failureReason);
-    }
-
-    public function testRenderSubjectAndPreviewFillTokens(): void
-    {
-        $campaign = new Campaign()
-            ->setSubject('Для {{organization_name}}')
-            ->setPreviewText('{{greeting}}');
-
-        $org = new Organization()->setName('ООО Ромашка');
-        $contact = new Contact()->setOrganization($org)->setName('Иван Петров');
-
-        self::assertSame('Для ООО Ромашка', $campaign->renderSubject($contact, $org));
-        self::assertSame('Уважаемый(ая) Иван Петров', $campaign->renderPreviewText($contact, $org));
-        self::assertNull(new Campaign()->renderPreviewText($contact, $org));
     }
 
     public function testCloneFromCopiesFieldsAndSuffix(): void

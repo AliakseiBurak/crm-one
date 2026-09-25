@@ -15,3 +15,4 @@ import './js/call-modal.js';
 import './js/org-combobox.js';
 import './js/date-picker.js';
 import './js/header-create-dropdown.js';
+import './js/campaign-preview-modal.js';

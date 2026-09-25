@@ -28,6 +28,7 @@ readonly class MailingService
         private CampaignRecipientRepository $recipientRepository,
         private UserRepository $userRepository,
         private CampaignAttachmentStorage $attachmentStorage,
+        private CampaignEmailRenderer $emailRenderer,
         private UrlGeneratorInterface $urlGenerator,
         private LoggerInterface $logger,
         #[Autowire(param: 'mailing.from_email')]
@@ -217,11 +218,13 @@ readonly class MailingService
         array $ccEmails,
     ): void {
         $organization = $recipient->organization;
-        $unsubscribeUrl = $this->generateUnsubscribeUrl($recipient);
-        $preview = $campaign->renderPreviewText($contact, $organization);
-        $body = $this->preheaderMarkup($preview)
-            . $campaign->renderBody($contact, $organization, $unsubscribeUrl)
-            . $this->trackingPixelMarkup($recipient);
+        $rendered = $this->emailRenderer->render(
+            $campaign,
+            $contact,
+            $organization,
+            $this->generateUnsubscribeUrl($recipient),
+            $this->trackingPixelUrl($recipient),
+        );
 
         // Имя получателя: выбранный контакт (даже без email), иначе —
         // название организации.
@@ -230,8 +233,9 @@ readonly class MailingService
         $email = new Email()
             ->from(new Address($this->fromEmail, $this->fromName))
             ->to(new Address($toEmail, $displayName))
-            ->subject($campaign->renderSubject($contact, $organization))
-            ->html($body);
+            ->subject($rendered->subject)
+            ->html($rendered->html)
+            ->text($rendered->text);
 
         foreach ($ccEmails as $ccEmail) {
             $email->addCc($ccEmail);
@@ -262,33 +266,16 @@ readonly class MailingService
         );
     }
 
-    private function preheaderMarkup(?string $preview): string
-    {
-        if (null === $preview || '' === $preview) {
-            return '';
-        }
-
-        return \sprintf(
-            '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">%s</div>',
-            htmlspecialchars($preview, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-        );
-    }
-
-    private function trackingPixelMarkup(CampaignRecipient $recipient): string
+    private function trackingPixelUrl(CampaignRecipient $recipient): ?string
     {
         if (null === $recipient->trackingToken) {
-            return '';
+            return null;
         }
 
-        $pixelUrl = $this->urlGenerator->generate(
+        return $this->urlGenerator->generate(
             'app_tracking_pixel',
             ['trackingToken' => $recipient->trackingToken],
             UrlGeneratorInterface::ABSOLUTE_URL,
-        );
-
-        return \sprintf(
-            '<img src="%s" width="1" height="1" alt="" style="display:block;border:0;height:1px;width:1px">',
-            htmlspecialchars($pixelUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
         );
     }
 

@@ -1,0 +1,43 @@
+framework:
+    html_sanitizer:
+        sanitizers:
+            campaign_body:
+                allow_elements:
+                    p: ['style']
+                    br: []
+                    strong: ['style']
+                    b: ['style']
+                    em: ['style']
+                    i: ['style']
+                    u: ['style']
+                    s: ['style']
+                    del: ['style']
+                    code: ['style']
+                    pre: ['style']
+                    blockquote: ['style']
+                    hr: ['style']
+                    h1: ['style']
+                    h2: ['style']
+                    h3: ['style']
+                    h4: ['style']
+                    h5: ['style']
+                    h6: ['style']
+                    ul: ['style']
+                    ol: ['style']
+                    li: ['style']
+                    a: ['href', 'target', 'rel', 'style']
+                    img: ['src', 'alt', 'width', 'height', 'style']
+                    table: ['style', 'border', 'cellpadding', 'cellspacing', 'width', 'align']
+                    thead: ['style']
+                    tbody: ['style']
+                    tfoot: ['style']
+                    tr: ['style', 'align', 'valign']
+                    td: ['style', 'colspan', 'rowspan', 'width', 'height', 'align', 'valign', 'bgcolor']
+                    th: ['style', 'colspan', 'rowspan', 'width', 'height', 'align', 'valign', 'bgcolor']
+                    div: ['style']
+                    span: ['style']
+                allowed_link_schemes: ['https', 'mailto', 'tel']
+                allowed_media_schemes: ['https']
+                max_input_length: 262144
+                with_attribute_sanitizers:
+                    - App\Html\CampaignStyleAttributeSanitizer

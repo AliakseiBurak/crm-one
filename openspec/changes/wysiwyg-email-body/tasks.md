@@ -1,9 +1,9 @@
 ## 1. Инфраструктура санитизации
 
-- [ ] 1.1 Добавить `symfony/html-sanitizer` и `twig/cssinliner-extra` в composer, создать `config/packages/html_sanitizer.yaml` (allowlist элементов/атрибутов, `max_input_length: 262144`, `allowed_link_schemes`, `allowed_media_schemes: [https]`); проверить `php bin/console lint:container` и `composer cs:check`
-- [ ] 1.2 Реализовать `src/Html/CampaignStyleAttributeSanitizer.php` (allowlist CSS-свойств; режет `position`, `z-index`, `behavior`, `expression()`, `url(javascript:)`); проверить `php bin/phpunit --filter CampaignStyleAttributeSanitizerTest` — тесты на сохранение `color`/`text-align` и удаление опасных свойств
-- [ ] 1.3 Реализовать `src/Service/CampaignBodySanitizer.php` (обёртка над `HtmlSanitizer`, метод `sanitize(string): string`); проверить `php bin/phpunit --filter CampaignBodySanitizerTest` — тесты: `script`/`onerror`/`iframe` удаляются, `table` с `colspan` и `img[src|alt|width|style]` сохраняются
-- [ ] 1.4 Подключить санитизацию в `CampaignController::applyRequest()` и ограничение длины тела (200 000) в валидацию сущности; проверить функциональным тестом create/update: скрипт вырезан, превышение лимита — 422 с ошибкой `body`, тело только из запрещённых элементов — 422 «Тело письма не содержит допустимого содержимого», рассылка не сохраняется
+- [x] 1.1 Добавить `symfony/html-sanitizer` и `twig/cssinliner-extra` в composer, создать `config/packages/html_sanitizer.yaml` (allowlist элементов/атрибутов, `max_input_length: 262144`, `allowed_link_schemes`, `allowed_media_schemes: [https]`); проверить `php bin/console lint:container` и `composer cs:check`
+- [x] 1.2 Реализовать `src/Html/CampaignStyleAttributeSanitizer.php` (allowlist CSS-свойств; режет `position`, `z-index`, `behavior`, `expression()`, `url(javascript:)`); проверить `php bin/phpunit --filter CampaignStyleAttributeSanitizerTest` — тесты на сохранение `color`/`text-align` и удаление опасных свойств
+- [x] 1.3 Реализовать `src/Service/CampaignBodySanitizer.php` (обёртка над `HtmlSanitizer`, метод `sanitize(string): string`); проверить `php bin/phpunit --filter CampaignBodySanitizerTest` — тесты: `script`/`onerror`/`iframe` удаляются, `table` с `colspan` и `img[src|alt|width|style]` сохраняются
+- [x] 1.4 Подключить санитизацию в `CampaignController::applyRequest()` и ограничение длины тела (200 000) в валидацию сущности; проверить функциональным тестом create/update: скрипт вырезан, превышение лимита — 422 с ошибкой `body`, тело только из запрещённых элементов — 422 «Тело письма не содержит допустимого содержимого», рассылка не сохраняется
 
 ## 2. Токены и email-рендерер
 
@@ -13,9 +13,9 @@
 
 ## 3. Предпросмотр письма
 
-- [ ] 3.1 Добавить `GET /campaigns/{id}/preview` и `templates/campaign/preview.html.twig` (демо-значения токенов, без tracking-pixel); проверить функциональным тестом: страница открывается для администратора и менеджера, содержит шелл и демо-значения токенов
-- [ ] 3.2 Добавить `POST /campaigns/{id}/preview` (CSRF-токен `campaign_preview`, JSON `{html}`, без записи в БД, лимит 200 000); проверить функциональным тестом: корректный CSRF — 200 с HTML, неверный — 403, тело в БД не изменяется, несохранённое тело рендерится
-- [ ] 3.3 Добавить на карточку кампании кнопку «Предпросмотр» и модалку на `components/modal.html.twig` + `assets/js/campaign-preview-modal.js`; проверить функциональным тестом наличие кнопки и контейнера модалки, `npm run build` собирается
+- [x] 3.1 Добавить `GET /campaigns/{id}/preview`: отдаёт готовый email-документ с демо-значениями токенов, без tracking-pixel, с CSP `sandbox`; проверить функциональным тестом: страница открывается для администратора и менеджера, содержит шелл 600px и демо-значения токенов, для несуществующей кампании — 404
+- [x] 3.2 Добавить `POST /campaigns/preview` (CSRF-токен `campaign_preview`, JSON `{html}`, без записи в БД, лимит 200 000, санитизация несохранённого тела); проверить функциональным тестом: корректный CSRF — 200 с HTML и демо-токенами, неверный — 403, тело в БД не изменяется, скрипт вырезан, превышение лимита — 422
+- [x] 3.3 Добавить на карточку кампании и в форму кнопку «Предпросмотр» и модалку (`campaign/_preview_modal.html.twig`, sandbox-iframe) + `assets/js/campaign-preview-modal.js`; проверить функциональным тестом наличие кнопки и контейнера модалки, `npm run build` собирается
 
 ## 4. WYSIWYG-редактор
 

@@ -1,0 +1,55 @@
+{#
+    Email-шелл рассылки (design D5): полный HTML-документ, табличная
+    раскладка 600px, скрытый прехедер, тело и футер; CSS шелла инлайнится
+    фильтром inline_css (twig/cssinliner-extra). Токены подставлены и
+    экранированы рендерером (CampaignEmailRenderer) до передачи сюда.
+    Ожидает: subject, bodyHtml, preheader (?string), unsubscribeUrl (?string),
+    trackingPixelUrl (?string).
+#}
+{% apply inline_css %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ subject }}</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #f4f5f7; font-family: Arial, Helvetica, sans-serif; color: #1f2937; }
+        .email-wrapper { width: 100%; background-color: #f4f5f7; }
+        .email-container { width: 600px; max-width: 600px; background-color: #ffffff; }
+        .email-content { padding: 24px; font-size: 15px; line-height: 1.5; }
+        .email-content table { border-collapse: collapse; }
+        .email-content td, .email-content th { padding: 6px 8px; }
+        .email-footer { padding: 16px 24px; font-size: 12px; line-height: 1.4; color: #6b7280; }
+        .email-footer a { color: #6b7280; }
+    </style>
+</head>
+<body>
+{% if preheader %}
+    <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">{{ preheader }}</div>
+{% endif %}
+    <table role="presentation" class="email-wrapper" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+            <td align="center" style="padding: 24px 12px;">
+                <table role="presentation" class="email-container" width="600" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                        <td class="email-content">{{ bodyHtml|raw }}</td>
+                    </tr>
+                    <tr>
+                        <td class="email-footer">
+                            Это письмо отправлено сервисом B2B Call CRM.
+{% if unsubscribeUrl %}
+                            <br><a href="{{ unsubscribeUrl }}">Отписаться от рассылки</a>
+{% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+{% if trackingPixelUrl %}
+    <img src="{{ trackingPixelUrl }}" width="1" height="1" alt="" style="display:block;border:0;height:1px;width:1px">
+{% endif %}
+</body>
+</html>
+{% endapply %}

@@ -16,6 +16,7 @@ use App\Entity\OrganizationHide;
 use App\Entity\OrgGroupMembership;
 use App\Entity\User;
 use App\Service\CampaignAttachmentStorage;
+use App\Service\CampaignEmailRenderer;
 use App\Tests\DatabaseWebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -82,6 +83,168 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         self::assertStringContainsString('Текст письма обязателен для заполнения', $html);
 
         self::assertSame(0, $this->em()->getRepository(Campaign::class)->count([]));
+    }
+
+    public function testCreateSanitizesHtmlBody(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/campaigns/new');
+        $this->submitFormByButton('Создать', [
+            'name' => 'HTML-рассылка',
+            'subject' => 'Тема',
+            'body' => '<p onclick="alert(1)">Текст<script>alert(1)</script></p>'
+                . '<table><tbody><tr><td colspan="2">Ячейка</td></tr></tbody></table>'
+                . '<img src="https://cdn.example/logo.png" alt="Логотип">',
+        ]);
+
+        $this->assertResponseRedirects();
+
+        $this->em()->clear();
+        $campaign = $this->findCampaign('HTML-рассылка');
+        self::assertNotNull($campaign);
+        self::assertStringContainsString('<p>Текст</p>', $campaign->body);
+        self::assertStringContainsString('colspan="2"', $campaign->body);
+        self::assertStringContainsString('src="https://cdn.example/logo.png"', $campaign->body);
+        self::assertStringNotContainsString('script', $campaign->body);
+        self::assertStringNotContainsString('onclick', $campaign->body);
+    }
+
+    public function testCreateRejectsBodyLongerThanLimit(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/campaigns/new');
+        $this->submitFormByButton('Создать', [
+            'name' => 'Слишком длинная',
+            'subject' => 'Тема',
+            'body' => '<p>' . str_repeat('а', 200001) . '</p>',
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
+        self::assertStringContainsString(
+            'Текст письма не должен превышать 200 000 символов',
+            (string) $this->client->getResponse()->getContent(),
+        );
+        self::assertSame(0, $this->em()->getRepository(Campaign::class)->count([]));
+    }
+
+    public function testCreateRejectsBodyWithoutAllowedContent(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/campaigns/new');
+        $this->submitFormByButton('Создать', [
+            'name' => 'Только скрипт',
+            'subject' => 'Тема',
+            'body' => '<script>alert(1)</script>',
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
+        self::assertStringContainsString(
+            'Тело письма не содержит допустимого содержимого',
+            (string) $this->client->getResponse()->getContent(),
+        );
+        self::assertSame(0, $this->em()->getRepository(Campaign::class)->count([]));
+    }
+
+    public function testPreviewPageShowsEmailWithDemoTokens(): void
+    {
+        $campaign = $this->persistCampaign('Предпросмотр');
+        $campaign->setBody('<p>{{greeting}}</p><p>{{organization_name}}</p>');
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('GET', '/campaigns/' . $campaign->id . '/preview');
+
+        $this->assertResponseIsSuccessful();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('<!doctype html>', $html);
+        self::assertStringContainsString('width="600"', $html);
+        self::assertStringContainsString(CampaignEmailRenderer::DEMO_ORGANIZATION_NAME, $html);
+        self::assertStringContainsString(CampaignEmailRenderer::DEMO_CONTACT_NAME, $html);
+        self::assertStringNotContainsString('/t/', $html);
+    }
+
+    public function testManagerCanOpenPreviewPage(): void
+    {
+        $campaign = $this->persistCampaign('Предпросмотр менеджера');
+        $this->login($this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager));
+
+        $this->client->request('GET', '/campaigns/' . $campaign->id . '/preview');
+
+        $this->assertResponseIsSuccessful();
+    }
+
+    public function testPreviewPageForUnknownCampaignReturns404(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('GET', '/campaigns/999999/preview');
+
+        $this->assertResponseStatusCodeSame(404);
+    }
+
+    public function testLivePreviewRendersUnsavedBodyWithoutSaving(): void
+    {
+        $campaign = $this->persistCampaign('Живое превью');
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $token = (string) $this->open('/campaigns/' . $campaign->id . '/edit')
+            ->filter('input[name="_csrf_preview"]')->attr('value');
+
+        $this->client->request('POST', '/campaigns/preview', [
+            'subject' => 'Тема',
+            'body' => '<p>{{greeting}}</p>',
+            '_csrf_token' => $token,
+        ]);
+
+        $this->assertResponseIsSuccessful();
+        $payload = json_decode((string) $this->client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertStringContainsString(
+            'Уважаемый(ая) ' . CampaignEmailRenderer::DEMO_CONTACT_NAME,
+            (string) $payload['html'],
+        );
+
+        $this->em()->clear();
+        self::assertSame('{{greeting}}!', $this->findCampaign('Живое превью')?->body);
+    }
+
+    public function testLivePreviewSanitizesBody(): void
+    {
+        $campaign = $this->persistCampaign('Санитизация превью');
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $token = (string) $this->open('/campaigns/' . $campaign->id . '/edit')
+            ->filter('input[name="_csrf_preview"]')->attr('value');
+
+        $this->client->request('POST', '/campaigns/preview', [
+            'body' => '<p>Текст<script>alert(1)</script></p>',
+            '_csrf_token' => $token,
+        ]);
+
+        $this->assertResponseIsSuccessful();
+        $payload = json_decode((string) $this->client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('<p>Текст</p>', (string) $payload['html']);
+        self::assertStringNotContainsString('<script>', (string) $payload['html']);
+    }
+
+    public function testLivePreviewRejectsInvalidCsrf(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('POST', '/campaigns/preview', ['body' => '<p>x</p>']);
+
+        $this->assertResponseStatusCodeSame(403);
+    }
+
+    public function testLivePreviewRejectsTooLongBody(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $token = (string) $this->open('/campaigns/new')
+            ->filter('input[name="_csrf_preview"]')->attr('value');
+
+        $this->client->request('POST', '/campaigns/preview', [
+            'body' => '<p>' . str_repeat('а', 200001) . '</p>',
+            '_csrf_token' => $token,
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
     }
 
     public function testCreateWithFailedStatusShowsError(): void

@@ -43,12 +43,6 @@ parameters:
 			path: src/Controller/CallController.php
 
 		-
-			message: '#^Method App\\Controller\\CampaignController\:\:assertCsrfToken\(\) invoked with 2 parameters, 1 required\.$#'
-			identifier: arguments.count
-			count: 1
-			path: src/Controller/CampaignController.php
-
-		-
 			message: '#^Method App\\Controller\\CampaignController\:\:availableOrganizations\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -183,12 +177,6 @@ parameters:
 		-
 			message: '#^Property App\\Entity\\Campaign\:\:\$recipients with generic interface Doctrine\\Common\\Collections\\Collection does not specify its types\: TKey, T$#'
 			identifier: missingType.generics
-			count: 1
-			path: src/Entity/Campaign.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
 			count: 1
 			path: src/Entity/Campaign.php
 

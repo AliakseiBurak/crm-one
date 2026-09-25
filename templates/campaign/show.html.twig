@@ -161,6 +161,12 @@
                     {% endif %}
                     {{ include('components/button.html.twig', {
                         variant: 'secondary',
+                        text: 'Предпросмотр',
+                        type: 'button',
+                        attr: { 'data-campaign-preview-open': '' },
+                    }) }}
+                    {{ include('components/button.html.twig', {
+                        variant: 'secondary',
                         text: 'Редактировать',
                         href: path('app_campaign_edit', { id: campaign.id }),
                         type: 'button',
@@ -175,6 +181,10 @@
             </article>
         </div>
     </section>
+
+    {{ include('campaign/_preview_modal.html.twig', {
+        previewUrl: path('app_campaign_preview', { id: campaign.id }),
+    }) }}
 
     <script>
         (function() {

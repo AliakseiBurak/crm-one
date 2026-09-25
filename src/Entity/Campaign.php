@@ -35,6 +35,7 @@ class Campaign
 
     #[ORM\Column(type: 'text')]
     #[Assert\NotBlank(message: 'Текст письма обязателен для заполнения')]
+    #[Assert\Length(max: 200000, maxMessage: 'Текст письма не должен превышать {{ limit }} символов')]
     public private(set) string $body = '';
 
     #[ORM\Column(type: 'string', enumType: CampaignStatus::class, options: ['default' => 'draft'])]
@@ -179,47 +180,6 @@ class Campaign
         $this->failureReason = null;
 
         return $this;
-    }
-
-    /**
-     * Подстановка токенов {{greeting}}, {{contact_name}}, {{organization_name}}
-     * в тему, превью и текст: приветствие «Уважаемый(ая) Имя» при контакте,
-     * иначе «Уважаемые сотрудники Название организации»; {{contact_name}} при
-     * отсутствии контакта подставляется названием организации. isMain в
-     * токенах не участвует (только в маршрутизации TO/CC MailingService).
-     */
-    public function renderSubject(?Contact $contact, Organization $organization): string
-    {
-        return $this->fillTokens($this->subject, $contact, $organization);
-    }
-
-    public function renderPreviewText(?Contact $contact, Organization $organization): ?string
-    {
-        if (null === $this->previewText) {
-            return null;
-        }
-
-        return $this->fillTokens($this->previewText, $contact, $organization);
-    }
-
-    public function renderBody(?Contact $contact, Organization $organization, string $unsubscribeUrl = ''): string
-    {
-        return $this->fillTokens($this->body, $contact, $organization, $unsubscribeUrl);
-    }
-
-    private function fillTokens(string $template, ?Contact $contact, Organization $organization, string $unsubscribeUrl = ''): string
-    {
-        if (null !== $contact) {
-            $greeting = 'Уважаемый(ая) ' . $contact->name;
-        } else {
-            $greeting = 'Уважаемые сотрудники ' . $organization->name;
-        }
-
-        return str_replace(
-            ['{{contact_name}}', '{{organization_name}}', '{{greeting}}', '{{unsubscribe_url}}'],
-            [$contact?->name ?? $organization->name, $organization->name, $greeting, $unsubscribeUrl],
-            $template,
-        );
     }
 
     /**

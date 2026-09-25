@@ -16,6 +16,8 @@ use App\Repository\CampaignRecipientRepository;
 use App\Repository\CampaignRepository;
 use App\Repository\UserRepository;
 use App\Service\CampaignAttachmentStorage;
+use App\Service\CampaignEmailRenderer;
+use App\Service\CampaignTokenFiller;
 use App\Service\MailingService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -25,6 +27,9 @@ use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Twig\Environment;
+use Twig\Extra\CssInliner\CssInlinerExtension;
+use Twig\Loader\FilesystemLoader;
 
 final class MailingServiceTest extends TestCase
 {
@@ -83,6 +88,7 @@ final class MailingServiceTest extends TestCase
         self::assertStringContainsString('Уважаемый(ая) Алиса', $html);
         self::assertStringContainsString('mso-hide:all', $html);
         self::assertStringContainsString($this->generated['app_tracking_pixel'][0], $html);
+        self::assertStringContainsString('Уважаемый(ая) Алиса', (string) $this->sent[0]->getTextBody());
         self::assertSame(RecipientStatus::Delivered, $recipient->status);
     }
 
@@ -414,6 +420,13 @@ final class MailingServiceTest extends TestCase
     ): MailingService {
         $storage ??= new CampaignAttachmentStorage(sys_get_temp_dir());
 
+        $twig = new Environment(
+            new FilesystemLoader(\dirname(__DIR__, 3) . '/templates'),
+            ['strict_variables' => true],
+        );
+        $twig->addExtension(new CssInlinerExtension());
+        $renderer = new CampaignEmailRenderer($twig, new CampaignTokenFiller());
+
         $urls = $this->createMock(UrlGeneratorInterface::class);
         $urls->method('generate')->willReturnCallback(
             function (string $name, array $params): string {
@@ -433,6 +446,7 @@ final class MailingServiceTest extends TestCase
             $this->recipients,
             $this->users,
             $storage,
+            $renderer,
             $urls,
             new NullLogger(),
             'user@b2b-crm.local',
