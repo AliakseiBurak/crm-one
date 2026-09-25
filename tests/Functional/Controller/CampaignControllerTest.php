@@ -247,6 +247,40 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         $this->assertResponseStatusCodeSame(422);
     }
 
+    public function testFormPageContainsEditorScaffolding(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $page = $this->open('/campaigns/new');
+
+        self::assertGreaterThan(0, $page->filter('[data-campaign-editor]')->count());
+        self::assertGreaterThan(0, $page->filter('[data-editor-toolbar] [data-editor-command="bold"]')->count());
+        self::assertGreaterThan(0, $page->filter('[data-editor-toolbar] [data-editor-command="strike"]')->count());
+        self::assertGreaterThan(0, $page->filter('[data-editor-toolbar] [data-editor-command="heading"]')->count());
+        self::assertGreaterThan(0, $page->filter('[data-editor-toggle-source]')->count());
+        self::assertGreaterThan(0, $page->filter('[data-editor-image-form]')->count());
+        self::assertGreaterThan(0, $page->filter('[data-editor-image-form] input[data-editor-image-url]')->count());
+        self::assertGreaterThan(0, $page->filter('textarea[name="body"]')->count());
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('{{unsubscribe_url}}', $html);
+        self::assertGreaterThan(0, $page->filter('[data-campaign-preview-open]')->count());
+        self::assertGreaterThan(0, $page->filter('[data-campaign-preview-modal] .modal[data-modal]')->count());
+    }
+
+    public function testShowPageRendersFormattedHtmlBody(): void
+    {
+        $campaign = $this->persistCampaign('Форматирование');
+        $campaign->setBody('<p>Привет <strong>мир</strong></p>');
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+
+        $this->client->request('GET', '/campaigns/' . $campaign->id);
+
+        $this->assertResponseIsSuccessful();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('<p>Привет <strong>мир</strong></p>', $html);
+        self::assertStringNotContainsString('<pre class="campaign-card__template">', $html);
+    }
+
     public function testCreateWithFailedStatusShowsError(): void
     {
         $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));

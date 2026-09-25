@@ -1,12 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import { login } from '../helpers/auth';
+import { setCampaignBody } from '../helpers/editor';
 import { uniqueName } from '../helpers/test-data';
 
 async function createCampaign(page: Page, name: string): Promise<number> {
   await page.goto('/campaigns/new');
   await page.fill('input[name="name"]', name);
   await page.fill('input[name="subject"]', 'Тема');
-  await page.fill('textarea[name="body"]', 'Текст письма');
+  await setCampaignBody(page, 'Текст письма');
   await page.selectOption('select[name="status"]', 'ready');
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/highlight=(\d+)/);

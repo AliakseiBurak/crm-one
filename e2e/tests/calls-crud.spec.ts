@@ -110,9 +110,12 @@ test('создание проведённого звонка с только ф�
   await expect(page.locator('[data-call-scheduled-field]')).toBeHidden();
   await expect(page.locator('#made_at')).toBeVisible();
 
-  const yesterday = new Date(Date.now() - 86_400_000);
+  // Давняя дата: такой звонок не становится «первым проведённым» в DOM,
+  // иначе параллельные тесты редактирования открывают именно его и после
+  // нашей уборки получают 404 при сохранении.
+  const madeDate = new Date(Date.now() - 60 * 86_400_000);
   const pad = (n: number) => String(n).padStart(2, '0');
-  const factDate = `${pad(yesterday.getDate())}.${pad(yesterday.getMonth() + 1)}.${yesterday.getFullYear()} 12:00`;
+  const factDate = `${pad(madeDate.getDate())}.${pad(madeDate.getMonth() + 1)}.${madeDate.getFullYear()} 12:00`;
   await page.fill('#made_at', factDate);
   await page.fill('#notes', 'e2e факт без плана');
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();

@@ -118,7 +118,9 @@ test('скрытие действует внутри групп менеджер
   await expect(page.locator('h1', { hasText: 'Состав группы' })).toBeVisible();
 
   const form = page.locator('.group-members-form');
-  await expect(form).toContainText('Ромашка');
+  // Якорь — организация, которую не скрывает ни один другой тест
+  // (basic:132 скрывает «Ромашку» от всех менеджеров на время своего выполнения).
+  await expect(form).toContainText('Сидоров');
   await expect(form).not.toContainText('Вектор');
 
   await logout(page);

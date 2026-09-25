@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { login } from '../helpers/auth';
+import { setCampaignBody } from '../helpers/editor';
 import { uniqueName } from '../helpers/test-data';
 
 test('создание рассылки со всеми полями', async ({ page }) => {
@@ -10,7 +11,7 @@ test('создание рассылки со всеми полями', async ({ 
   await page.fill('input[name="name"]', name);
   await page.fill('input[name="subject"]', 'Приглашаем на курсы 2026');
   await page.fill('input[name="preview_text"]', 'Превью письма');
-  await page.fill('textarea[name="body"]', '{{greeting}}! Приглашаем вас на курсы.');
+  await setCampaignBody(page, '{{greeting}}! Приглашаем вас на курсы.');
   await page.selectOption('select[name="status"]', 'ready');
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();
 

@@ -44,7 +44,7 @@ test('кнопка удаления отсутствует для текущег
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   await page.goto('/admin/users');
 
-  const row = page.locator('tr', { hasText: 'admin' });
+  const row = page.locator('tr', { hasText: 'admin@b2b-crm.loc' });
   await expect(row.getByRole('link', { name: 'Удалить' })).toHaveCount(0);
 });
 

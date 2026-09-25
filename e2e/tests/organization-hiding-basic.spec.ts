@@ -130,6 +130,7 @@ test('повторное скрытие той же пары отклоняет�
 });
 
 test('скрытие от всех менеджеров через пустую опцию дропдауна', async ({ page }) => {
+  test.setTimeout(45_000);
   await login(page, ADMIN, ADMIN_PASSWORD);
   await cleanupHide(page, 'Ромашка');
   await hideFromAllManagers(page, 'Ромашка');

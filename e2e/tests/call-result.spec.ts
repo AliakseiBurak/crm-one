@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { setCampaignBody } from '../helpers/editor';
 
 // Результат звонка (change call-result): рассылка, следующий звонок,
  // сделка/нет ответа, валидация, предупреждение при удалении.
@@ -49,7 +50,7 @@ async function createReadyCampaign(page: Page, name: string): Promise<number> {
   await page.goto('/campaigns/new');
   await page.fill('input[name="name"]', name);
   await page.fill('input[name="subject"]', `Тема ${name}`);
-  await page.fill('textarea[name="body"]', '{{greeting}}');
+  await setCampaignBody(page, '{{greeting}}');
   await page.selectOption('select[name="status"]', 'ready');
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/highlight=(\d+)/);
@@ -115,8 +116,11 @@ async function createCompletedCall(page: Page, notes: string): Promise<string> {
   const href = (await addLink.getAttribute('href')) ?? '/calls/new';
   await page.goto(href);
 
-  const yesterday = new Date(Date.now() - 86_400_000);
-  await page.fill('#made_at', formatDateTime(yesterday));
+  // Давняя дата: такой звонок не становится «первым проведённым» в DOM,
+  // иначе параллельные тесты редактирования открывают именно его и после
+  // уборки получают 404 при сохранении.
+  const madeDate = new Date(Date.now() - 60 * 86_400_000);
+  await page.fill('#made_at', formatDateTime(madeDate));
   await page.fill('#notes', notes);
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/\/dashboard\?highlight=\d+$/);
@@ -167,8 +171,8 @@ test('проведённый звонок: выбор рассылки созд�
   await row.locator('[data-call-edit]').click();
   await expect(page.locator(editModal)).toBeVisible();
 
-  const yesterday = new Date(Date.now() - 86_400_000);
-  await page.locator('[data-call-field="made_at"]').fill(formatDateTime(yesterday));
+  const madeDate = new Date(Date.now() - 60 * 86_400_000);
+  await page.locator('[data-call-field="made_at"]').fill(formatDateTime(madeDate));
   await selectCampaignByName(page, campaignName);
   await page.locator(editModal).locator('button[type="submit"]').first().click();
   await expect(page.locator(editModal)).not.toBeVisible();
@@ -202,11 +206,11 @@ test('дата следующего звонка добавляет строку
   await expect(page.locator(editModal)).toBeVisible();
   await markAlive(page);
 
-  const yesterday = new Date(Date.now() - 86_400_000);
+  const madeDate = new Date(Date.now() - 60 * 86_400_000);
   const nextDate = new Date(Date.now() + 10 * 86_400_000);
   const nextLabel = formatDate(nextDate);
 
-  await page.locator('[data-call-field="made_at"]').fill(formatDateTime(yesterday));
+  await page.locator('[data-call-field="made_at"]').fill(formatDateTime(madeDate));
   await page.locator('[data-call-field="next_call_date"]').fill(nextLabel);
   await page.locator(editModal).locator('button[type="submit"]').first().click();
 
@@ -240,8 +244,8 @@ test('сделка и нет ответа сохраняются и видны �
   await expandOrgRowAndCalls(row);
   await row.locator('[data-call-edit]').click();
 
-  const yesterday = new Date(Date.now() - 86_400_000);
-  await page.locator('[data-call-field="made_at"]').fill(formatDateTime(yesterday));
+  const madeDate = new Date(Date.now() - 60 * 86_400_000);
+  await page.locator('[data-call-field="made_at"]').fill(formatDateTime(madeDate));
   await page.locator('[data-call-field="is_deal"]').check();
   await page.locator('[data-call-field="is_no_answer"]').check();
   await page.locator(editModal).locator('button[type="submit"]').first().click();
@@ -342,8 +346,8 @@ test('страница удаления предупреждает об адре
   await expandOrgRowAndCalls(row);
   await row.locator('[data-call-edit]').click();
 
-  const yesterday = new Date(Date.now() - 86_400_000);
-  await page.locator('[data-call-field="made_at"]').fill(formatDateTime(yesterday));
+  const madeDate = new Date(Date.now() - 60 * 86_400_000);
+  await page.locator('[data-call-field="made_at"]').fill(formatDateTime(madeDate));
   await selectCampaignByName(page, campaignName);
   await page.locator(editModal).locator('button[type="submit"]').first().click();
   await expect(page.locator(editModal)).not.toBeVisible();

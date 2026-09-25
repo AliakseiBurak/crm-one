@@ -1,12 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import { login } from '../helpers/auth';
+import { setCampaignBody } from '../helpers/editor';
 import { uniqueName } from '../helpers/test-data';
 
 async function createCampaign(page: Page, name: string, opts?: { status?: string; subject?: string; body?: string }): Promise<number> {
   await page.goto('/campaigns/new');
   await page.fill('input[name="name"]', name);
   await page.fill('input[name="subject"]', opts?.subject ?? 'Тема');
-  await page.fill('textarea[name="body"]', opts?.body ?? 'Текст письма');
+  await setCampaignBody(page, opts?.body ?? 'Текст письма');
   if (opts?.status) {
     await page.selectOption('select[name="status"]', opts.status);
   }
