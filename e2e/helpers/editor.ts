@@ -10,4 +10,8 @@ export async function setCampaignBody(page: Page, html: string) {
   const source = page.locator('textarea[name="body"]');
   await expect(source).toBeVisible();
   await source.fill(html);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('[data-editor-surface]')).toBeVisible();
+  await expect(source).toBeHidden();
 }

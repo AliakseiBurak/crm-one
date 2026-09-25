@@ -109,6 +109,109 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         self::assertStringNotContainsString('onclick', $campaign->body);
     }
 
+    public function testCreateRejectsTokensInsideCssValues(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/campaigns/new');
+        $this->submitFormByButton('Создать', [
+            'name' => 'CSS-токены',
+            'subject' => 'Тема',
+            'body' => '<p style="color: {{organization_name}}; font-size: 12px">Текст</p>',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+
+        $body = (string) $this->findCampaign('CSS-токены')?->body;
+        self::assertStringNotContainsString('{{organization_name}}', $body);
+        self::assertStringNotContainsString('color:', $body);
+        self::assertStringContainsString('font-size: 12px', $body);
+    }
+
+    public function testUpdateSanitizesHtmlBody(): void
+    {
+        $campaign = $this->persistCampaign('Обновление HTML');
+        $campaign->setBody('<p>Исходный текст</p>');
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $token = $this->campaignToken($campaign->id);
+
+        $this->client->request('POST', '/campaigns/' . $campaign->id . '/edit', [
+            '_csrf_token' => $token,
+            'name' => 'Обновление HTML',
+            'subject' => 'Тема',
+            'status' => 'draft',
+            'body' => '<p onclick="alert(1)">Текст<script>alert(1)</script></p>'
+                . '<div style="padding: 4px"><p>Блок</p></div>'
+                . '<table style="width: 100%"><tbody><tr><td colspan="2">Ячейка</td></tr></tbody></table>'
+                . '<img src="https://cdn.example/logo.png" alt="Логотип" width="120" height="60">',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->em()->clear();
+
+        $body = (string) $this->findCampaign('Обновление HTML')?->body;
+        self::assertStringContainsString('<p>Текст</p>', $body);
+        self::assertStringContainsString('<div style="padding: 4px">', $body);
+        self::assertStringContainsString('colspan="2"', $body);
+        self::assertStringContainsString('src="https://cdn.example/logo.png"', $body);
+        self::assertStringContainsString('height="60"', $body);
+        self::assertStringNotContainsString('script', $body);
+        self::assertStringNotContainsString('onclick', $body);
+    }
+
+    public function testUpdateRejectsTooLongBodyWithoutChangingStoredBody(): void
+    {
+        $campaign = $this->persistCampaign('Лимит при обновлении');
+        $campaign->setBody('<p>Исходный текст</p>');
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $token = $this->campaignToken($campaign->id);
+
+        $this->client->request('POST', '/campaigns/' . $campaign->id . '/edit', [
+            '_csrf_token' => $token,
+            'name' => 'Лимит при обновлении',
+            'subject' => 'Тема',
+            'status' => 'draft',
+            'body' => '<p>' . str_repeat('а', 200001) . '</p>',
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
+        $this->em()->clear();
+
+        $stored = $this->findCampaign('Лимит при обновлении');
+        self::assertNotNull($stored);
+        self::assertSame('<p>Исходный текст</p>', $stored->body);
+    }
+
+    public function testUpdateRejectsForbiddenOnlyBodyWithoutChangingStoredBody(): void
+    {
+        $campaign = $this->persistCampaign('Запрещённое тело');
+        $campaign->setBody('<p>Исходный текст</p>');
+        $this->em()->flush();
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $token = $this->campaignToken($campaign->id);
+
+        $this->client->request('POST', '/campaigns/' . $campaign->id . '/edit', [
+            '_csrf_token' => $token,
+            'name' => 'Запрещённое тело',
+            'subject' => 'Тема',
+            'status' => 'draft',
+            'body' => '<script>alert(1)</script>',
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
+        self::assertStringContainsString(
+            'Тело письма не содержит допустимого содержимого',
+            (string) $this->client->getResponse()->getContent(),
+        );
+        $this->em()->clear();
+
+        $stored = $this->findCampaign('Запрещённое тело');
+        self::assertNotNull($stored);
+        self::assertSame('<p>Исходный текст</p>', $stored->body);
+    }
+
     public function testCreateRejectsBodyLongerThanLimit(): void
     {
         $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
@@ -255,7 +358,8 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         self::assertGreaterThan(0, $page->filter('[data-campaign-editor]')->count());
         self::assertGreaterThan(0, $page->filter('[data-editor-toolbar] [data-editor-command="bold"]')->count());
         self::assertGreaterThan(0, $page->filter('[data-editor-toolbar] [data-editor-command="strike"]')->count());
-        self::assertGreaterThan(0, $page->filter('[data-editor-toolbar] [data-editor-command="heading"]')->count());
+        self::assertGreaterThan(0, $page->filter('[data-editor-toolbar] [data-editor-command="heading"][data-level="1"]')->count());
+        self::assertGreaterThan(0, $page->filter('[data-editor-toolbar] [data-editor-command="heading"][data-level="2"]')->count());
         self::assertGreaterThan(0, $page->filter('[data-editor-toggle-source]')->count());
         self::assertGreaterThan(0, $page->filter('[data-editor-image-form]')->count());
         self::assertGreaterThan(0, $page->filter('[data-editor-image-form] input[data-editor-image-url]')->count());

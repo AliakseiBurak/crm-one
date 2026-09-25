@@ -1,23 +1,32 @@
 import { expect, test } from '@playwright/test';
 import { login } from '../helpers/auth';
+import { campaignIdFromUrl, deleteCampaign } from '../helpers/campaign';
 import { setCampaignBody } from '../helpers/editor';
 import { uniqueName } from '../helpers/test-data';
 
 test('создание рассылки со всеми полями', async ({ page }) => {
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   const name = uniqueName('Создание');
+  let id = 0;
 
-  await page.goto('/campaigns/new');
-  await page.fill('input[name="name"]', name);
-  await page.fill('input[name="subject"]', 'Приглашаем на курсы 2026');
-  await page.fill('input[name="preview_text"]', 'Превью письма');
-  await setCampaignBody(page, '{{greeting}}! Приглашаем вас на курсы.');
-  await page.selectOption('select[name="status"]', 'ready');
-  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
+  try {
+    await page.goto('/campaigns/new');
+    await page.fill('input[name="name"]', name);
+    await page.fill('input[name="subject"]', 'Приглашаем на курсы 2026');
+    await page.fill('input[name="preview_text"]', 'Превью письма');
+    await setCampaignBody(page, '{{greeting}}! Приглашаем вас на курсы.');
+    await page.selectOption('select[name="status"]', 'ready');
+    await page.locator('form').getByRole('button', { name: 'Создать' }).click();
 
-  await expect(page).toHaveURL(/campaigns/);
-  await page.goto('/campaigns');
-  await expect(page.locator('tr[data-status]', { hasText: name })).toBeVisible();
+    await expect(page).toHaveURL(/campaigns/);
+    id = campaignIdFromUrl(page);
+    await page.goto('/campaigns');
+    await expect(page.locator('tr[data-status]', { hasText: name })).toBeVisible();
+  } finally {
+    if (id > 0) {
+      await deleteCampaign(page, id);
+    }
+  }
 });
 
 test('создание рассылки с валидацией обязательных полей', async ({ page }) => {

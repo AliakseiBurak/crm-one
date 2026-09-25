@@ -37,6 +37,15 @@ final class CampaignStyleAttributeSanitizerTest extends TestCase
         );
     }
 
+    public function testDropsDeclarationsContainingCampaignTokens(): void
+    {
+        self::assertSame(
+            'font-size: 12px',
+            $this->sanitize('color: {{organization_name}}; font-size: 12px'),
+        );
+        self::assertNull($this->sanitize('color: {{greeting}}'));
+    }
+
     public function testDropsPositionAndZIndex(): void
     {
         self::assertSame('color: red', $this->sanitize('position: fixed; z-index: 999; color: red'));

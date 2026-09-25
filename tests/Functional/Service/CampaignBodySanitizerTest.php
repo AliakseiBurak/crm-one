@@ -26,20 +26,58 @@ final class CampaignBodySanitizerTest extends DatabaseWebTestCase
         self::assertSame('<p>до</p>', $this->sanitize('<p>до</p><iframe src="https://evil.example"></iframe>'));
     }
 
-    public function testKeepsTableWithColspanAndImageAttributes(): void
+    public function testDropsCodeBlocksAndKeepsInlineCode(): void
     {
-        $html = '<table border="1" cellpadding="4"><tbody><tr>'
+        $sanitized = $this->sanitize(
+            '<pre style="background-color: #eee"><code>блок</code></pre><p><code style="color: red">инлайн</code></p>',
+        );
+
+        self::assertStringNotContainsString('<pre', $sanitized);
+        self::assertStringNotContainsString('блок', $sanitized);
+        self::assertStringContainsString('<code style="color: red">инлайн</code>', $sanitized);
+    }
+
+    public function testKeepsEmailSafeTableImageAndStyledDiv(): void
+    {
+        $html = '<table border="1" cellpadding="4" style="width: 100%"><tbody><tr style="height: 20px">'
+            . '<th colspan="2" rowspan="1" bgcolor="#eee" style="background-color: #f5f5f5">Заголовок</th></tr>'
             . '<td colspan="2" style="background-color: #f5f5f5">Ячейка</td></tr></tbody></table>'
-            . '<img src="https://cdn.example/logo.png" alt="Логотип" width="120" style="display: block">';
+            . '<img src="https://cdn.example/logo.png" alt="Логотип" title="Заголовок" width="120" height="60" style="display: block">'
+            . '<a href="https://example.com" target="_blank" rel="noopener noreferrer nofollow" style="color: blue">Ссылка</a>'
+            . '<div style="padding: 8px"><p>Блок</p></div>';
 
         $sanitized = $this->sanitize($html);
 
-        self::assertStringContainsString('<table border="1" cellpadding="4">', $sanitized);
+        self::assertStringContainsString('<table style="width: 100%">', $sanitized);
+        self::assertStringNotContainsString('border=', $sanitized);
+        self::assertStringNotContainsString('cellpadding=', $sanitized);
+        self::assertStringNotContainsString('bgcolor=', $sanitized);
+        self::assertStringContainsString('<tr style="height: 20px">', $sanitized);
         self::assertStringContainsString('colspan="2"', $sanitized);
+        self::assertStringContainsString('rowspan="1"', $sanitized);
         self::assertStringContainsString('style="background-color: #f5f5f5"', $sanitized);
         self::assertStringContainsString('src="https://cdn.example/logo.png"', $sanitized);
         self::assertStringContainsString('alt="Логотип"', $sanitized);
+        self::assertStringContainsString('title="Заголовок"', $sanitized);
         self::assertStringContainsString('width="120"', $sanitized);
+        self::assertStringContainsString('height="60"', $sanitized);
+        self::assertStringContainsString('target="_blank"', $sanitized);
+        self::assertStringContainsString('rel="noopener noreferrer nofollow"', $sanitized);
+        self::assertStringContainsString('<div style="padding: 8px">', $sanitized);
+    }
+
+    public function testDropsUnsupportedTableSections(): void
+    {
+        $sanitized = $this->sanitize(
+            '<table><thead style="color: red"><tr><th>Шапка</th></tr></thead>'
+            . '<tbody><tr><td>Тело</td></tr></tbody><tfoot><tr><td>Подвал</td></tr></tfoot></table>',
+        );
+
+        self::assertStringNotContainsString('<thead', $sanitized);
+        self::assertStringNotContainsString('<tfoot', $sanitized);
+        self::assertStringNotContainsString('Шапка', $sanitized);
+        self::assertStringNotContainsString('Подвал', $sanitized);
+        self::assertStringContainsString('<td>Тело</td>', $sanitized);
     }
 
     public function testDropsDangerousCssPropertiesButKeepsAllowedOnes(): void

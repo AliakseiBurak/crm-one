@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { login } from '../helpers/auth';
+import { campaignIdFromUrl, deleteCampaign } from '../helpers/campaign';
 import { setCampaignBody } from '../helpers/editor';
 import { uniqueName } from '../helpers/test-data';
 
@@ -10,14 +11,7 @@ async function createCampaign(page: Page, name: string, body: string): Promise<n
   await setCampaignBody(page, body);
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/highlight=(\d+)/);
-  const match = page.url().match(/highlight=(\d+)/);
-  return match ? parseInt(match[1], 10) : 0;
-}
-
-async function deleteCampaign(page: Page, id: number) {
-  await page.goto(`/campaigns/${id}/delete`);
-  await page.click('button:has-text("Удалить")');
-  await expect(page).toHaveURL(/\/campaigns/);
+  return campaignIdFromUrl(page);
 }
 
 test('вставка изображения по внешнему URL и его отображение на карточке', async ({ page }) => {

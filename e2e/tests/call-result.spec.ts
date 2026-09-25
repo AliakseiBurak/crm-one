@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { campaignIdFromUrl, deleteCampaign } from '../helpers/campaign';
 import { setCampaignBody } from '../helpers/editor';
 
 // Результат звонка (change call-result): рассылка, следующий звонок,
@@ -54,14 +55,7 @@ async function createReadyCampaign(page: Page, name: string): Promise<number> {
   await page.selectOption('select[name="status"]', 'ready');
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/highlight=(\d+)/);
-  const match = page.url().match(/highlight=(\d+)/);
-  return match ? parseInt(match[1], 10) : 0;
-}
-
-async function deleteCampaign(page: Page, id: number) {
-  await page.goto(`/campaigns/${id}/delete`);
-  await page.click('button:has-text("Удалить")');
-  await expect(page).toHaveURL(/\/campaigns/);
+  return campaignIdFromUrl(page);
 }
 
 /** Безопасно раскрывает строку организации и секцию «Все звонки». */

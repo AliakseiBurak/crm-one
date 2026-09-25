@@ -48,7 +48,12 @@ final class CampaignEmailRenderer
             'subject' => $subject,
             'bodyHtml' => $this->tokenFiller->fillHtml($campaign->body, $contact, $organization, $unsubscribeUrl ?? ''),
             'preheader' => null !== $campaign->previewText
-                ? $this->tokenFiller->fillPlain($campaign->previewText, $contact, $organization)
+                ? $this->tokenFiller->fillPlain(
+                    $campaign->previewText,
+                    $contact,
+                    $organization,
+                    $unsubscribeUrl ?? '',
+                )
                 : null,
             'unsubscribeUrl' => $unsubscribeUrl,
             'trackingPixelUrl' => $trackingPixelUrl,

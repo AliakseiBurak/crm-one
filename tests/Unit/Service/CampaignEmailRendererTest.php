@@ -50,8 +50,15 @@ final class CampaignEmailRendererTest extends TestCase
     {
         $html = $this->renderer->render($this->campaign(), null, $this->org)->html;
 
-        self::assertStringContainsString('style="padding: 24px', $html);
-        self::assertStringContainsString('background-color: #f4f5f7', $html);
+        self::assertStringContainsString('<body style="margin: 0;', $html);
+        self::assertMatchesRegularExpression(
+            '/<table[^>]*class="email-container"[^>]*style="[^"]*width: 600px/',
+            $html,
+        );
+        self::assertMatchesRegularExpression(
+            '/<td[^>]*style="[^"]*line-height: 1\.4/',
+            $html,
+        );
     }
 
     public function testPreheaderIsHiddenAndEscaped(): void
@@ -62,6 +69,24 @@ final class CampaignEmailRendererTest extends TestCase
 
         self::assertStringContainsString('mso-hide:all', $html);
         self::assertStringContainsString('Новости &lt;b&gt;недели&lt;/b&gt;', $html);
+    }
+
+    public function testPreheaderFillsAndEscapesUnsubscribeUrlOnce(): void
+    {
+        $campaign = $this->campaign()->setPreviewText('Отписаться: {{unsubscribe_url}}');
+
+        $html = $this->renderer->render(
+            $campaign,
+            null,
+            $this->org,
+            'https://b2b-crm.local/unsubscribe/abc?a=1&b=2',
+        )->html;
+
+        self::assertStringNotContainsString('{{unsubscribe_url}}', $html);
+        self::assertStringContainsString(
+            'Отписаться: https://b2b-crm.local/unsubscribe/abc?a=1&amp;b=2',
+            $html,
+        );
     }
 
     public function testNoPreheaderBlockWhenPreviewTextIsEmpty(): void

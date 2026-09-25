@@ -1,4 +1,4 @@
-import { Editor, Extension } from '@tiptap/core';
+import { Editor, Extension, Node } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
@@ -24,10 +24,15 @@ const STYLE_TYPES = [
     'tableCell',
     'tableHeader',
     'textStyle',
-    'codeBlock',
     'image',
     'horizontalRule',
     'link',
+    'div',
+    'bold',
+    'italic',
+    'underline',
+    'strike',
+    'code',
 ];
 
 const parseStyle = (value) => {
@@ -73,9 +78,60 @@ const InlineStyle = Extension.create({
                         parseHTML: (element) => element.getAttribute('width') || null,
                         renderHTML: (attributes) => (attributes.width ? { width: attributes.width } : {}),
                     },
+                    height: {
+                        default: null,
+                        parseHTML: (element) => element.getAttribute('height') || null,
+                        renderHTML: (attributes) => (attributes.height ? { height: attributes.height } : {}),
+                    },
                 },
             },
         ];
+    },
+});
+
+const Div = Node.create({
+    name: 'div',
+    group: 'block',
+    content: 'block+',
+    parseHTML() {
+        return [{ tag: 'div' }];
+    },
+    renderHTML({ HTMLAttributes }) {
+        return ['div', HTMLAttributes, 0];
+    },
+});
+
+const EmailTable = Table.extend({
+    renderHTML({ HTMLAttributes }) {
+        return ['table', HTMLAttributes, ['tbody', 0]];
+    },
+});
+
+const EmailLink = Link.extend({
+    addAttributes() {
+        return {
+            href: { default: null },
+            target: { default: '_blank' },
+            rel: { default: 'noopener noreferrer nofollow' },
+        };
+    },
+});
+
+const EmailTableCell = TableCell.extend({
+    addAttributes() {
+        return {
+            colspan: { default: 1 },
+            rowspan: { default: 1 },
+        };
+    },
+});
+
+const EmailTableHeader = TableHeader.extend({
+    addAttributes() {
+        return {
+            colspan: { default: 1 },
+            rowspan: { default: 1 },
+        };
     },
 });
 
@@ -188,18 +244,29 @@ if (root) {
         const editor = new Editor({
             element: surface,
             extensions: [
-                StarterKit.configure({ heading: { levels: [2, 3] } }),
+                StarterKit.configure({ heading: { levels: [1, 2, 3, 4, 5, 6] }, codeBlock: false }),
                 TextStyle,
                 InlineStyle,
                 StyleCommands,
                 Underline,
-                Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
-                Image.configure({ allowBase64: false }),
+                EmailLink.configure({
+                    openOnClick: false,
+                    autolink: true,
+                    linkOnPaste: true,
+                    protocols: ['https', 'mailto', 'tel'],
+                    defaultProtocol: 'https',
+                }),
+                Image.extend({
+                    parseHTML() {
+                        return [{ tag: 'img[src^="https://"]' }];
+                    },
+                }).configure({ allowBase64: false }),
                 Placeholder.configure({ placeholder: 'Напишите текст письма…' }),
-                Table.configure({ resizable: false }),
+                Div,
+                EmailTable.configure({ resizable: false }),
                 TableRow,
-                TableCell,
-                TableHeader,
+                EmailTableCell,
+                EmailTableHeader,
             ],
             content: textarea.value,
             editorProps: { attributes: { class: 'campaign-editor__content' } },

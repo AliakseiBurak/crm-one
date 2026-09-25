@@ -127,6 +127,10 @@ final class CampaignStyleAttributeSanitizer implements AttributeSanitizerInterfa
                 continue;
             }
 
+            if (str_contains($propertyValue, '{{') && str_contains($propertyValue, '}}')) {
+                continue;
+            }
+
             $lowerValue = strtolower($propertyValue);
             foreach (self::FORBIDDEN_VALUE_PATTERNS as $pattern) {
                 if (str_contains($lowerValue, $pattern)) {
