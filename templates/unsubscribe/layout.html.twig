@@ -1,0 +1,28 @@
+{#
+    Самостоятельный шаблон страницы отписки (change wysiwyg-email-body):
+    страница открыта из интернета, поэтому не наследует base.html.twig —
+    только сообщение подтверждения, без шапки, подвала, ассетов и ссылок
+    на приложение; robots — noindex, nofollow.
+    Ожидает: блоки title, heading, text.
+#}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{% block title %}{% endblock %}</title>
+    <style>
+        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f4f5f7; color: #1f2937; font-family: Arial, Helvetica, sans-serif; }
+        .unsubscribe-message { max-width: 480px; padding: 32px; background: #ffffff; border-radius: 8px; text-align: center; }
+        .unsubscribe-message h1 { margin: 0 0 8px; font-size: 20px; }
+        .unsubscribe-message p { margin: 0; color: #6b7280; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <main class="unsubscribe-message">
+        <h1>{% block heading %}{% endblock %}</h1>
+        <p>{% block text %}{% endblock %}</p>
+    </main>
+</body>
+</html>
