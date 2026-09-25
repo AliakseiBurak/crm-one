@@ -48,7 +48,7 @@ TipTap по умолчанию выбрасывает `style` и незнако�
 
 ### D5. Единый `CampaignEmailRenderer`
 
-`templates/emails/campaign.html.twig` — полный документ: doctype, шелл-таблица 600px, скрытый прехедер, тело, футер, `<style>`, инлайнится Twig-фильтром `inline_css` (`twig/cssinliner-extra`). Рендерер возвращает `{subject, html, text}` и принимает контекст токенов и nullable tracking-pixel URL (в предпросмотрах — null). `MailingService` переходит на `TemplatedEmail` (html + text; текст генерируется из HTML дефолтным конвертером). Альтернатива «отдельный шаблон для предпросмотра» отвергнута: предпросмотр обязан показывать ровно то, что уйдёт получателю.
+`templates/emails/campaign.html.twig` — полный документ: doctype, шелл-таблица 600px, скрытый прехедер, тело, футер, `<style>`, инлайнится Twig-фильтром `inline_css` (`twig/cssinliner-extra`). Рендерер возвращает `{subject, html, text}` и принимает контекст токенов и nullable tracking-pixel URL (в предпросмотрах — null). `MailingService` собирает `Email` с `html()` и `text()` (текст генерируется из HTML дефолтным конвертером). Альтернатива «отдельный шаблон для предпросмотра» отвергнута: предпросмотр обязан показывать ровно то, что уйдёт получателю.
 
 ### D6. Токены: экранирование в HTML-контекстах
 
@@ -56,7 +56,7 @@ TipTap по умолчанию выбрасывает `style` и незнако�
 
 ### D7. Предпросмотры: страница + модалка + живое превью
 
-`GET /campaigns/{id}/preview` — страница; `POST /campaigns/{id}/preview` — рендер текущего (в т.ч. несохранённого) тела, CSRF-токен `campaign_preview`, без записи в БД, JSON с HTML; модалка на карточке использует тот же POST. Все поверхности — с фиксированными демо-значениями токенов. Доступ — как к карточке кампании.
+`GET /campaigns/{id}/preview` — страница, отдающая готовый email-документ (без отдельного шаблона страницы); модалка на карточке грузит этот же документ в sandbox-iframe (один и тот же код рендера, CSP `sandbox`, без инъекции HTML через JS). Для несохранённого тела — `POST /campaigns/preview` (без `id`: форма создания не имеет id), CSRF-токен `campaign_preview`, без записи в БД, JSON с HTML; это живое превью в форме. Все поверхности — с фиксированными демо-значениями токенов. Доступ — как к карточке кампании.
 
 ### D8. Изображения: только внешний https-URL
 
@@ -156,15 +156,15 @@ sequenceDiagram
     alt страница
         U->>C: GET /campaigns/{id}/preview
         C->>R: render(body, demoTokens, pixel=null)
-        R-->>U: HTML страница с письмом
+        R-->>U: HTML email-документа
     else модалка на карточке
-        U->>C: POST /campaigns/{id}/preview (CSRF)
+        U->>C: GET /campaigns/{id}/preview (sandbox-iframe)
         C->>R: render(body, demoTokens, pixel=null)
-        R-->>U: JSON {html} → модалка
+        R-->>U: HTML email-документа в iframe
     else живое превью в форме
-        U->>C: POST /campaigns/{id}/preview (несохранённое body, CSRF)
+        U->>C: POST /campaigns/preview (несохранённое body, CSRF)
         C->>R: render(unsavedBody, demoTokens, pixel=null)
-        R-->>U: JSON {html} → модалка/панель
+        R-->>U: JSON {html} → srcdoc iframe модалки
         Note over C: в БД ничего не пишется
     end
 ```

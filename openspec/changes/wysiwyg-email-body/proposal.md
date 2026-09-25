@@ -11,7 +11,7 @@
 - Таблицы вставляются через режим исходного HTML. Table-расширения редактора регистрируются только чтобы таблицы переживали переход «исходник ↔ визуальный режим»; табличного UI (вставка/удаление строк и столбцов) нет.
 - Новый **`CampaignEmailRenderer`** — единственный источник правды о том, как выглядит письмо: HTML-документ с шеллом 600px (doctype, табличная раскладка, прехедер, футер), инлайн CSS через `twig/cssinliner-extra` и автоматическая текстовая часть. Используется и отправкой, и всеми предпросмотрами.
 - Существующие токены (`{{greeting}}`, `{{contact_name}}`, `{{organization_name}}`, `{{unsubscribe_url}}`) продолжают работать; значения в HTML-контексте экранируются.
-- Три предпросмотра письма с **фиксированными демо-значениями токенов**: страница `GET /campaigns/{id}/preview`, модальное окно на карточке кампании и живое превью в форме (POST без записи в БД).
+- Три предпросмотра письма с **фиксированными демо-значениями токенов**: страница `GET /campaigns/{id}/preview`, модальное окно на карточке кампании (тот же документ в sandbox-iframe) и живое превью в форме (`POST /campaigns/preview` без записи в БД).
 - Страница просмотра кампании рендерит HTML тела вместо `<pre>` с plain text.
 - e2e-тесты заполняют тело через режим исходного HTML; фикстуры и тесты обновляются.
 
@@ -29,10 +29,9 @@
 
 - `templates/campaign/form.html.twig` — редактор, панель форматирования, переключатель режима, подсказка токенов, кнопка предпросмотра
 - `templates/campaign/show.html.twig` — рендер HTML вместо `<pre>`, модалка предпросмотра
-- `templates/campaign/preview.html.twig` (новый) — страница предпросмотра
-- `templates/emails/campaign.html.twig` (новый) — email-шелл
+- `templates/emails/campaign.html.twig` (новый) — email-шелл; страница предпросмотра отдаёт этот же документ без отдельного шаблона
 - `src/Controller/CampaignController.php` — санитизация при сохранении, маршруты предпросмотра
-- `src/Service/MailingService.php` — сборка `TemplatedEmail` через `CampaignEmailRenderer`
+- `src/Service/MailingService.php` — сборка `Email` с html()/text() через `CampaignEmailRenderer`
 - `src/Entity/Campaign.php` — методы подстановки токенов выносятся/рефакторятся
 - Новые сервисы: `CampaignBodySanitizer`, `CampaignTokenFiller`, `CampaignEmailRenderer`, `CampaignStyleAttributeSanitizer`
 - `config/packages/html_sanitizer.yaml` (новый)
