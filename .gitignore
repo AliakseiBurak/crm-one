@@ -3,14 +3,6 @@
 .env.local
 .env.*.local
 
-# Symfony
-/var/
-/vendor/
-
-# Frontend assets (Webpack Encore)
-/node_modules/
-/public/build/
-
 # E2E
 /e2e/node_modules/
 /e2e/playwright-report/

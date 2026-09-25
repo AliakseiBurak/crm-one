@@ -112,4 +112,5 @@ prod-deploy:
 	git pull
 	/opt/alt/php85/usr/bin/php bin/console doctrine:migrations:migrate --no-interaction
 	npm run build
+	/opt/alt/php85/usr/bin/php composer.phar install --no-interaction --no-dev --optimize-autoloader
 	/opt/alt/php85/usr/bin/php bin/console cache:clear
