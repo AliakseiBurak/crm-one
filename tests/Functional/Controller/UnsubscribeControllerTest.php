@@ -28,6 +28,7 @@ final class UnsubscribeControllerTest extends DatabaseWebTestCase
 
         $this->assertResponseIsSuccessful();
         $this->assertSelectorTextContains('h1', 'Вы отписались от рассылки');
+        $this->assertStandaloneMessagePage();
 
         $this->em()->clear();
         $org = $this->em()->getRepository(Organization::class)->find($organization->id);
@@ -60,11 +61,24 @@ final class UnsubscribeControllerTest extends DatabaseWebTestCase
 
         $this->assertResponseIsSuccessful();
         $this->assertSelectorTextContains('h1', 'Вы уже отписались');
+        $this->assertStandaloneMessagePage();
 
         $this->em()->clear();
         $org = $this->em()->getRepository(Organization::class)->find($organization->id);
         self::assertTrue($org->isOptedOut);
         self::assertSame('Ранее отписаны', $org->optOutReason);
+    }
+
+    private function assertStandaloneMessagePage(): void
+    {
+        $html = (string) $this->client->getResponse()->getContent();
+
+        self::assertSelectorNotExists('header');
+        self::assertSelectorNotExists('footer');
+        self::assertStringNotContainsString('<a', $html);
+        self::assertStringNotContainsString('<link', $html);
+        self::assertStringNotContainsString('<script', $html);
+        self::assertStringContainsString('noindex, nofollow', $html);
     }
 
     private function makeUser(string $login, string $email, UserRole $role): User
