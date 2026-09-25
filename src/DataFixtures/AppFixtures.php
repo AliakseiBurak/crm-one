@@ -298,14 +298,14 @@ class AppFixtures extends Fixture
             ->setName('Новые курсы')
             ->setSubject('Приглашаем на курсы 2026')
             ->setPreviewText('Обзор новых курсов для ваших сотрудников')
-            ->setBody("{{greeting}}!\n\nПриглашаем вас на наши курсы.\n\nС уважением, команда обучения.");
+            ->setBody('<p>{{greeting}}!</p><p>Приглашаем вас на наши курсы.</p><p>С уважением,<br>команда обучения.</p>');
         $manager->persist($campaignDraft);
 
         // Готова.
         $campaignReady = new Campaign()
             ->setName('Осенняя рассылка')
             ->setSubject('Осень на носу — готовьте сотрудников')
-            ->setBody("{{greeting}}!\n\nОсень — время обновлений. Предлагаем вам наши программы.");
+            ->setBody('<p>{{greeting}}!</p><p>Осень — время обновлений. Предлагаем вам наши программы.</p>');
         $campaignReady->setStatus(CampaignStatus::Ready);
         $manager->persist($campaignReady);
 
@@ -314,7 +314,16 @@ class AppFixtures extends Fixture
             ->setName('Акция')
             ->setSubject('Скидки недели')
             ->setPreviewText('Специальные предложения только для вас')
-            ->setBody("{{greeting}}!\n\nСпециальное предложение только для вас.\n\nНе пропустите скидки этой недели!")
+            ->setBody(
+                '<p>{{greeting}}!</p>'
+                . '<p>Специальное предложение только для вас.</p>'
+                . '<table><tbody><tr>'
+                . '<td style="background-color: #fef3c7; padding: 8px 12px;"><strong>Скидка 20%</strong></td>'
+                . '<td style="padding: 8px 12px;">по 31 декабря</td>'
+                . '</tr></tbody></table>'
+                . '<p><img src="https://trainingcenter.by/wp-content/themes/training-center-by/img/icons/logo.svg" alt="Баннер курсов" width="100"></p>'
+                . '<p>Не пропустите скидки этой недели!</p>',
+            )
             ->setStatus(CampaignStatus::Launched);
         $campaignLaunched->launch();
         $manager->persist($campaignLaunched);
@@ -323,7 +332,7 @@ class AppFixtures extends Fixture
         $campaignFailed = new Campaign()
             ->setName('Рассылка с ошибкой')
             ->setSubject('Тестовая ошибка отправки')
-            ->setBody("{{greeting}}!\n\nЭто тестовая рассылка для проверки обработки ошибок.");
+            ->setBody('<p>{{greeting}}!</p><p>Это тестовая рассылка для проверки обработки ошибок.</p>');
         $campaignFailed->fail();
         $manager->persist($campaignFailed);
 
@@ -331,7 +340,7 @@ class AppFixtures extends Fixture
         $campaignArchived = new Campaign()
             ->setName('Прошлая акция')
             ->setSubject('Акция прошла')
-            ->setBody("{{greeting}}!\n\nЭто архивная рассылка.")
+            ->setBody('<p>{{greeting}}!</p><p>Это архивная рассылка.</p>')
             ->setStatus(CampaignStatus::Archived);
         $manager->persist($campaignArchived);
 
@@ -340,7 +349,11 @@ class AppFixtures extends Fixture
             ->setName('Приглашение на вебинар')
             ->setSubject('Вебинар по логистике')
             ->setPreviewText('Приглашение на вебинар')
-            ->setBody("{{greeting}}!\n\nПриглашаем на вебинар {{organization_name}}.\n\nТема: Современная логистика.");
+            ->setBody(
+                '<p>{{greeting}}!</p>'
+                . '<p>Приглашаем на вебинар {{organization_name}}.</p>'
+                . '<p>Тема: Современная логистика.</p>',
+            );
         $manager->persist($campaignStandalone);
 
         $manager->flush();

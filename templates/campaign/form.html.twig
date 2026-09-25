@@ -66,10 +66,42 @@
                     hint: 'Краткое описание для предпросмотра в почте. Можно оставить пустым',
                 }) }}
 
-                <div class="field">
+                <div class="field" data-campaign-editor>
                     <label class="field__label" for="body">Текст письма</label>
+                    <div class="campaign-editor__toolbar" data-editor-toolbar role="toolbar" aria-label="Форматирование текста">
+                        <button type="button" class="campaign-editor__button" data-editor-command="bold" title="Жирный" aria-pressed="false"><strong>Ж</strong></button>
+                        <button type="button" class="campaign-editor__button" data-editor-command="italic" title="Курсив" aria-pressed="false"><em>К</em></button>
+                        <button type="button" class="campaign-editor__button" data-editor-command="underline" title="Подчёркнутый" aria-pressed="false"><u>Ч</u></button>
+                        <button type="button" class="campaign-editor__button" data-editor-command="strike" title="Зачёркнутый" aria-pressed="false"><s>З</s></button>
+                        <span class="campaign-editor__separator" aria-hidden="true"></span>
+                        <button type="button" class="campaign-editor__button" data-editor-command="heading" data-level="2" title="Заголовок 2" aria-pressed="false">H2</button>
+                        <button type="button" class="campaign-editor__button" data-editor-command="heading" data-level="3" title="Заголовок 3" aria-pressed="false">H3</button>
+                        <span class="campaign-editor__separator" aria-hidden="true"></span>
+                        <button type="button" class="campaign-editor__button" data-editor-command="bulletList" title="Маркированный список" aria-pressed="false">&#8226;</button>
+                        <button type="button" class="campaign-editor__button" data-editor-command="orderedList" title="Нумерованный список" aria-pressed="false">1.</button>
+                        <span class="campaign-editor__separator" aria-hidden="true"></span>
+                        <button type="button" class="campaign-editor__button" data-editor-command="link" title="Ссылка" aria-pressed="false">Ссылка</button>
+                        <label class="campaign-editor__color" title="Цвет текста">
+                            <input type="color" data-editor-color value="#111827" aria-label="Цвет текста">
+                        </label>
+                        <button type="button" class="campaign-editor__button" data-editor-command="align" data-align="left" title="По левому краю" aria-pressed="false">&#8592;</button>
+                        <button type="button" class="campaign-editor__button" data-editor-command="align" data-align="center" title="По центру" aria-pressed="false">&#8596;</button>
+                        <button type="button" class="campaign-editor__button" data-editor-command="align" data-align="right" title="По правому краю" aria-pressed="false">&#8594;</button>
+                        <span class="campaign-editor__separator" aria-hidden="true"></span>
+                        <button type="button" class="campaign-editor__button" data-editor-insert-image title="Вставить изображение" aria-pressed="false">Фото</button>
+                        <button type="button" class="campaign-editor__button campaign-editor__button--mode" data-editor-toggle-source title="Исходный HTML" aria-pressed="false">HTML</button>
+                    </div>
+                    <div class="campaign-editor__image-form" data-editor-image-form hidden>
+                        <input type="url" class="field__input campaign-editor__image-url" data-editor-image-url placeholder="https://example.com/image.jpg" aria-label="URL изображения">
+                        <input type="text" class="field__input campaign-editor__image-alt" data-editor-image-alt placeholder="Alt-текст" aria-label="Alt-текст">
+                        <input type="number" class="field__input campaign-editor__image-width" data-editor-image-width placeholder="Ширина, px" min="1" aria-label="Ширина в пикселях">
+                        <button type="button" class="btn btn--primary btn--sm" data-editor-image-insert>Вставить</button>
+                        <button type="button" class="btn btn--secondary btn--sm" data-editor-image-cancel>Отмена</button>
+                        <span class="field__error" data-editor-image-error role="alert" hidden></span>
+                    </div>
+                    <div class="campaign-editor__surface" data-editor-surface></div>
                     <textarea
-                        class="field__input campaign-form__body"
+                        class="field__input campaign-form__body campaign-editor__source"
                         id="body"
                         name="body"
                         rows="8"
@@ -78,6 +110,15 @@
                     {% if errors.body is defined and errors.body %}
                         <span class="field__error" role="alert">{{ errors.body }}</span>
                     {% endif %}
+                    <div class="campaign-editor__preview">
+                        {{ include('components/button.html.twig', {
+                            variant: 'secondary',
+                            sm: true,
+                            text: 'Предпросмотр',
+                            type: 'button',
+                            attr: { 'data-campaign-preview-open': '' },
+                        }) }}
+                    </div>
                 </div>
 
                 <div class="field">
@@ -114,12 +155,6 @@
                     {{ include('components/button.html.twig', {
                         variant: 'primary',
                         text: isEdit ? 'Сохранить' : 'Создать',
-                    }) }}
-                    {{ include('components/button.html.twig', {
-                        variant: 'secondary',
-                        text: 'Предпросмотр',
-                        type: 'button',
-                        attr: { 'data-campaign-preview-open': '' },
                     }) }}
                     {{ include('components/button.html.twig', {
                         variant: 'secondary',

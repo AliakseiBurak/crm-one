@@ -222,6 +222,8 @@
     }
 
     &__actions-row {
+        display: flex;
+        gap: 12px;
         margin-bottom: 24px;
     }
 
@@ -492,4 +494,196 @@
     border: 1px solid var(--color-border, #e5e7eb);
     border-radius: 8px;
     background: #fff;
+}
+
+// ── WYSIWYG-редактор тела письма (change wysiwyg-email-body) ────
+.campaign-editor__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    padding: 6px;
+    border: 1px solid var(--color-border, #d1d5db);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    background: var(--color-surface-alt, #f8fafc);
+}
+
+.campaign-editor__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 28px;
+    padding: 0 7px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text, #111827);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        background: var(--color-border, #e5e7eb);
+    }
+
+    &.is-active {
+        border-color: var(--color-primary, #2563eb);
+        background: color-mix(in srgb, var(--color-primary, #2563eb) 12%, transparent);
+        color: var(--color-primary, #2563eb);
+    }
+
+    &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+}
+
+.campaign-editor__button--mode {
+    margin-left: auto;
+    font-weight: 600;
+}
+
+.campaign-editor__separator {
+    width: 1px;
+    height: 18px;
+    margin: 0 3px;
+    background: var(--color-border, #d1d5db);
+}
+
+.campaign-editor__preview {
+    margin-top: 8px;
+}
+
+.campaign-editor__color {
+    display: inline-flex;
+    align-items: center;
+    height: 28px;
+    padding: 0 4px;
+    border-radius: 6px;
+    cursor: pointer;
+
+    input[type='color'] {
+        width: 26px;
+        height: 20px;
+        padding: 0;
+        border: 1px solid var(--color-border, #d1d5db);
+        border-radius: 4px;
+        background: none;
+        cursor: pointer;
+
+        &:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+    }
+}
+
+.campaign-editor__image-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 6px;
+    border: 1px dashed var(--color-border, #d1d5db);
+    border-top: none;
+
+    &[hidden] {
+        display: none;
+    }
+
+    .campaign-editor__image-url {
+        flex: 2 1 220px;
+    }
+
+    .campaign-editor__image-alt {
+        flex: 1 1 140px;
+    }
+
+    .campaign-editor__image-width {
+        flex: 0 1 110px;
+    }
+}
+
+.campaign-editor__surface {
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: 0 0 8px 8px;
+    background: #fff;
+
+    &[hidden] {
+        display: none;
+    }
+
+    & > .campaign-editor__content {
+        min-height: 220px;
+        padding: 12px;
+        outline: none;
+        font-size: 15px;
+        line-height: 1.55;
+
+        &.ProseMirror-focused {
+            border-radius: 0 0 8px 8px;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+
+            th,
+            td {
+                border: 1px solid var(--color-border, #d1d5db);
+                padding: 6px 8px;
+                min-width: 60px;
+            }
+        }
+
+        .is-empty.is-editor-empty:first-child::before {
+            content: attr(data-placeholder);
+            color: var(--color-text-secondary, #9ca3af);
+            float: left;
+            height: 0;
+            pointer-events: none;
+        }
+    }
+}
+
+.campaign-editor__source {
+    display: none;
+    border-radius: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+
+    &--visible {
+        display: block;
+    }
+}
+
+// ── Тело письма на карточке рассылки (HTML вместо <pre>) ─────────
+.campaign-card__body-html {
+    padding: 10px 12px;
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 8px;
+    background: #fff;
+    overflow-wrap: anywhere;
+
+    img {
+        max-width: 100%;
+        height: auto;
+    }
+
+    table {
+        border-collapse: collapse;
+
+        th,
+        td {
+            border: 1px solid var(--color-border, #e5e7eb);
+            padding: 4px 8px;
+        }
+    }
 }

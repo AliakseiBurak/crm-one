@@ -75,7 +75,7 @@
                     {% endif %}
                     <div class="campaign-card__row">
                         <dt>Текст письма</dt>
-                        <dd><pre class="campaign-card__template">{{ campaign.body }}</pre></dd>
+                        <dd><div class="campaign-card__body-html">{{ campaign.body|raw }}</div></dd>
                     </div>
                     <div class="campaign-card__row">
                         <dt>Вложения</dt>
@@ -103,6 +103,12 @@
                         variant: 'secondary',
                         text: 'Адресаты',
                         href: path('app_campaign_recipients', { id: campaign.id }),
+                        type: 'button',
+                    }) }}
+                    {{ include('components/button.html.twig', {
+                        variant: 'secondary',
+                        text: 'Назад к списку',
+                        href: path('app_campaign_index'),
                         type: 'button',
                     }) }}
                 </div>
@@ -169,12 +175,6 @@
                         variant: 'secondary',
                         text: 'Редактировать',
                         href: path('app_campaign_edit', { id: campaign.id }),
-                        type: 'button',
-                    }) }}
-                    {{ include('components/button.html.twig', {
-                        variant: 'secondary',
-                        text: 'Назад к списку',
-                        href: path('app_campaign_index'),
                         type: 'button',
                     }) }}
                 </div>
