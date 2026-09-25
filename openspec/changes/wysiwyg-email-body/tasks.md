@@ -30,3 +30,7 @@
 - [x] 5.3 Добавить e2e-кейсы: вставка изображения по внешнему URL и его отображение на карточке, открытие модалки предпросмотра, страница предпросмотра; проверить `npx playwright test`
 - [x] 5.4 Написать `adr/0014-wysiwyg-editor-and-email-rendering.md` (TipTap 2 vs GPL-редакторы, symfony/html-sanitizer + style-allowlist vs HTMLPurifier, единый рендерер для отправки и предпросмотров); проверить соответствие решений `design.md`
 - [x] 5.5 Финальная верификация: `composer cs:check`, `composer stan`, `php bin/phpunit`, `npm run build`, `npx playwright test`, `composer infection` — все зелёные
+
+## 6. Страница отписки
+
+- [x] 6.1 Заменить шаблоны `unsubscribe/confirmed` и `unsubscribe/already` standalone-шаблоном `unsubscribe/layout.html.twig` (без `base.html.twig`: без шапки, подвала, ассетов и ссылок на сайт, инлайн-стили, `noindex, nofollow`); проверить функциональным тестом отсутствие `header`, `footer` и ссылок в ответе

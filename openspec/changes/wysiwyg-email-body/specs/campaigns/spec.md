@@ -105,6 +105,20 @@ The campaign show page SHALL render the sanitized body HTML as formatted content
 - **WHEN** менеджер открывает карточку рассылки
 - **THEN** на карточке есть кнопка открытия предпросмотра письма
 
+### Requirement: Страница отписки
+
+The system SHALL render the unsubscribe page as a standalone HTML document containing only the confirmation message. The page SHALL NOT include the site header, footer, navigation, external assets, or any links to the application. The page SHALL carry the `noindex, nofollow` robots meta.
+
+#### Scenario: Подтверждение отписки
+- **WHEN** получатель переходит по действительной ссылке отписки
+- **THEN** отображается только сообщение подтверждения «Вы отписались от рассылки»
+- **AND** шапка, подвал и ссылки на сайт отсутствуют
+
+#### Scenario: Повторный переход по ссылке отписки
+- **WHEN** организация уже отписана и получатель переходит по той же ссылке
+- **THEN** отображается только сообщение «Вы уже отписались»
+- **AND** шапка, подвал и ссылки на сайт отсутствуют
+
 ## MODIFIED Requirements
 
 ### Requirement: Создание рассылки
