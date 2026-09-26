@@ -130,6 +130,21 @@ final class CampaignBodySanitizerTest extends DatabaseWebTestCase
         self::assertStringContainsString('<ul><li><strong>Пункт</strong></li></ul>', $sanitized);
     }
 
+    /**
+     * Ядро разрешительной модели (design D4): разметка, которой нет в узком
+     * allowlist, обязана выживать. Возврат к узкому списку уронит этот тест.
+     */
+    public function testKeepsLayoutMarkupOutsideTheOldNarrowAllowlist(): void
+    {
+        $sanitized = $this->sanitize(
+            '<figure style="margin: 0"><center><abbr title="Сокращение">ООО</abbr></center></figure>',
+        );
+
+        self::assertStringContainsString('<figure style="margin: 0">', $sanitized);
+        self::assertStringContainsString('<center>', $sanitized);
+        self::assertStringContainsString('<abbr title="Сокращение">', $sanitized);
+    }
+
     public function testBaseEmailTemplateKeepsAllItsContent(): void
     {
         $base = $this->renderBaseBody();

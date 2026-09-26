@@ -48,6 +48,9 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         self::assertSame('Приглашаем на курсы 2026', $campaign->subject);
         self::assertSame(CampaignStatus::Draft, $campaign->status);
         self::assertNull($campaign->launchedAt);
+        // Предзаполненный базовый шаблон полностью заменён вводом менеджера.
+        self::assertStringNotContainsString('Отписаться от рассылки', $campaign->body);
+        self::assertStringNotContainsString('logo.svg', $campaign->body);
     }
 
     public function testManagerCanCreateCampaign(): void

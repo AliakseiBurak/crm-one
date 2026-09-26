@@ -101,6 +101,23 @@ final class CampaignEmailRendererTest extends TestCase
         self::assertStringNotContainsString('{{unsubscribe_url}}', $html);
     }
 
+    /**
+     * Регрессия: когда и шелл, и базовое тело несли раскладку, письмо
+     * получалось вложенным дважды — карточка 600px внутри карточки 600px с
+     * удвоенным отступом. Раскладкой владеет шелл, тело её не повторяет.
+     */
+    public function testLetterHasExactlyOneLayout(): void
+    {
+        $base = (new Environment(new FilesystemLoader(\dirname(__DIR__, 3) . '/templates')))
+            ->render('emails/campaign_base_body.html.twig');
+        $campaign = $this->campaign()->setBody($base);
+
+        $html = $this->renderer->render($campaign, null, $this->org)->html;
+
+        self::assertSame(1, substr_count($html, 'padding: 24px 12px'));
+        self::assertSame(1, substr_count($html, 'class="email-container"'));
+    }
+
     public function testShellDoesNotAddFooterOfItsOwn(): void
     {
         $html = $this->renderer->render($this->campaign(), null, $this->org)->html;
