@@ -1,8 +1,17 @@
 {#
     Email-шелл рассылки (design D5): полный HTML-документ, табличная
-    раскладка 600px, скрытый прехедер, тело и футер; CSS шелла инлайнится
+    раскладка 600px, скрытый прехедер и тело; CSS шелла инлайнится
     фильтром inline_css (twig/cssinliner-extra). Токены подставлены и
     экранированы рендерером (CampaignEmailRenderer) до передачи сюда.
+
+    С change email-base-template шелл содержит только то, что менеджеру
+    редактировать не нужно: doctype, <head> с базовым CSS, прехедер,
+    раскладку 600px и tracking-pixel. Раскладка остаётся здесь намеренно —
+    карточка письма не должна ломаться, когда менеджер правит тело, и не
+    должна дублироваться вложенной таблицей. Подпись, телефоны, логотип и
+    ссылка отписки, наоборот, приезжают в bodyHtml: базовое тело
+    (emails/campaign_base_body.html.twig) предзаполняет форму и остаётся
+    редактируемым.
     Ожидает: subject, bodyHtml, preheader (?string), unsubscribeUrl (?string),
     trackingPixelUrl (?string).
 #}
@@ -20,8 +29,6 @@
         .email-content { padding: 24px; font-size: 15px; line-height: 1.5; }
         .email-content table { border-collapse: collapse; }
         .email-content td, .email-content th { padding: 6px 8px; }
-        .email-footer { padding: 16px 24px; font-size: 12px; line-height: 1.4; color: #6b7280; }
-        .email-footer a { color: #6b7280; }
     </style>
 </head>
 <body>
@@ -34,20 +41,6 @@
                 <table role="presentation" class="email-container" width="600" cellpadding="0" cellspacing="0" border="0">
                     <tr>
                         <td class="email-content">{{ bodyHtml|raw }}</td>
-                    </tr>
-                    <tr>
-                        <td class="email-footer">
-                            ОДО «Центр Обучающих Технологий»<br>
-                            г. Минск, ул. Мельникайте, 4 – 305<br>
-                            📞 +375 (29) 684-84-26<br>
-                            📞 +375 (29) 544-84-26<br>
-                            📞 +375 (17) 395-84-27<br>
-                            🌐 <a href="http://trainingcenter.by/catalog">http://trainingcenter.by/catalog</a>
-                            <img src="https://trainingcenter.by/wp-content/themes/training-center-by/img/icons/logo.svg" width="100" alt="ОДО «Центр Обучающих Технологий»" style="display: block; border: 0; margin: 12px 0;">
-{% if unsubscribeUrl %}
-                            <a href="{{ unsubscribeUrl }}">Отписаться от рассылки</a>
-{% endif %}
-                        </td>
                     </tr>
                 </table>
             </td>

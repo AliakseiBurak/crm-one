@@ -18,6 +18,7 @@ use App\Repository\CampaignRepository;
 use App\Repository\OrganizationGroupRepository;
 use App\Repository\OrganizationRepository;
 use App\Service\CampaignAttachmentStorage;
+use App\Service\CampaignBaseBody;
 use App\Service\CampaignBodySanitizer;
 use App\Service\CampaignEmailRenderer;
 use App\Service\CampaignRecipientService;
@@ -52,6 +53,7 @@ class CampaignController extends AbstractController
         private readonly CampaignAttachmentStorage $storage,
         private readonly CampaignRecipientService $recipientService,
         private readonly CampaignBodySanitizer $bodySanitizer,
+        private readonly CampaignBaseBody $baseBody,
         private readonly CampaignEmailRenderer $emailRenderer,
         private readonly EntityManagerInterface $em,
     ) {}
@@ -94,6 +96,11 @@ class CampaignController extends AbstractController
         return $this->render('campaign/form.html.twig', [
             'campaign' => null,
             'errors' => [],
+            // Базовый шаблон письма по умолчанию (change email-base-template):
+            // пользователь сразу видит раскладку, подпись и ссылку отписки и
+            // может их править или удалить.
+            'bodyDefault' => $this->baseBody->render(),
+            'bodyWarning' => null,
             'attachmentError' => null,
         ]);
     }
@@ -104,13 +111,22 @@ class CampaignController extends AbstractController
         $this->assertCsrfToken($request);
 
         $campaign = new Campaign();
-        $errors = $this->applyRequest($request, $validator, $campaign);
-        if ([] !== $errors) {
+        $result = $this->applyRequest($request, $validator, $campaign);
+        $bodyWarning = $this->bodyWarning($result['removed']);
+        if ([] !== $result['errors']) {
             return $this->render('campaign/form.html.twig', [
                 'campaign' => $campaign,
-                'errors' => $errors,
+                'errors' => $result['errors'],
+                // Введённое пользователем тело, а не базовый шаблон: иначе
+                // повторная попытка затирала бы правки после ошибки валидации.
+                'bodyDefault' => $campaign->body,
+                'bodyWarning' => $bodyWarning,
                 'attachmentError' => null,
             ], new Response(null, Response::HTTP_UNPROCESSABLE_ENTITY));
+        }
+
+        if (null !== $bodyWarning) {
+            $this->addFlash('warning', $bodyWarning);
         }
 
         $this->em->persist($campaign);
@@ -188,6 +204,10 @@ class CampaignController extends AbstractController
         return $this->render('campaign/form.html.twig', [
             'campaign' => $campaign,
             'errors' => [],
+            // Форма редактирования показывает сохранённое тело, а не базовый
+            // шаблон: перезаполнять содержимое у существующей рассылки нельзя.
+            'bodyDefault' => $campaign->body,
+            'bodyWarning' => null,
             'attachmentError' => null,
         ]);
     }
@@ -198,13 +218,20 @@ class CampaignController extends AbstractController
         $campaign = $this->campaign($id);
         $this->assertCsrfToken($request);
 
-        $errors = $this->applyRequest($request, $validator, $campaign);
-        if ([] !== $errors) {
+        $result = $this->applyRequest($request, $validator, $campaign);
+        $bodyWarning = $this->bodyWarning($result['removed']);
+        if ([] !== $result['errors']) {
             return $this->render('campaign/form.html.twig', [
                 'campaign' => $campaign,
-                'errors' => $errors,
+                'errors' => $result['errors'],
+                'bodyDefault' => $campaign->body,
+                'bodyWarning' => $bodyWarning,
                 'attachmentError' => null,
             ], new Response(null, Response::HTTP_UNPROCESSABLE_ENTITY));
+        }
+
+        if (null !== $bodyWarning) {
+            $this->addFlash('warning', $bodyWarning);
         }
 
         $this->handleAttachments($request, $campaign);
@@ -752,9 +779,10 @@ class CampaignController extends AbstractController
 
     /**
      * Заполняет кампанию данными формы и возвращает ошибки валидации,
-     * сгруппированные по полям (name, subject, preview_text, body, status).
+     * сгруппированные по полям (name, subject, preview_text, body, status),
+     * вместе со списком элементов, удалённых из тела санитайзером.
      *
-     * @return array<string, string>
+     * @return array{errors: array<string, string>, removed: list<string>}
      */
     private function applyRequest(Request $request, ValidatorInterface $validator, Campaign $campaign): array
     {
@@ -768,12 +796,14 @@ class CampaignController extends AbstractController
         // Тело письма — HTML (change wysiwyg-email-body): лимит проверяется до
         // санитизации, чтобы усечение max_input_length санитайзера не пропустило
         // слишком большое тело; очистка — после (design D4).
+        $removed = [];
         $rawBody = (string) $request->request->get('body', '');
         if (mb_strlen($rawBody) > self::MAX_BODY_LENGTH) {
             $errors['body'] = 'Текст письма не должен превышать 200 000 символов';
             $campaign->setBody($rawBody);
         } else {
             $sanitizedBody = $this->bodySanitizer->sanitize($rawBody);
+            $removed = $this->bodySanitizer->removedElements($rawBody, $sanitizedBody);
             $campaign->setBody($sanitizedBody);
             if ('' === $sanitizedBody && '' !== trim($rawBody)) {
                 $errors['body'] = 'Тело письма не содержит допустимого содержимого';
@@ -796,7 +826,25 @@ class CampaignController extends AbstractController
             $errors[$violation->getPropertyPath()] ??= (string) $violation->getMessage();
         }
 
-        return $errors;
+        return ['errors' => $errors, 'removed' => $removed];
+    }
+
+    /**
+     * Предупреждение о потерянной разметке (change email-base-template):
+     * пользователь должен знать, что написанная им часть не попала в письмо.
+     *
+     * @param list<string> $removed
+     */
+    private function bodyWarning(array $removed): ?string
+    {
+        if ([] === $removed) {
+            return null;
+        }
+
+        return \sprintf(
+            'Из текста письма удалены неподдерживаемые элементы: %s. Проверьте результат в предпросмотре.',
+            implode(', ', $removed),
+        );
     }
 
     private function renderEditWithAttachmentError(Campaign $campaign, string $message): Response
@@ -804,6 +852,8 @@ class CampaignController extends AbstractController
         return $this->render('campaign/form.html.twig', [
             'campaign' => $campaign,
             'errors' => [],
+            'bodyDefault' => $campaign->body,
+            'bodyWarning' => null,
             'attachmentError' => $message,
         ], new Response(null, Response::HTTP_UNPROCESSABLE_ENTITY));
     }

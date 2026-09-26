@@ -17,6 +17,12 @@ use Twig\Environment;
  * templates/emails/campaign.html.twig с инлайн-CSS и генерирует текстовую
  * часть. Используется и MailingService, и всеми предпросмотрами, поэтому
  * предпросмотр показывает ровно то, что уйдёт получателю.
+ *
+ * С change email-base-template шелл отвечает только за то, что менеджеру не
+ * редактировать: doctype, <head> с базовым CSS, скрытый прехедер, раскладку
+ * 600px и tracking-pixel. Всё видимое содержимое — включая подпись, телефоны,
+ * логотип и ссылку отписки — приезжает в bodyHtml из тела рассылки, которое
+ * предзаполняется базовым шаблоном emails/campaign_base_body.html.twig.
  */
 final class CampaignEmailRenderer
 {

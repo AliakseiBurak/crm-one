@@ -14,6 +14,19 @@ async function createCampaign(page: Page, name: string, body: string): Promise<n
   return campaignIdFromUrl(page);
 }
 
+/**
+ * change email-base-template: создаёт рассылку, не трогая тело, — оно уже
+ * предзаполнено базовым шаблоном с раскладкой 600px и футером.
+ */
+async function createCampaignWithBaseBody(page: Page, name: string): Promise<number> {
+  await page.goto('/campaigns/new');
+  await page.fill('input[name="name"]', name);
+  await page.fill('input[name="subject"]', `Тема ${name}`);
+  await page.locator('form').getByRole('button', { name: 'Создать' }).click();
+  await expect(page).toHaveURL(/highlight=(\d+)/);
+  return campaignIdFromUrl(page);
+}
+
 test('вставка изображения по внешнему URL и его отображение на карточке', async ({ page }) => {
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   const name = uniqueName('Изображение');
@@ -26,7 +39,11 @@ test('вставка изображения по внешнему URL и его 
   await page.locator('[data-editor-image-url]').fill('https://example.com/card-photo.png');
   await page.locator('[data-editor-image-alt]').fill('Фото с карточки');
   await page.locator('[data-editor-image-insert]').click();
-  await expect(page.locator('[data-editor-surface] img')).toBeVisible();
+  // В форме уже лежит базовый шаблон с логотипом, поэтому ищем вставленную
+  // картинку по src, а не «единственную img в редакторе».
+  await expect(
+    page.locator('[data-editor-surface] img[src="https://example.com/card-photo.png"]'),
+  ).toBeVisible();
 
   await page.locator('form').getByRole('button', { name: 'Создать' }).click();
   await expect(page).toHaveURL(/highlight=(\d+)/);
@@ -34,9 +51,10 @@ test('вставка изображения по внешнему URL и его 
   const id = match ? parseInt(match[1], 10) : 0;
 
   await page.goto(`/campaigns/${id}`);
-  const cardImage = page.locator('.campaign-card__body-html img');
+  // На карточке теперь всё тело письма, включая логотип футера, — берём
+  // картинку по src.
+  const cardImage = page.locator('.campaign-card__body-html img[src="https://example.com/card-photo.png"]');
   await expect(cardImage).toBeVisible();
-  await expect(cardImage).toHaveAttribute('src', 'https://example.com/card-photo.png');
   await expect(cardImage).toHaveAttribute('alt', 'Фото с карточки');
 
   await deleteCampaign(page, id);
@@ -64,13 +82,17 @@ test('модалка предпросмотра открывается на ка
 test('страница предпросмотра отдаёт email-документ с демо-токенами', async ({ page }) => {
   await login(page, 'admin@b2b-crm.loc', 'admin123');
   const name = uniqueName('Предпросмотр-страница');
-  const id = await createCampaign(page, name, '<p>{{greeting}}! Текст страницы предпросмотра</p>');
+  // change email-base-template: раскладка 600px и футер приезжают в тело
+  // рассылки, поэтому рассылка создаётся с базовым шаблоном, а не с
+  // перезаписанным телом — иначе проверки смотрели бы на пустой шелл.
+  const id = await createCampaignWithBaseBody(page, name);
 
   await page.goto(`/campaigns/${id}/preview`);
-  await expect(page.locator('body')).toContainText('Текст страницы предпросмотра');
-  await expect(page.locator('body')).toContainText('Иван Петров');
-  await expect(page.locator('table[width="600"]')).toBeVisible();
+  await expect(page.locator('body')).toContainText('Уважаемый(ая) Иван Петров');
+  // Раскладка 600px остаётся в шелле, а подпись и телефоны приезжают из тела.
+  await expect(page.locator('table[style*="width: 600px"]')).toBeVisible();
   await expect(page.locator('body')).toContainText('Центр Обучающих Технологий');
+  await expect(page.locator('a[href^="tel:"]')).toHaveCount(3);
   await expect(
     page.locator('img[src="https://trainingcenter.by/wp-content/themes/training-center-by/img/icons/logo.svg"]'),
   ).toBeVisible();

@@ -1,40 +1,124 @@
 framework:
     html_sanitizer:
         sanitizers:
+            # Тело письма рассылки (change email-base-template).
+            #
+            # Модель «разрешено почти всё, запрещено опасное» вместо узкого
+            # allowlist: менеджер вставляет в письмо любую верстку из
+            # редактора/исходного HTML, а список запрещённого остаётся явным.
+            #
+            # allow_safe_elements даёт весь «безопасный» набор W3C (117 body +
+            # 4 head элементов) и только безопасные атрибуты. Обработчики
+            # событий on* в этом наборе отсутствуют, поэтому не попадают в
+            # разметку ни при каком раскладе — это следствие набора, а не
+            # отдельной проверки.
             campaign_body:
-                allow_elements:
-                    p: ['style']
-                    br: []
-                    strong: ['style']
-                    b: ['style']
-                    em: ['style']
-                    i: ['style']
-                    u: ['style']
-                    s: ['style']
-                    del: ['style']
-                    code: ['style']
-                    blockquote: ['style']
-                    hr: ['style']
-                    h1: ['style']
-                    h2: ['style']
-                    h3: ['style']
-                    h4: ['style']
-                    h5: ['style']
-                    h6: ['style']
-                    ul: ['style']
-                    ol: ['style']
-                    li: ['style']
-                    a: ['href', 'target', 'rel', 'style']
-                    img: ['src', 'alt', 'title', 'width', 'height', 'style']
-                    table: ['style']
-                    tbody: []
-                    tr: ['style']
-                    td: ['style', 'colspan', 'rowspan']
-                    th: ['style', 'colspan', 'rowspan']
-                    div: ['style']
-                    span: ['style']
-                allowed_link_schemes: ['https', 'mailto', 'tel']
+                allow_safe_elements: true
+
+                # Явно выброшенные из «безопасного» набора: документные,
+                # интерактивные, встраиваемые и устаревшие элементы. pre,
+                # thead и tfoot — не по соображениям безопасности, а потому,
+                # что WYSIWYG-редактор их не поддерживает и потерял бы их при
+                # переключении режимов (см. требование «WYSIWYG-редактор тела
+                # письма»).
+                drop_elements:
+                    - html
+                    - head
+                    - body
+                    - title
+                    - link
+                    - meta
+                    - base
+                    - pre
+                    - thead
+                    - tfoot
+                    - template
+                    - slot
+                    - portal
+                    - dialog
+                    - canvas
+                    - audio
+                    - video
+                    - marquee
+                    - button
+                    - datalist
+                    - optgroup
+                    - option
+                    - output
+                    - progress
+                    - meter
+                    - keygen
+                    - image
+                    - basefont
+                    - plaintext
+                    - xmp
+                    - listing
+                    - nobr
+                    - layer
+                    - command
+
+                # style не входит в безопасный набор W3C, но без него письмо
+                # теряет всю презентацию; его значения дополнительно фильтрует
+                # CampaignStyleAttributeSanitizer.
+                allow_attributes:
+                    style: '*'
+
+                # Устаревшие presentation-атрибуты не поддерживаются редактором
+                # и потеряли бы разметку при визуальном round-trip; презентация
+                # задаётся style.
+                drop_attributes:
+                    align: '*'
+                    valign: '*'
+                    bgcolor: '*'
+                    border: '*'
+                    cellpadding: '*'
+                    cellspacing: '*'
+                    hspace: '*'
+                    vspace: '*'
+                    nowrap: '*'
+
+                # Ссылкам разрешено быть любыми: пользователю доверяем, поэтому
+                # схемы не ограничиваем тремя. Список остаётся конечным, потому
+                # что «любая схема» конфигурацией не выражается; добавить нужную
+                # схему — одна строка. Скриптовые схемы (javascript, vbscript,
+                # data) исключены намеренно: тело рендерится на карточке
+                # рассылки через |raw в обычной странице CRM.
+                allowed_link_schemes:
+                    - http
+                    - https
+                    - mailto
+                    - tel
+                    - sms
+                    - callto
+                    - ftp
+                    - ftps
+                    - geo
+                    - webcal
+                    - im
+                    - irc
+                    - ircs
+                    - matrix
+                    - magnet
+                    - mms
+                    - msnim
+                    - news
+                    - nntp
+                    - sip
+                    - sips
+                    - skype
+                    - ssh
+                    - steam
+                    - svn
+                    - urn
+                    - wtai
+                    - xmpp
+
+                # Токен {{unsubscribe_url}} не является схемой и без этого флага
+                # теряет href при сохранении.
+                allow_relative_links: true
+
                 allowed_media_schemes: ['https']
+
                 max_input_length: 262144
                 with_attribute_sanitizers:
                     - App\Html\CampaignStyleAttributeSanitizer

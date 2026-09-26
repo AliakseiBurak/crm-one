@@ -106,8 +106,11 @@
                         id="body"
                         name="body"
                         rows="8"
-                    >{{ campaign.body|default('') }}</textarea>
+                    >{{ bodyDefault|default('') }}</textarea>
                     <span class="field__hint">Токены: {{ '{{' }}greeting{{ '}}' }} — приветствие, {{ '{{' }}organization_name{{ '}}' }} — название организации, {{ '{{' }}contact_name{{ '}}' }} — имя контакта, {{ '{{' }}unsubscribe_url{{ '}}' }} — ссылка для отписки</span>
+                    {% if bodyWarning %}
+                        <span class="field__warning" role="status">{{ bodyWarning }}</span>
+                    {% endif %}
                     {% if errors.body is defined and errors.body %}
                         <span class="field__error" role="alert">{{ errors.body }}</span>
                     {% endif %}

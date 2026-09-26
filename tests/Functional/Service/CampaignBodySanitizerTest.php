@@ -6,11 +6,16 @@ namespace App\Tests\Functional\Service;
 
 use App\Service\CampaignBodySanitizer;
 use App\Tests\DatabaseWebTestCase;
+use Twig\Environment;
 
 /**
  * Функциональные тесты CampaignBodySanitizer (change wysiwyg-email-body):
  * проверяют конфигурацию html_sanitizer.sanitizer.campaign_body — allowlist
  * элементов/атрибутов, https для media, удаление скриптов и опасных CSS.
+ *
+ * change email-body-base-template: базовое тело письма, которым предзаполняется
+ * форма создания, обязано проходить санитизацию без потерь — иначе дефолт молча
+ * деградирует при первом сохранении (design D5).
  */
 final class CampaignBodySanitizerTest extends DatabaseWebTestCase
 {
@@ -125,11 +130,120 @@ final class CampaignBodySanitizerTest extends DatabaseWebTestCase
         self::assertStringContainsString('<ul><li><strong>Пункт</strong></li></ul>', $sanitized);
     }
 
+    public function testBaseEmailTemplateKeepsAllItsContent(): void
+    {
+        $base = $this->renderBaseBody();
+
+        $sanitized = $this->sanitize($base);
+
+        self::assertNotSame('', trim($sanitized));
+
+        // Ни один элемент дефолта не исчезает.
+        foreach ($this->tagNames($base) as $tag) {
+            self::assertContains($tag, $this->tagNames($sanitized), \sprintf('Элемент <%s> потерян санитайзером.', $tag));
+        }
+
+        // Все ссылки, картинки и текст на месте.
+        foreach ($this->attributeValues($base, 'href') as $href) {
+            self::assertContains($href, $this->attributeValues($sanitized, 'href'));
+        }
+        foreach ($this->attributeValues($base, 'src') as $src) {
+            self::assertContains($src, $this->attributeValues($sanitized, 'src'));
+        }
+        self::assertSame($this->textContent($base), $this->textContent($sanitized));
+
+        // Все CSS-свойства дефолта выживают.
+        foreach ($this->styleProperties($base) as $property) {
+            self::assertContains($property, $this->styleProperties($sanitized), \sprintf('CSS-свойство %s потеряно санитайзером.', $property));
+        }
+    }
+
+    public function testBaseEmailTemplateSanitizationIsIdempotent(): void
+    {
+        $once = $this->sanitize($this->renderBaseBody());
+
+        self::assertSame($once, $this->sanitize($once));
+    }
+
+    public function testBaseEmailTemplateKeepsOnlyAllowedLinkSchemes(): void
+    {
+        $sanitized = $this->sanitize($this->renderBaseBody());
+
+        self::assertStringContainsString('href="https://trainingcenter.by/catalog"', $sanitized);
+        self::assertStringContainsString('href="{{unsubscribe_url}}"', $sanitized);
+        self::assertStringNotContainsString('href="http://', $sanitized);
+
+        // Телефоны в футере — кликабельные tel:-ссылки, они тоже должны выжить.
+        self::assertContains('tel:+375296848426', $this->attributeValues($sanitized, 'href'));
+        self::assertContains('tel:+375295448426', $this->attributeValues($sanitized, 'href'));
+        self::assertContains('tel:+375173958427', $this->attributeValues($sanitized, 'href'));
+    }
+
     private function sanitize(string $html): string
     {
         /** @var CampaignBodySanitizer $sanitizer */
         $sanitizer = static::getContainer()->get(CampaignBodySanitizer::class);
 
         return $sanitizer->sanitize($html);
+    }
+
+    private function renderBaseBody(): string
+    {
+        /** @var Environment $twig */
+        $twig = static::getContainer()->get('twig');
+
+        return $twig->render('emails/campaign_base_body.html.twig');
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function tagNames(string $html): array
+    {
+        preg_match_all('/<\s*\/?\s*([a-z][a-z0-9]*)/i', $html, $matches);
+
+        return array_values(array_unique(array_map(strtolower(...), $matches[1])));
+    }
+
+    /**
+     * Значения атрибутов в декодированном виде: сериализатор кодирует `+` в
+     * `&#43;`, что семантически то же значение, поэтому сравнивать нужно
+     * после раскодирования сущностей.
+     *
+     * @return list<string>
+     */
+    private function attributeValues(string $html, string $attribute): array
+    {
+        preg_match_all(\sprintf('/%s="([^"]*)"/i', preg_quote($attribute, '/')), $html, $matches);
+
+        return array_values(array_unique(array_map(
+            static fn(string $value): string => html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            $matches[1],
+        )));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function styleProperties(string $html): array
+    {
+        preg_match_all('/style="([^"]*)"/i', $html, $styles);
+        $properties = [];
+        foreach ($styles[1] as $style) {
+            foreach (explode(';', $style) as $declaration) {
+                if (str_contains($declaration, ':')) {
+                    $properties[] = strtolower(trim(explode(':', $declaration, 2)[0]));
+                }
+            }
+        }
+
+        return array_values(array_unique($properties));
+    }
+
+    private function textContent(string $html): string
+    {
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return trim((string) preg_replace('/\s+/u', ' ', $text));
     }
 }

@@ -17,6 +17,7 @@ use App\Entity\OrganizationGroup;
 use App\Entity\OrganizationHide;
 use App\Entity\OrgGroupMembership;
 use App\Entity\User;
+use App\Service\CampaignBaseBody;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -85,6 +86,7 @@ class AppFixtures extends Fixture
 
     public function __construct(
         private readonly UserPasswordHasherInterface $passwordHasher,
+        private readonly CampaignBaseBody $baseBody,
         #[Autowire(param: 'kernel.project_dir')]
         private readonly string $projectDir,
     ) {}
@@ -292,20 +294,30 @@ class AppFixtures extends Fixture
         $bare($organizations[6], $today->setTime(0, 5), false); // Парус: план сегодня без факта → waiting1
 
         // ── Рассылки (campaigns) — все статусы ────────────────────────
+        //
+        // Тела рассылок строятся через CampaignBaseBody (change
+        // email-base-template), поэтому демо-письма несут тот же футер — с
+        // подписью, телефонами, логотипом и ссылкой отписки — что и дефолт
+        // формы создания. Свой контент фикстура передаёт параметром, футер
+        // остаётся единственным источником.
 
         // Черновик.
         $campaignDraft = new Campaign()
             ->setName('Новые курсы')
             ->setSubject('Приглашаем на курсы 2026')
             ->setPreviewText('Обзор новых курсов для ваших сотрудников')
-            ->setBody('<p>{{greeting}}!</p><p>Приглашаем вас на наши курсы.</p><p>С уважением,<br>команда обучения.</p>');
+            ->setBody($this->baseBody->render(
+                '<p>{{greeting}}!</p><p>Приглашаем вас на наши курсы.</p><p>С уважением,<br>команда обучения.</p>',
+            ));
         $manager->persist($campaignDraft);
 
         // Готова.
         $campaignReady = new Campaign()
             ->setName('Осенняя рассылка')
             ->setSubject('Осень на носу — готовьте сотрудников')
-            ->setBody('<p>{{greeting}}!</p><p>Осень — время обновлений. Предлагаем вам наши программы.</p>');
+            ->setBody($this->baseBody->render(
+                '<p>{{greeting}}!</p><p>Осень — время обновлений. Предлагаем вам наши программы.</p>',
+            ));
         $campaignReady->setStatus(CampaignStatus::Ready);
         $manager->persist($campaignReady);
 
@@ -314,7 +326,7 @@ class AppFixtures extends Fixture
             ->setName('Акция')
             ->setSubject('Скидки недели')
             ->setPreviewText('Специальные предложения только для вас')
-            ->setBody(
+            ->setBody($this->baseBody->render(
                 '<p>{{greeting}}!</p>'
                 . '<p>Специальное предложение только для вас.</p>'
                 . '<table><tbody><tr>'
@@ -323,7 +335,7 @@ class AppFixtures extends Fixture
                 . '</tr></tbody></table>'
                 . '<p><img src="https://trainingcenter.by/wp-content/themes/training-center-by/img/icons/logo.svg" alt="Баннер курсов" width="100"></p>'
                 . '<p>Не пропустите скидки этой недели!</p>',
-            )
+            ))
             ->setStatus(CampaignStatus::Launched);
         $campaignLaunched->launch();
         $manager->persist($campaignLaunched);
@@ -332,7 +344,9 @@ class AppFixtures extends Fixture
         $campaignFailed = new Campaign()
             ->setName('Рассылка с ошибкой')
             ->setSubject('Тестовая ошибка отправки')
-            ->setBody('<p>{{greeting}}!</p><p>Это тестовая рассылка для проверки обработки ошибок.</p>');
+            ->setBody($this->baseBody->render(
+                '<p>{{greeting}}!</p><p>Это тестовая рассылка для проверки обработки ошибок.</p>',
+            ));
         $campaignFailed->fail();
         $manager->persist($campaignFailed);
 
@@ -340,7 +354,9 @@ class AppFixtures extends Fixture
         $campaignArchived = new Campaign()
             ->setName('Прошлая акция')
             ->setSubject('Акция прошла')
-            ->setBody('<p>{{greeting}}!</p><p>Это архивная рассылка.</p>')
+            ->setBody($this->baseBody->render(
+                '<p>{{greeting}}!</p><p>Это архивная рассылка.</p>',
+            ))
             ->setStatus(CampaignStatus::Archived);
         $manager->persist($campaignArchived);
 
@@ -349,11 +365,11 @@ class AppFixtures extends Fixture
             ->setName('Приглашение на вебинар')
             ->setSubject('Вебинар по логистике')
             ->setPreviewText('Приглашение на вебинар')
-            ->setBody(
+            ->setBody($this->baseBody->render(
                 '<p>{{greeting}}!</p>'
                 . '<p>Приглашаем на вебинар {{organization_name}}.</p>'
                 . '<p>Тема: Современная логистика.</p>',
-            );
+            ));
         $manager->persist($campaignStandalone);
 
         $manager->flush();

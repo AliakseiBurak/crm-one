@@ -370,6 +370,102 @@ final class CampaignControllerTest extends DatabaseWebTestCase
         self::assertGreaterThan(0, $page->filter('[data-campaign-preview-modal] .modal[data-modal]')->count());
     }
 
+    /**
+     * change email-base-template: форма создания предзаполнена базовым
+     * шаблоном — раскладка, контентная область и футер с подписью, телефонами,
+     * логотипом и ссылкой отписки.
+     */
+    public function testCreateFormIsPrefilledWithBaseBodyTemplate(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $page = $this->open('/campaigns/new');
+
+        $body = (string) $page->filter('textarea[name="body"]')->text();
+        self::assertStringContainsString('{{greeting}}', $body);
+        self::assertStringContainsString('ОДО «Центр Обучающих Технологий»', $body);
+        self::assertStringContainsString('+375 (29) 684-84-26', $body);
+        self::assertStringContainsString('href="tel:+375296848426"', $body);
+        self::assertStringContainsString('https://trainingcenter.by/catalog', $body);
+        self::assertStringContainsString('logo.svg', $body);
+        self::assertStringContainsString('Отписаться от рассылки', $body);
+        self::assertStringContainsString('{{unsubscribe_url}}', $body);
+        // Шелл и раскладка письма остаются в Twig-шаблоне, в теле их нет.
+        self::assertStringNotContainsString('<!DOCTYPE', $body);
+        self::assertStringNotContainsString('<head', $body);
+        self::assertStringNotContainsString('width: 600px', $body);
+    }
+
+    public function testEditFormShowsStoredBodyInsteadOfBaseTemplate(): void
+    {
+        $campaign = $this->persistCampaign('Сохранённое тело');
+        $campaign->setBody('<p>Моё собственное тело</p>');
+        $this->em()->flush();
+
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $page = $this->open('/campaigns/' . $campaign->id . '/edit');
+
+        $body = (string) $page->filter('textarea[name="body"]')->text();
+        self::assertStringContainsString('Моё собственное тело', $body);
+        self::assertStringNotContainsString('Отписаться от рассылки', $body);
+    }
+
+    /**
+     * После неудачной валидации форма обязана вернуть введённое тело, а не
+     * подставлять базовый шаблон поверх правок пользователя.
+     */
+    public function testCreateValidationErrorKeepsUserBodyInsteadOfBaseTemplate(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/campaigns/new');
+        $this->submitFormByButton('Создать', [
+            'name' => '',
+            'subject' => 'Тема',
+            'body' => '<p>Моё собственное тело</p>',
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
+        $page = $this->client->getCrawler();
+        $body = (string) $page->filter('textarea[name="body"]')->text();
+        self::assertStringContainsString('Моё собственное тело', $body);
+        self::assertStringNotContainsString('Отписаться от рассылки', $body);
+    }
+
+    /**
+     * change email-base-template: пользователь предупреждается, если часть
+     * написанной разметки не дошла до письма.
+     */
+    public function testCreateWarnsAboutRemovedElements(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/campaigns/new');
+        $this->submitFormByButton('Создать', [
+            'name' => 'С iframe',
+            'subject' => 'Тема',
+            'body' => '<p>Текст</p><iframe src="https://evil.example"></iframe>',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->client->followRedirect();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('удалены неподдерживаемые элементы: iframe', $html);
+    }
+
+    public function testCreateWithoutRemovedElementsShowsNoWarning(): void
+    {
+        $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
+        $this->open('/campaigns/new');
+        $this->submitFormByButton('Создать', [
+            'name' => 'Без потерь',
+            'subject' => 'Тема',
+            'body' => '<p>{{greeting}}! Текст</p>',
+        ]);
+
+        $this->assertResponseRedirects();
+        $this->client->followRedirect();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringNotContainsString('удалены неподдерживаемые элементы', $html);
+    }
+
     public function testShowPageRendersFormattedHtmlBody(): void
     {
         $campaign = $this->persistCampaign('Форматирование');

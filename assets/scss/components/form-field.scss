@@ -99,6 +99,13 @@
     color: $color-error-red;
 }
 
+// Неблокирующее предупреждение под полем (change email-base-template):
+// содержимое сохранено, но часть разметки была удалена при очистке.
+.field__warning {
+    font-size: 0.9em;
+    color: #92400e;
+}
+
 // Подсказка под полем (change calls-crud)
 .field__hint {
     font-size: 0.9em;

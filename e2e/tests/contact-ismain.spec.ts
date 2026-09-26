@@ -13,6 +13,13 @@ const HOVER_BG = 'rgb(250, 231, 219)'; // #fae7db
 const WHITE_BG = 'rgb(255, 255, 255)';
 const HOVER_TRANSITION_MS = 350; // transition: background-color 0.15s
 
+// Все три теста файла назначают и снимают главного у одного и того же контакта
+// общей фикстуры, а конфигурация запускает тесты внутри файла параллельно
+// (fullyParallel). Без serial тесты пересекаются по общему флагу isMain, и
+// проверка формы организации успевает увидеть «Основной» уже снятым.
+// Побочный эффект режима serial: падение одного теста пропускает следующие.
+test.describe.configure({ mode: 'serial' });
+
 async function login(page: Page) {
   await page.goto('/login');
   await page.fill('input[name="_login"]', 'admin');

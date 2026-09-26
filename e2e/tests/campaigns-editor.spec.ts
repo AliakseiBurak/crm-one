@@ -171,7 +171,9 @@ test('вставка изображения по https URL через диало
   await page.locator('[data-editor-image-insert]').click();
 
   await expect(page.locator('[data-editor-image-form]')).toBeHidden();
-  await expect(page.locator(editorContent + ' img')).toBeVisible();
+  // В форме уже лежит базовый шаблон с логотипом, поэтому ищем картинку,
+  // которую вставил этот тест, а не единственную img.
+  await expect(page.locator(editorContent + ' img[src="https://example.com/photo.png"]')).toBeVisible();
 
   await page.locator('[data-editor-toggle-source]').click();
   const html = await page.locator('textarea[name="body"]').inputValue();
@@ -190,7 +192,9 @@ test('недопустимый URL изображения отклоняется
 
   await expect(page.locator('[data-editor-image-error]')).toBeVisible();
   await expect(page.locator('[data-editor-image-error]')).toContainText('https://');
-  await expect(page.locator(editorContent + ' img')).toHaveCount(0);
+  // Логотип базового шаблона в теле уже есть, поэтому проверяем, что не
+  // добавилось именно изображение с недопустимым URL.
+  await expect(page.locator(editorContent + ' img[src^="javascript:"]')).toHaveCount(0);
   await expect(page.locator('[data-editor-image-form]')).toBeVisible();
 
   await page.locator('[data-editor-image-cancel]').click();
@@ -200,8 +204,10 @@ test('недопустимый URL изображения отклоняется
 test('форматирование в визуальном режиме попадает в исходный HTML', async ({ page }) => {
   await openNewCampaign(page);
 
+  // Форма предзаполнена базовым шаблоном: набирать своё поверх него нельзя,
+  // Ctrl+A выделил бы весь дефолт. Поэтому сначала заменяем тело своим.
+  await setCampaignBody(page, '<p>Привет мир</p>');
   await page.locator(editorContent).click();
-  await page.keyboard.type('Привет мир');
   await page.keyboard.press('Control+a');
   await page.locator('[data-editor-command="bold"]').click();
   await expect(page.locator(editorContent + ' strong')).toHaveText('Привет мир');
@@ -209,4 +215,37 @@ test('форматирование в визуальном режиме попа
   await page.locator('[data-editor-toggle-source]').click();
   const html = await page.locator('textarea[name="body"]').inputValue();
   expect(html).toContain('<strong>Привет мир</strong>');
+});
+
+test('базовое тело письма переживает round-trip редактора', async ({ page }) => {
+  await openNewCampaign(page);
+
+  // Тело предзаполнено базовым шаблоном — setCampaignBody его не перезаписывает,
+  // а нормализует так же, как любой введённый HTML.
+  const prefilled = await readSourceBody(page);
+  expect(prefilled).toContain('Отписаться от рассылки');
+
+  await setCampaignBody(page, prefilled);
+  const firstHtml = await readSourceBody(page);
+  expect(firstHtml).toContain('logo.svg');
+  expect(firstHtml).toContain('Отписаться от рассылки');
+  expect(firstHtml).toContain('href="https://trainingcenter.by/catalog"');
+  expect(firstHtml).toContain('href="tel:+375296848426"');
+  expect(firstHtml).toContain('{{unsubscribe_url}}');
+  // Раскладка 600px остаётся в шелле, в теле её нет.
+  expect(firstHtml).not.toContain('width: 600px');
+
+  const first = await signatureOf(firstHtml, page);
+  // Без кавычек-ёлочек: они не часть проверяемого смысла, а текст письма
+  // нормализуется редактором.
+  expect(first.text).toContain('Центр Обучающих Технологий');
+  expect(first.text).toContain('+375 (29) 684-84-26');
+  expect(first.text).toContain('Отписаться от рассылки');
+  expect(first.elements.some((element) => element.startsWith('img'))).toBe(true);
+  expect(first.elements.some((element) => element.includes('href=tel:'))).toBe(true);
+
+  // Повторный round-trip идемпотентен: футер, логотип и ссылки не теряются.
+  await setCampaignBody(page, firstHtml);
+  const second = await signatureOf(await readSourceBody(page), page);
+  expect(second).toEqual(first);
 });
