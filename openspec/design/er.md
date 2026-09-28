@@ -61,36 +61,38 @@ erDiagram
 
     ORGANIZATION {
         bigint id PK
-        string name
-        string industry "nullable"
+        string name "уникальность не гарантируется"
+        string industry "nullable, сфера деятельности"
         string annual_plan "nullable, годовой план обучения"
         text description "nullable, описание организации"
-        boolean has_used_services "default false"
+        string courses_attended "nullable, «Учились у нас» — свободный текст"
+        string unp "nullable, УНП (32)"
         boolean is_active "default true"
         boolean is_opted_out "default false"
         text opt_out_reason "nullable, причина отписки"
         datetime opted_out_at "nullable, когда отписалась"
+        bigint created_by FK "nullable → USER.id, ON DELETE SET NULL"
         datetime created_at
         datetime updated_at
     }
 
     CONTACT {
         bigint id PK
-        bigint organization_id FK
+        bigint organization_id FK "NOT NULL, ON DELETE CASCADE"
         string name
-        string phone
-        string email
-        string position
-        text notes
-        boolean is_main "default false, основной контакт организации (один на организацию)"
+        string phone "nullable (32)"
+        string email "nullable"
+        string position "nullable"
+        text notes "nullable"
+        boolean is_main "default false, основной контакт организации; «один на организацию» — правило приложения (ContactRepository::resetIsMainForOrganization), не UNIQUE в БД"
         datetime created_at
         datetime updated_at
     }
 
     CALL {
         bigint id PK
-        bigint organization_id FK
-        bigint contact_id FK
+        bigint organization_id FK "NOT NULL, ON DELETE CASCADE"
+        bigint contact_id FK "nullable, ON DELETE SET NULL"
         datetime scheduled_at "будущее -> планирование/напоминание"
         datetime made_at "факт звонка: когда"
         bigint made_by FK "факт звонка: кто"
