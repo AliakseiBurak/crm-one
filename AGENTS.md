@@ -2,15 +2,27 @@
 
 ## What this repo is
 
-Documentation-only OpenSpec workspace. No application code, build system, tests, or CI exist. Tracked by git.
+The B2B Call CRM **application**: Symfony 7.4 / PHP 8.5 / Doctrine ORM 3 with Twig,
+Webpack Encore and MySQL, plus the OpenSpec documentation that drives it. Source in
+`src/`, templates in `templates/`, SCSS/JS in `assets/`, Doctrine migrations in
+`migrations/`.
+
+- Tests: PHPUnit 11 (`phpunit.xml.dist`, `tests/`), Playwright (`e2e/`) and
+  Doctrine fixtures (`doctrine/doctrine-fixtures-bundle`).
+- Quality tooling: PHPStan (level set in `phpstan.neon` + `phpstan-baseline.neon`),
+  php-cs-fixer, Infection (mutation testing) — see ADR-0013.
+- `make` targets wrap the usual commands; see `Makefile`.
+- Tracked by git.
 
 ## Source of truth
 
 - `openspec/project.md` — видение, миссия, цели и карта возможностей продукта B2B Call CRM.
 - `openspec/specs/<capability>/spec.md` — спецификации возможностей (spec-driven:
 `## Purpose`, `## Requirements` с `### Requirement` и `#### Scenario`).
-- `adr/<adr>.md` — архитектурные решения (инфраструктура, организация, контакты, модель взаимодействия/обзвон, группы `created_by`-владение (ADR-0011),
-M2M членство, область доступа, фиксированные роли, e-mail/рассылки).
+- `adr/<adr>.md` — архитектурные решения (инфраструктура, организация, контакты,
+  модель взаимодействия/обзвон, M2M членство, область доступа, фиксированные
+  роли, e-mail/рассылки, скрытие организаций (ADR-0012), инструменты качества
+  (ADR-0013), WYSIWYG-редактор и рендеринг email (ADR-0014)).
 - `openspec/design/` — дизайн-артефакты (ER-схема БД, sequence-диаграммы),
 сгенерированные из спек для верификации.
 - OpenSpec — единственный источник истины.
@@ -28,22 +40,25 @@ M2M членство, область доступа, фиксированные 
 
 
 
-## Domain model constraints (hard, ADR-0003–0008, ADR-0011)
+## Domain model constraints (hard, ADR-0003–0009, ADR-0011–0012)
 
 Accredited without asking the user; keep consistent:
 
-- Personal groups (`user-<id>-group`) are **eliminated** (ADR-0011). Managers
-  create **custom groups** they own via `created_by`; full CRUD on own groups
-  only (403 on foreign groups). **Admin has no personal group**; groups are not
-  checked for admin.
-- Org ↔ group is **many-to-many** (`OrgGroupMembership`, table
-  `org_group_membership`); one group can be assigned to many managers
+- **Область доступа — default-open deny-list** (ADR-0012, заменила формулу
+  ADR-0007/ADR-0011). Менеджер видит **все** организации, кроме имеющих запись
+  `OrganizationHide` для этого менеджера. Принадлежность к группе **не влияет**
+  на доступ к организациям.
+- **Администратор видит всё** (ADR-0008); записи скрытия не ограничивают его
+  доступ никак. У админа нет персонального `user-<id>-group`, проверка групп для
+  админа пропускается.
+- Персональные группы (`user-<id>-group`) **ликвидированы** (ADR-0011). Менеджеры
+  создают **custom-группы**, которыми владеют через `created_by`; полный CRUD
+  только по своим группам (403 по чужим). Группы нужны для **категоризации**.
+- Org ↔ group — **many-to-many** (`OrgGroupMembership`, таблица
+  `org_group_membership`); одна группа может быть назначена многим менеджерам
   (`GroupAssignment`).
-- Managers get **full access** to orgs in groups they created (`created_by`) +
-  all assigned groups.
-- **Admin sees everything**, manages groups and assignments; on manager
-  deletion chooses per-group fate (reassign to admin / delete).
-- Do not re-introduce per-org ACL tiers.
+- Роли — фиксированный enum `admin|manager` (ADR-0009); CRUD ролей нет.
+- Не возвращать per-org ACL-уровни.
 
 
 
@@ -51,9 +66,16 @@ Accredited without asking the user; keep consistent:
 
 - Any edit touching access/roles must match the model above.
 - A contact belongs to exactly one organization (`Contact` has no grouping
-entity); only `OrganizationGroup` exists for grouping.
+  entity); only `OrganizationGroup` exists for grouping.
+- **No UNIQUE constraint exists on `organization.name` or on any `contact`
+  column.** Duplicate organization names and the same email under two
+  organizations are both legal today. `contact.is_main` "one per organization"
+  is an application rule enforced in `ContactRepository::resetIsMainForOrganization()`,
+  not a DB constraint — code that writes contacts outside `ContactController`
+  must call it itself. `MailingService::effectiveMainContact()` falls back to the
+  lowest-ID contact when no `is_main` is set.
 - `openspec` CLI 1.8.0 is installed. Specs use the spec-driven format;
-`openspec validate <capability> --type spec` works out of the box.
+  `openspec validate <capability> --type spec` works out of the box.
 - git repo exists (add `safe.directory` exception if needed).
 
 
