@@ -119,15 +119,20 @@ Three consequences of the simplification:
   generator to get wrong. This is the same reason there is no PHP session
   state — the run record is the progress state, not a carrier of
   per-request state, and it is now the *only* source of the chunk position.
-  Two consequences follow for free. A duplicate submission of a stale approval
-  form is not blocked (see D9 — the user is warned instead), and when a chunk
-  stops midway the re-displayed chunk starts exactly at the row that was not
-  saved, so the "resume from the last inserted row" property is a consequence
-  of the rule rather than a rule of its own.
+  Two consequences follow for free. A stale approval form is harmless: its rows
+  at or below `processedRows` are simply skipped, because the server starts from
+  `processedRows + 1` no matter what the request carries (see D9). And when a
+  chunk stops midway the re-displayed chunk starts exactly at the row that was
+  not saved, so the "resume from the last inserted row" property is a
+  consequence of the rule rather than a rule of its own.
 - **`sourceFormat` is recorded but never displayed.** `/admin/import/{id}`
   cannot know which parser to run without it, and a run reached from the
   unified list carries no tab. It is an internal discriminator with no column
   in the import list, and it is written once when the run is created.
+  `lastProcessedAt` is the opposite: it has no behaviour attached to it, so it
+  is rendered as a column of the import list instead, where "when did this run
+  last make progress" is exactly the question the admin has when picking a run
+  to continue.
 
 ### D3: Heuristic contact parsing with user verification
 
@@ -151,15 +156,20 @@ file).
 ### D5: File storage in `var/storage/imports/`
 
 **Choice:** Store every import payload with random hex keys, same pattern as
-`CampaignAttachmentStorage`, in `var/storage/imports/`.
+`CampaignAttachmentStorage`, in `var/storage/imports/`. `ImportRun` holds the
+`filename` shown to the admin and the `storageKey` of the file actually parsed;
+both belong to the run's *current* source.
 
-**Rationale:** Consistent with existing storage approach. Files are never
-deleted by the import flow: they are kept for reference after completion and
-for resuming after a stop or an error. The directory is named `imports`, not
-`csv-imports`, because a stored payload is not bound to the format that produced
-it: pasted text is written to disk exactly as an uploaded file is. D8's
-replacement flow depends on that — a run's previous payload is always readable
-whatever it was written from.
+**Rationale:** Consistent with existing storage approach. The run's current file
+is never deleted by the import flow: it is kept for reference after completion
+and for resuming after a stop or an error. The one exception is a confirmed
+replacement (D8), which swaps the run to the new payload and removes the file it
+replaces — the replaced file is what the admin has already decided to discard,
+and keeping it would leave the storage growing with every correction of the
+export. The directory is named `imports`, not `csv-imports`, because a stored
+payload is not bound to the format that produced it: pasted text is written to
+disk exactly as an uploaded file is. D8's replacement flow depends on that — a
+run's previous payload is always readable whatever it was written from.
 
 ### D6: Input format declared in the spec, quirks observed from the export
 
@@ -281,16 +291,28 @@ chunk would discard rows that saved without issues. A chunk is only the
 review batch. The stored file is never deleted, so after an error the user
 can replace the file and continue from `processedRows`.
 
+**A stop is a stop: the report names the file row.** Whatever the cause — an
+empty name, a value the database rejects, a contact without a name — the run
+halts at that row, the error message states the row number in the source file
+and what is wrong with it, and the row is presented for correction in place
+inside the re-displayed package. There is no partial acceptance of the rest of
+the chunk: rows after the stopped one are not saved, because `processedRows`
+counts saved rows and a row that was not reviewed as saved has no business
+advancing the counter. The admin either fixes the value in the table and
+re-approves, or fixes the source file and replaces it (D8) — both land on the
+same continuation, the first unprocessed row.
+
 ### D8: Replacing the file is a confirmed resume from a fixed row
 
-**Trusted state: row numbers and the retained previous file. Nothing else.**
+**Trusted state: row numbers and the current file. Nothing else.**
 
-`processedRows` is a row count, and D5 keeps every file that was ever stored
-(`storageKey` is never deleted), so the previous content is always readable.
-Those two facts are the entire basis for a replacement. `Organization.createdAt`
-and `Organization.updatedAt` are deliberately **not** used: merged rows create no
-organization, so database position is not row number, and a timestamp window
-cannot reconstruct which row produced which organization.
+`processedRows` is a row count, and the run's current file is always readable
+(D5 keeps it, `storageKey` points at it), so the previous content is available
+for the comparison. Those two facts are the entire basis for a replacement.
+`Organization.createdAt` and `Organization.updatedAt` are deliberately **not**
+used: merged rows create no organization, so database position is not row
+number, and a timestamp window cannot reconstruct which row produced which
+organization.
 
 **Choice:** a replacement never mutates the run directly. It builds a report
 and waits for confirmation.
@@ -298,7 +320,7 @@ and waits for confirmation.
 1. Store the new file; validate it against the format declared for the
    run's own source — the run's `sourceFormat` decides which contract
    applies — and count its non-empty records.
-2. Read the retained previous file and the new file.
+2. Read the run's current file and the new file.
 3. Build the replacement report:
    - record count before and after;
    - the resume row, `processedRows + 1`;
@@ -308,12 +330,23 @@ and waits for confirmation.
    - a warning when the new record count is below `processedRows`.
 4. Render a **confirmation page** with that report and the actions
    «Продолжить с строки N» and «Отмена». The run is untouched until the
-   admin confirms.
-5. On confirm: `totalRows` is set to the new record count, `processedRows` is
+   admin confirms. The page addresses the run and the candidate file by URL:
+   `/admin/import/{id}/replace?candidate=<storageKey>`, so that the report is a
+   bookmark and a reloaded or re-shared page resolves to the same run and the
+   same candidate without a server session.
+5. On confirm: the run switches to the new payload — `filename` and
+   `storageKey` are replaced, and the file the run pointed at before is
+   deleted — `totalRows` is set to the new record count, `processedRows` is
    kept, and the admin lands on the review page for the first chunk of the
    remaining rows. A flash states the resume position positively — «Импорт
    продолжен с строки N: «Название организации»» — rather than reporting that
    nothing changed, which is the fact the admin needs.
+
+**The run's identity travels in the URL, never in a session.** Every step of the
+replacement names the run (`/admin/import/{id}/replace`) and, from the report
+on, the candidate payload; nothing about the pending replacement is held on the
+server between the two requests. This is the same rule as D2: the run record is
+the only state, and a link must be enough to resume.
 
 **"Row N" means the Nth record of the run's source.** The replacement
 therefore takes whatever the format of that source is, and the mechanism does
@@ -345,7 +378,7 @@ forever and, because D9 keys the single-active-run check on
 `processedRows < totalRows`, it would neither look finished nor block a new
 import.
 
-### D9: Single active run enforced on upload, and the approval form is one-shot
+### D9: Single active run enforced on upload, and the approval form is idempotent
 
 **Choice:** A new upload SHALL be rejected while any `ImportRun` has
 `processedRows < totalRows`. Completion is therefore `processedRows >= totalRows`
@@ -359,17 +392,16 @@ unfinished import (the most recently created one) instead of showing a package
 of the other run. A rejection is right for a submission that would create
 state; a redirect is right for a page that only shows state.
 
-**The approval form is not idempotent, and the user is told so.** Submitting
-the same form twice inserts its rows again. This is accepted rather than
-prevented: the review page states that the form is submitted once, and the
-progress indicator exists so the admin can see where the import stands before
-submitting. A guard that ignores rows already below `processedRows` would make
-the form idempotent at the cost of a rule that is invisible in the UI — it
-would silently do nothing on a re-submit instead of reporting the duplicates it
-had just created, and it would mask a genuine mistake where a form was prepared
-against the wrong file. The corruption is a visible duplicate name in the
-organizations table, which the duplicate dialog (D10) then handles like any
-other.
+**The approval form is idempotent, and it is idempotent for free.** Submitting
+the same form twice inserts nothing the second time, because the server persists
+starting from `processedRows + 1` and ignores any submitted row that lies at or
+below it (D2). Rows 1..25 of a chunk that already saved row 13 are not
+"re-inserted": rows 1..13 are below the counter and are skipped, and 14..25 —
+if the stop happened there — are saved once. A re-submission of a stale form
+therefore resumes exactly where the run stands, which is the same behaviour as
+reopening the review page and pressing the button again. No idempotency key, no
+token, no warning on the page about submitting once: the counter is the guard,
+and the guard is the thing the admin can see on the progress indicator.
 
 **Rationale:** The proposal promises at most one active import. UI-only
 coordination fails with two tabs or two admins; a reject-on-upload rule is
@@ -380,8 +412,10 @@ accepts for a one-shot migration.
 **Alternatives considered:**
 - UI-only limitation: documented, but not enforced.
 - Drop the single-run claim: contradicts the proposal.
-- Idempotent approval (skip rows below `processedRows`): rejected for the
-  reasons above; it hides a mistake instead of surfacing it.
+- A separate idempotency token on the form: rejected. It duplicates state that
+  `processedRows` already holds, and it would have to be invalidated, stored and
+  expired — three ways to get wrong in exchange for guarding against a
+  re-submission that is already harmless.
 
 ### D10: Duplicate check runs at insert time, and the choice continues the chunk
 
@@ -444,10 +478,10 @@ this `ImportRun`'s `processedRows` and Y is the sum of `processedRows` across
 all import runs. No summary page and no per-entity breakdown.
 
 **Rationale:** Enough signal for a one-shot migration without a second counter or
-a summary view. Because there is no skip action (D2), `processedRows` is
-literally the number of organizations created, so `X` needs no qualification and
-the two counters of the earlier design are not needed to tell a saved row from a
-skipped one.
+a summary view. Because there is no skip action (D2), `processedRows` is the
+number of source rows that became a persisted organization — either created or
+merged into one — so `X` needs no qualification, and the two counters of the
+earlier design are not needed to tell a saved row from a skipped one.
 
 ## Architecture
 
@@ -491,8 +525,10 @@ flowchart TB
 
 ### Import Flow (Dynamic)
 
-Upload and first chunk; later chunks repeat the tail. The stop/resume and
-duplicate-conflict paths are described in D7 and D10.
+Upload and first chunk; later chunks repeat the tail. A stop — a row the
+database rejects or a duplicate name — ends the request at that row and the
+admin re-approves, so the loop below is a straight line: it never branches on a
+condition that needs the admin in the middle of a chunk.
 
 ```mermaid
 sequenceDiagram
@@ -516,36 +552,29 @@ sequenceDiagram
     IP->>P: записи этого пакета
     P->>IP: InteractionDateParser, CsvRowMapper, DTO
     IP-->>IC: не более 25 редактируемых строк
-    IC-->>Admin: таблица пакета, прогресс, предупреждение об однократной отправке
+    IC-->>Admin: таблица пакета и прогресс
 
     Admin->>IC: POST /admin/import/{id}/approve
+    IC->>IP: persistRows — строки пакета, начиная с processedRows+1
     loop для каждой строки пакета
-        IC->>IP: persistRows — своя транзакция на строку
         IP->>DB: проверка дубликата по имени
-        alt найден дубликат
-            IP-->>IC: конфликт на этой строке
-            IC-->>Admin: тот же пакет с этой строки, выбор «слить»/«создать»
-            Admin->>IC: утверждение с выбором
-            IC->>IP: persistRows — строка и остаток пакета
-        else дубликата нет
-            IP->>DB: INSERT organization, contacts, calls
-            IP->>DB: processedRows + 1
-        end
+        IP->>DB: INSERT organization, contacts, calls
+        IP->>DB: processedRows + 1
     end
-    alt обработаны все строки
-        IC-->>Admin: 302 в список с итоговым сообщением
-    else остались строки
-        IC-->>Admin: 302 на следующий пакет
-    end
-
-    Note over IP,DB: сбой на строке — откат только этой строки,<br/>
-    предыдущие остаются, пакет отображается с этой строки,<br/>
-    введённые значения сохраняются
+    IC-->>Admin: 302 — следующий пакет, либо список с итогом при processedRows >= totalRows
 ```
+
+Стоп-путь (строка с пустым именем, отказ базы или конфликт по имени) обрывает
+этот цикл: `persistRows` доходит до строки, останавливается и возвращает её, а
+контроллер перерисовывает пакет **с этой строки**, с сохранёнными введёнными
+значениями и описанием проблемы (D7, D10). Повторное утверждение этой формы
+сохраняет строку и остаток пакета; строки, уже учтённые в `processedRows`,
+пропускаются (D9).
 
 ### Replacement Flow (Dynamic)
 
-The payload is a CSV file and the previous file is always retained (D8).
+The payload is a CSV file, the run's current file stays readable until the
+confirmation, and the run is addressed by URL at every step (D8).
 
 ```mermaid
 sequenceDiagram
@@ -555,17 +584,18 @@ sequenceDiagram
     participant DB as MySQL
 
     Admin->>IC: POST /admin/import/{id}/replace (новый файл)
-    IC->>ST: сохранить новый файл, прежний не удалять
-    IC->>ST: прочитать оба файла
-    Note over IC: отчёт — числа строк, строка продолжения и<br/>организация на ней, номера изменившихся строк.<br/>Сессия не меняется
-    IC-->>Admin: страница подтверждения
+    IC->>ST: сохранить новый файл
+    IC->>ST: прочитать текущий файл прогона и новый
+    Note over IC: отчёт — числа строк, строка продолжения и<br/>организация на ней, номера изменившихся строк.<br/>Прогон не меняется
+    IC-->>Admin: страница подтверждения<br/>/admin/import/{id}/replace?candidate=KEY
 
     alt администратор отменяет
         Admin->>IC: отмена
         IC-->>Admin: файл, processedRows и totalRows прежние
     else администратор подтверждает
-        Admin->>IC: подтверждение
-        IC->>DB: totalRows = новое число строк, processedRows сохранён
+        Admin->>IC: подтверждение (id и candidate в URL)
+        IC->>DB: filename и storageKey → новый файл,<br/>totalRows = новое число строк, processedRows сохранён
+        IC->>ST: удалить прежний файл прогона
         IC-->>Admin: 302 на проверку, уведомление о строке и организации
     end
 ```
@@ -588,40 +618,48 @@ sequenceDiagram
   two different names is not detected as a duplicate at all: the two real pairs
   in the export become four organizations, and resolving them is a manual
   merge (ADR-0015).
-- **Importing 260 past next-contact dates floods the overdue-calls dashboard**
-  → Accepted deliberately. The information is real, and the resulting
-  count is readable rather than silently lost. The alternative — dropping
-  already-past dates — discards 83% of the column.
+- **Importing 260 past next-contact dates** → Accepted deliberately. The
+  information is real, and dropping the already-past dates would discard 83% of
+  the column. Note what it actually costs: the dashboard's overdue figures
+  (`CallRepository::statistics`) count `scheduled_at` only for yesterday, the
+  last 7 and the last 30 days, so old dates do not inflate the figures — they
+  surface as `nextCall` being null on the panel row and in the call history,
+  not as a spike on the dashboard. The rows that do land in a figure are the
+  recent ones, and those were genuinely missed calls.
 - **No rollback on stop** → By design. Previously saved data persists, the
   stored file is kept, and the import can be resumed. The proposal explicitly
   states this.
 - **A failure stops the chunk midway** → By design: rows saved before the
-  failure stay, `processedRows` points at the last saved row, and the package is
-  re-displayed from that row with the values entered for the rest, so the
-  import resumes from the last inserted row.
+  failure stay, `processedRows` points at the last saved row, the message names
+  the source row and what is wrong with it, and the package is re-displayed
+  from that row with the values entered for the rest, editable in place, so the
+  import resumes from the last inserted row (D7).
 - **A duplicate stops the chunk, and the choice finishes it** → The package is
   re-displayed from the conflicting row with the entered values preserved; the
   merge/create choice is submitted with the same form and the rest of the chunk
   is persisted in the same request (D10). There is no hard abort, because D9
   gives a run no way to be abandoned — see D10.
-- **The approval form is not idempotent** → Accepted (D9): a second submission
-  of the same form inserts its rows again. The page states that the form is
-  submitted once, and a duplicate submission produces duplicate names, which
-  the duplicate dialog then handles. No guard silently swallows a re-submit.
+- **The approval form is idempotent** → By construction (D9): the server
+  persists from `processedRows + 1`, so a re-submitted stale form saves nothing
+  a second time and skips no file row. No token, no warning, nothing to expire.
 - **A replacement can shift the resume point** → A reordered file moves the
   boundary. D8 makes this visible before anything is written: the confirmation
   page lists the row numbers whose content differs within the already-processed
   prefix. The report informs, it does not block — content that changed inside the
   prefix stays as originally inserted, and correcting it is a manual edit.
+- **A replacement deletes the file it replaces** → Deliberate (D5, D8). The run
+  switches to the new payload and the superseded file is removed, so repeated
+  corrections of the export do not accumulate. The file survives only until the
+  admin confirms, which is all the report needs it for.
 - **Single active import run** → Enforced on upload (D9): a new upload or
   submission is rejected while any run has `processedRows < totalRows`.
   Opening the review page of a run while another is unfinished redirects
   to that unfinished import. The check must be skipped for a run's own
   replacement (D8). Two admins interleaving actions on the one active run
-  are not prevented, and a repeated submission of the same form duplicates rows
-  (D9).
+  are not prevented; their writes still serialise on `processedRows`, and the
+  duplicate dialog catches the interleaving they cause.
 - **No skip action** → A row that cannot be saved (empty name, unresolvable
-  duplicate the admin declines to resolve) blocks approval of that row rather
+  duplicate the admin declines to resolve) stops the run at that row rather
   than advancing past it. This is a deliberate simplification: with
   `processedRows` counting saved rows only, the completion flash reports
   organizations actually created. The cost is that a chunk cannot be finished

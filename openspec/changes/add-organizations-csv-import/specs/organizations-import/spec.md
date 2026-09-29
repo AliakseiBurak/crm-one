@@ -116,7 +116,9 @@ and `Следующий контакт`. It does not apply to any other column.
 
 An interaction entry SHALL begin with a date token enclosed in parentheses. A
 parenthesised group is read as a date token only when it starts with a date whose
-day, month and year are all unambiguous. The recognised shapes are:
+day, month and year are all unambiguous. A date is read in the time zone of the
+database, so a call made from a date token is stored at 12:00 of that day in
+that time zone. The recognised shapes are:
 
 | Shape | Example | Reading |
 | --- | --- | --- |
@@ -250,7 +252,10 @@ record with `totalRows` equal to the number of non-empty data records
 
 The system SHALL display a table of all import runs on the
 `/admin/import` page with columns: filename, total rows, processed rows,
-creation date, and an action column. The action column SHALL show a
+creation date, last processed date, and an action column. The last processed
+date SHALL show when a row of this run was last saved, and be empty while the
+run has no saved rows. The system SHALL update it every time a row of the run is
+saved. The action column SHALL show a
 «Начать» link when `processedRows = 0`, a «Продолжить» link when
 `0 < processedRows < totalRows`, and nothing when `processedRows >= totalRows`.
 A run is completed when `processedRows` is greater than or equal to
@@ -261,7 +266,17 @@ creation date descending (newest first).
 
 - **WHEN** администратор открывает `/admin/import`
 - **THEN** отображается таблица со всеми ранее созданными импортами
-- **AND** каждый ряд показывает имя файла, количество строк, обработанные строки и дату
+- **AND** каждый ряд показывает имя файла, количество строк, обработанные строки, дату создания и дату последней обработанной строки
+
+#### Scenario: Дата последней обработанной строки
+
+- **WHEN** у импорта с processedRows = 50 последняя строка сохранена 12 марта
+- **THEN** в его строке таблицы отображается 12 марта как дата последней обработанной строки
+
+#### Scenario: Дата последней обработанной строки ещё пуста
+
+- **WHEN** импорт создан, но ни одна строка не сохранена (processedRows = 0)
+- **THEN** дата последней обработанной строки в его строке таблицы пуста
 
 #### Scenario: Кнопка «Начать» для нового импорта
 
@@ -297,7 +312,12 @@ text as `notes`. The system SHALL parse the «Контакты» column
 heuristically: extract phone numbers by regex (`+ digits, spaces, dashes,
 parentheses`), email addresses by regex (`@` with domain), and remaining
 text as contact name and position. Multiple contacts in one cell SHALL be
-split when a new name-like pattern is detected. The system SHALL truncate
+split when a new name-like pattern is detected. `Contact.name` is mandatory in
+the database, so a fragment that yields no name-like text SHALL still be
+imported as a contact whose name is the constant «Без имени»; the import SHALL
+NOT drop such a fragment. Extracted contact values SHALL be truncated to the
+column widths of `Contact`: name, email and position to 255 characters, phone
+to 32. The system SHALL truncate
 `Organization.name` and `Organization.coursesAttended` to 255 characters. The
 system SHALL store the «Учились у нас» cell as free text on
 `Organization.coursesAttended` without boolean coercion; an empty or
@@ -323,6 +343,17 @@ whitespace-only cell SHALL yield null.
 
 - **WHEN** CSV-строка содержит пустую колонку «Контакты»
 - **THEN** создаётся пустой массив DTO контактов
+
+#### Scenario: Контакт без выделенного имени
+
+- **WHEN** в колонке «Контакты» есть фрагмент, состоящий только из телефона «+7-900-111-11-11»
+- **THEN** создаётся контакт с именем «Без имени» и телефоном «+7-900-111-11-11»
+- **AND** фрагмент не отбрасывается
+
+#### Scenario: Обрезка телефона контакта
+
+- **WHEN** из ячейки «Контакты» извлекается значение длиннее 32 символов
+- **THEN** значение phone обрезается до 32 символов
 
 #### Scenario: Обрезка названия организации до 255 символов
 
@@ -351,9 +382,11 @@ file as a **table**, one organization per row. The chunk size SHALL define only
 how many rows the user reviews at a time and SHALL NOT affect how rows are
 persisted (each row is saved independently — «Утверждение пакета»). Each table
 row SHALL show pre-parsed and editable values: organization name, description,
-coursesAttended, website, city, contacts (name, phone, email, position) and
-calls (date, notes). The table SHALL NOT show an annual-plan field and SHALL NOT
-show a list of unrecognised date tokens. The user SHALL be able to edit any
+coursesAttended, website, contacts (name, phone, email, position) and
+calls (date, notes). The table SHALL NOT show an annual-plan field, SHALL NOT
+show a city field (the source format declares no city column, so there is
+nothing to pre-fill and nothing to review) and SHALL NOT show a list of
+unrecognised date tokens. The user SHALL be able to edit any
 field, and SHALL be able to add or remove contacts and add or remove calls. The
 page SHALL display the current progress (`processedRows / totalRows`). The
 system SHALL derive the reviewed chunk from the progress of the import itself:
@@ -364,9 +397,12 @@ not depend on server-side run state. The system SHALL NOT take the chunk
 position from the request: a position supplied by the client SHALL NOT shift
 the chunk.
 
-The page SHALL state that the approval form is submitted once and that
-submitting the same form a second time inserts the rows it carries again. The
-import MAY be interrupted at any point and continued from the last inserted
+The approval form MAY be submitted more than once. On every submission the
+system SHALL persist starting from `processedRows + 1` and SHALL ignore any
+submitted row at or below `processedRows`, so a re-submitted form inserts
+nothing a second time and skips no row of the source file.
+
+The import MAY be interrupted at any point and continued from the last inserted
 row, which is the purpose of the progress indicator.
 
 When the page of a run is opened while a *different* `ImportRun` has
@@ -401,10 +437,17 @@ package of the other run.
 - **WHEN** администратор открывает один и тот же адрес страницы импорта дважды, не утверждая пакет
 - **THEN** оба раза отображается один и тот же пакет
 
-#### Scenario: Предупреждение о повторной отправке формы
+#### Scenario: Повторная отправка формы не дублирует организации
+
+- **WHEN** администратор утвердил пакет, и ту же форму отправляет повторно
+- **THEN** повторная отправка не создаёт ни одной организации
+- **AND** ни одна строка файла не пропускается: обработка начинается с processedRows + 1
+
+#### Scenario: В прогоне нет города
 
 - **WHEN** отображается пакет для проверки
-- **THEN** на странице указано, что форма утверждения отправляется один раз
+- **THEN** в таблице нет поля «Город»
+- **AND** при сохранении строки `Organization.city` остаётся равным null
 
 #### Scenario: Проверка чужого импорта при незавершённом
 
@@ -419,10 +462,12 @@ package of the other run.
 ### Requirement: Утверждение пакета
 
 The system SHALL process the rows of the current chunk when the user submits
-the approval form. A chunk is only the number of rows the user reviews at a
-time (up to 25) and SHALL NOT be a transaction boundary: each row SHALL be
-saved in its own database transaction. For each row the system SHALL create
-an Organization entity, associated Contact entities, and associated Call
+the approval form, starting from `processedRows + 1` and ignoring any submitted
+row at or below it, so that a re-submitted form saves nothing a second time and
+skips no row of the source file. A chunk is only the number of rows the user
+reviews at a time (up to 25) and SHALL NOT be a transaction boundary: each row
+SHALL be saved in its own database transaction. For each row the system SHALL
+create an Organization entity, associated Contact entities, and associated Call
 entities, and SHALL increment `processedRows` by one. `processedRows` counts
 rows that were saved; there is no separate counter for saved rows. The system
 SHALL redirect back to the review page for the next chunk, or to the import
@@ -432,10 +477,21 @@ If a row fails to save, its transaction SHALL roll back (no partial data for
 that row), rows already saved in the same chunk SHALL remain, processing
 SHALL stop, and the system SHALL display the error message for the failed
 row together with a notice that the import can be resumed from the last
-processed row. The error message SHALL NOT be stored on the run. The
-package SHALL then be re-displayed starting from the row that was not saved,
-with the values the user entered for the rows after it preserved, so that
-processing resumes from the last inserted row without re-entering them.
+processed row. The error message SHALL name the number of the row in the source
+file and SHALL describe what is wrong with it, and SHALL state that the admin
+can either correct the value in the table and approve again, or fix the source
+file at that row and upload it again as a replacement, after which the import
+continues from the same row. The error message SHALL NOT be
+stored on the run. The package SHALL then be re-displayed starting from the row
+that was not saved, with the values the user entered for the rows after it
+preserved, so that processing resumes from the last inserted row without
+re-entering them. The failed row SHALL be editable in place, and rows after it
+SHALL NOT be saved while the stop stands.
+
+A row with an empty organization name SHALL stop the import in the same way:
+the row is not saved, `processedRows` is not advanced, and the row is displayed
+for correction with an error state. There is no partial acceptance of the rest
+of the chunk: the rows after a stopped row are not saved.
 
 #### Scenario: Сохранение пакета из 25 строк
 
@@ -449,7 +505,28 @@ processing resumes from the last inserted row without re-entering them.
 - **THEN** эта строка не сохраняется
 - **AND** строки пакета, сохранённые до неё, остаются в базе
 - **AND** processedRows указывает на последнюю успешно обработанную строку
-- **AND** отображается сообщение об ошибке для этой строки и о возможности продолжить с последней обработанной позиции
+- **AND** отображается сообщение об ошибке, в котором назван номер строки в файле и суть проблемы
+- **AND** отображается сообщение о возможности продолжить с последней обработанной позиции
+
+#### Scenario: Пустое название останавливает пакет
+
+- **WHEN** администратор утверждает пакет, в котором у 13-й строки пустое название
+- **THEN** строки 1–12 сохраняются, 13-я и последующие не сохраняются
+- **AND** processedRows остаётся равным 12
+- **AND** пакет отображается снова с 13-й строки, с пустым названием, помеченным как ошибочное
+- **AND** после исправления названия и повторного утверждения сохраняются 13-я строка и остаток пакета
+
+#### Scenario: Исправление остановившейся строки на месте
+
+- **WHEN** пакет отображается заново с остановившейся строки
+- **THEN** значения, введённые администратором в этой и последующих строках, отображаются без изменений
+- **AND** остановившаяся строка доступна для правки в той же таблице
+
+#### Scenario: Исправление файла и повторная загрузка
+
+- **WHEN** при сохранении строки 13 администратору сообщают номер строки в файле и суть проблемы
+- **THEN** сообщение предлагает исправить значение в таблице либо исправить файл на этой строке и загрузить его заново
+- **AND** после загрузки исправленного файла импорт продолжается со строки 13
 
 #### Scenario: Завершение импорта
 
@@ -461,7 +538,10 @@ processing resumes from the last inserted row without re-entering them.
 
 The system SHALL check Organization.name uniqueness when each row is
 persisted (at insert time), against the database state at that moment —
-including organizations inserted earlier in the same chunk or run. The
+including organizations inserted earlier in the same chunk or run. The check
+SHALL be a name comparison against the database, so it follows the database's
+own comparison semantics for text; no additional normalisation of the name is
+applied beyond truncation to 255 characters. The
 check SHALL run only when a row is saved; a package SHALL NOT be rejected for
 a name that exists in the database.
 
@@ -497,6 +577,11 @@ is not abandoned for it.
 - **THEN** при вставке второй строки система останавливается и помечает конфликт
 - **AND** продолжение возможно с этой строки
 
+#### Scenario: Сравнение дубликата средствами базы
+
+- **WHEN** в базе есть организация «Нафтан», а в строке импорта указано «нафтан»
+- **THEN** проверка дубликата опирается на сравнение средствами базы и учитывает её правила регистра
+
 #### Scenario: Конфликт в середине пакета — пакет продолжается
 
 - **WHEN** конфликт по названию возникает на 13-й строке пакета из 25 строк
@@ -512,19 +597,21 @@ is not abandoned for it.
 ### Requirement: Обработка ошибочных данных
 
 The system SHALL validate each row during chunk display (review time
-only — this SHALL NOT pause persistence). When a required field
-(Organization.name) is empty, the system SHALL highlight the field with
-an error state. A call that carries no unambiguous date SHALL be shown with an
-empty date field and its original text in the notes, and the user SHALL be able
-to correct the date before approval. An empty name SHALL block approval of that
-row until it is filled in. Invalid data SHALL NOT prevent the rest of the chunk
-from being saved.
+only — this SHALL NOT pause persistence of the other values). A call that
+carries no unambiguous date SHALL be shown with an empty date field and its
+original text in the notes, and the user SHALL be able to correct the date
+before approval. An empty organization name SHALL stop the approval of the
+package at that row, with the name field marked as an error and the row
+available for correction in place. Data that has no unambiguous reading — a
+date that is not a date, a `Следующий контакт` value outside the date grammar —
+SHALL NOT stop the import: it is displayed as given and the user MAY edit it in
+place.
 
 #### Scenario: Пустое название организации
 
 - **WHEN** в строке колонка «Компания» пуста
 - **THEN** поле названия организации подсвечивается как ошибочное
-- **AND** строка не может быть утверждена, пока название не заполнено
+- **AND** утверждение пакета останавливается на этой строке до заполнения названия
 
 #### Scenario: Звонок без даты в проверке пакета
 
@@ -533,16 +620,26 @@ from being saved.
 - **AND** пользователь может ввести дату вручную при проверке пакета
 - **AND** при утверждении пакета отдельная остановка для этой записи не происходит
 
+#### Scenario: «Следующий контакт» не является датой
+
+- **WHEN** в колонке «Следующий контакт» указано значение, не читающееся как дата по базовой грамматике
+- **THEN** значение отображается в проверке пакета как есть, с возможностью правки на месте
+- **AND** утверждение пакета из-за него не останавливается
+
 ### Requirement: Подтверждение замены файла импорта
 
 The system SHALL let the administrator supply a replacement file on the import
 review page while `processedRows < totalRows`. In every case the system SHALL
 NOT modify the run on submission. It SHALL validate the replacement against
 the format declared for the import's own source — the format the run's
-source is stored with — SHALL retain the previously stored file, and SHALL render
-a confirmation page carrying a report before anything is written. A replacement
-that fails validation SHALL be rejected with the corresponding report, the
-current file SHALL NOT be changed, and the confirmation page SHALL NOT be shown.
+source is stored with — SHALL keep the run pointing at its current file, and
+SHALL render a confirmation page carrying a report before anything is written.
+The confirmation page SHALL address the run and the candidate file by URL
+(`/admin/import/{id}/replace?candidate=<storageKey>`), so that the report is
+reproducible from its address and no server-side state is required to confirm
+it. A replacement that fails validation SHALL be rejected with the
+corresponding report, the current file SHALL NOT be changed, and the
+confirmation page SHALL NOT be shown.
 
 The report SHALL contain the non-empty record count of the previous file and of
 the new file, the resume row (`processedRows + 1`), the organization name at
@@ -552,16 +649,18 @@ A row's content SHALL be compared as the format defines a row, so that a
 difference in how the payload is written is not reported as a changed row. The
 page SHALL offer a confirmation action and a cancel action.
 
-The system SHALL rely only on the row numbers and the retained previous file for
+The system SHALL rely only on the row numbers and the run's current file for
 this decision. It SHALL NOT use `Organization.createdAt`, `Organization.updatedAt`
 or any other database state of previously imported organizations.
 
-The confirmation action SHALL set `totalRows` to the new file's non-empty record
-count, SHALL preserve `processedRows`, and SHALL continue processing with the row
-next to the last processed one. The system SHALL show a notification naming that
-row and the organization at it. A replacement file whose record count is below
-`processedRows` SHALL be confirmed with a warning instead of being rejected, and
-the import SHALL then be treated as completed.
+The confirmation action SHALL point the run at the new file: `filename` and
+`storageKey` SHALL be replaced with the new file's, the file the run pointed at
+before SHALL be deleted, `totalRows` SHALL be set to the new file's non-empty
+record count, and `processedRows` SHALL be preserved. Processing SHALL then
+continue with the row next to the last processed one. The system SHALL show a
+notification naming that row and the organization at it. A replacement file
+whose record count is below `processedRows` SHALL be confirmed with a warning
+instead of being rejected, and the import SHALL then be treated as completed.
 
 The already-processed prefix SHALL stay frozen: row content that changed within
 `processedRows` SHALL NOT be re-parsed, re-reviewed, or re-inserted. When
@@ -583,10 +682,17 @@ The already-processed prefix SHALL stay frozen: row content that changed within
 #### Scenario: Подтверждение замены
 
 - **WHEN** администратор подтверждает замену файла с 400 строк на файл с 402 строками при processedRows = 50
-- **THEN** totalRows обновляется до 402
+- **THEN** прогон переключается на новый файл: имя файла обновляется, прежний файл удаляется
+- **AND** totalRows обновляется до 402
 - **AND** processedRows остаётся равным 50
 - **AND** отображается уведомление о том, что импорт продолжается со строки 51 и с названием организации на ней
-- **AND** следующий пакет начинается со строки 51
+- **AND** следующий пакет начинается со строки 51 и читается из нового файла
+
+#### Scenario: Отмена замены не удаляет текущий файл
+
+- **WHEN** администратор отменяет замену на странице подтверждения
+- **THEN** текущий файл остаётся у прогона, а файл-кандидат удаляется как невостребованный
+- **AND** processedRows и totalRows остаются прежними
 
 #### Scenario: Изменение строк в уже обработанной части
 
@@ -612,10 +718,14 @@ The already-processed prefix SHALL stay frozen: row content that changed within
 The system SHALL record the admin user who initiated each import
 (`createdBy`). Imported organizations SHALL NOT be assigned to any
 group. Imported organizations SHALL have `created_by` set to the
-admin who ran the import. Imported calls SHALL have `madeBy` set to
-the admin who ran the import. Imported calls SHALL have `madeAt` set
-to the parsed date from the CSV (with time 12:00) and SHALL NOT have
-result flags (isDeal, isRefusal, isNoAnswer) set.
+admin who ran the import. Fields the source format does not carry SHALL keep
+their defaults: an imported organization SHALL be active (`isActive = true`),
+SHALL NOT be opted out (`isOptedOut = false`), and `unp` and `industry` SHALL
+remain null. Imported calls that record a made call SHALL have `madeBy` set to
+the admin who ran the import; a planned call SHALL NOT have `madeBy` set,
+since nobody made it. Imported calls SHALL have `madeAt` set
+to the parsed date from the CSV (with time 12:00, in the database time zone)
+and SHALL NOT have result flags (isDeal, isRefusal, isNoAnswer) set.
 
 #### Scenario: Импортированные организации без групп
 
@@ -626,11 +736,17 @@ result flags (isDeal, isRefusal, isNoAnswer) set.
 
 - **WHEN** администратор «admin» завершает импорт организации «Нафтан»
 - **THEN** created_by организации «Нафтан» равен пользователю «admin»
+- **AND** организация активна, не отписана, а unp и industry равны null
 
 #### Scenario: Импортированные звонки с автором
 
 - **WHEN** администратор «admin» завершает импорт звонка по организации «Нафтан» от 25.08.2026
 - **THEN** у звонка madeBy = «admin» и madeAt = 25.08.2026 12:00:00
+
+#### Scenario: Плановый звонок без автора
+
+- **WHEN** импортирован плановый звонок из колонки «Следующий контакт»
+- **THEN** у звонка madeAt = null, scheduledAt задан, а madeBy = null
 
 #### Scenario: Импортированные контакты без основного контакта
 
