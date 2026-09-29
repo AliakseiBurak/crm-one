@@ -1,4 +1,4 @@
-# Design: CSV + JSON Import
+# Design: CSV import
 
 ## Context
 
@@ -17,12 +17,11 @@ inventory figures are only reproducible when the CSV is read as RFC 4180.
 The export is also the wrong shape for a database. 4 670 interaction entries sit
 inside a single cell per organization, contacts are free-form text, 24% of names
 carry a parenthetical, and 58 values of «Составление плана на год» are website
-addresses. A second path is therefore added: the same data arrives as JSON
-produced by a language model working from the export or from a plain list of
-company names, with contacts, calls and organization fields already separated
-and with `industry`, `website` and `city` filled in (D12–D16). The JSON path
-exists because the heuristics below are the fragile part, and a model does that
-separation better than a regex — while a human still confirms the result.
+addresses. That shape is also why a second, model-produced source format and a
+browser-side LLM client exist: they are the whole subject of the follow-up
+change `add-organizations-json-import`, which extends this design rather than
+replacing it. Nothing in this document depends on that change, and that change
+depends on everything here.
 
 Existing patterns used: `CampaignAttachmentStorage` for file storage,
 `CampaignSendProcessor` for batch logic, `#[IsGranted]` for access control,
@@ -32,13 +31,9 @@ controller-driven chunk processing.
 ## Goals / Non-Goals
 
 **Goals:**
-- Interactive wizard: upload or submit → parse → review/approve chunks of 25 → persist
-- Two front-ends, one back-end: a CSV tab for the legacy export and a JSON tab
-  for a model-produced answer, merging at the DTO layer (D12)
+- Interactive wizard: upload → parse → review/approve packages of 25 → persist
 - Heuristic parsing of unstructured CSV columns (contacts, interactions)
-- LLM-assisted enrichment of `industry`, `website` and `city`, with the provider
-  called from the browser and no key on the server (D15)
-- User can edit, add and remove contacts and calls before approving each chunk
+- User can edit, add and remove contacts and calls before approving each package
 - Duplicate detection with merge/create-new choice
 - Track import progress in DB; resume across runs
 - Abort at any point without losing previously saved data
@@ -47,11 +42,11 @@ controller-driven chunk processing.
 - Background/async processing. There is no worker, no scheduler tick and no
   polling endpoint: the user advances the import by approving a chunk.
 - Auto-group assignment for imported organizations
-- Import of non-CSV formats other than the JSON defined in «Формат
-  JSON-данных» (XLSX, Excel uploads and Google Sheets links are not read)
+- Any second source format, any LLM component, and any browser-side outbound
+  request. `sourceFormat` is created here so that the follow-up change needs no
+  migration, but this change only ever writes `csv`. XLSX, Excel uploads and
+  Google Sheets links are not read either.
 - Bulk update of existing organizations (only create/merge)
-- Server-side calls to an LLM provider, and any persistence of an API key
-  (D15)
 - Automatic recognition that two rows describe the same company. The merge
   dialog (D10) is the mechanism, and no field stores alternative names
   (ADR-0015)
@@ -161,9 +156,10 @@ file).
 **Rationale:** Consistent with existing storage approach. Files are never
 deleted by the import flow: they are kept for reference after completion and
 for resuming after a stop or an error. The directory is named `imports`, not
-`csv-imports`, because the JSON path stores its payload here too — pasted text
-is written to disk exactly as an uploaded file is, which is what makes the
-replacement flow (D8) identical on both tabs.
+`csv-imports`, because a stored payload is not bound to the format that produced
+it: pasted text is written to disk exactly as an uploaded file is. D8's
+replacement flow depends on that — a run's previous payload is always readable
+whatever it was written from.
 
 ### D6: Input format declared in the spec, quirks observed from the export
 
@@ -453,207 +449,23 @@ literally the number of organizations created, so `X` needs no qualification and
 the two counters of the earlier design are not needed to tell a saved row from a
 skipped one.
 
-### D12: The JSON path shares every stage after parsing
-
-**Choice:** the import has two front-ends and one back-end.
-
-```mermaid
-flowchart TB
-    CSVTab["Вкладка CSV<br/>файл выгрузки"]
-    JSONTab["Вкладка JSON<br/>вставка ответа или файл"]
-    Csv["CsvParser + CsvRowMapper<br/>эвристика"]
-    Json["JsonImportParser<br/>по JSON-схеме"]
-    Dates["InteractionDateParser (D6a)<br/>только колонки звонков"]
-    DTO["OrganizationData / ContactData / CallData"]
-    Proc["ImportProcessor<br/>пакет не более 25, транзакция на строку,<br/>конфликт дубликата продолжает пакет, итоговое сообщение"]
-
-    CSVTab --> Csv
-    JSONTab --> Json
-    Csv --> Dates
-    Json --> Dates
-    Dates --> DTO
-    Csv --> DTO
-    Json --> DTO
-    DTO --> Proc
-```
-
-Both front-ends produce the same DTOs, so review, editing, persistence, the
-duplicate dialog, per-row transactions and the completion flash are written
-once. The only difference is how a row is produced: the CSV tab parses cells
-with heuristics, the JSON tab receives already-structured objects.
-
-**Rationale:** the value of the JSON path is not a second import — it is that
-contacts, calls and organization fields arrive already split, so the fragile
-heuristics of D3 are not on that path at all. Splitting the two paths after
-parsing would duplicate the hardest and least stable part of the flow.
-
-**Consequence:** «Следующий контакт» becomes a *planned* `Call`
-(`scheduledAt` set, `madeAt` null) on both paths. 314 dates in the export,
-260 of them already past, become overdue rows in the «Просроченные звонки»
-dashboard section on day one. This is accepted deliberately: the data is real
-and dropping it loses information, while the dashboard count is a number the
-user can read past.
-
-### D13: One JSON Schema file is the source of truth for three consumers
-
-**Choice:** a single JSON Schema (draft 2020-12) document is stored in the
-repository and drives all three of:
-
-1. the field dictionary rendered inside the prompt shown on the JSON tab;
-2. the file served by «Скачать JSON-схему» (`Content-Disposition: attachment`);
-3. server-side validation of a pasted response.
-
-**Rationale:** the failure this prevents is the prompt and the importer
-disagreeing — the prompt tells the model a field is optional while the
-validator rejects it, or the prompt documents a limit the validator does not
-enforce. Deriving all three from one document makes that class of bug
-impossible rather than merely unlikely. `justinrainbow/json-schema` is already
-present in `composer.lock` as a transitive dependency and is promoted to a
-direct requirement; no new package is introduced.
-
-**Shape** — one object per organization, nested. The model's natural output
-shape and the database's shape coincide, so no assembly step is needed:
-
-```json
-{
-  "organizations": [
-    {
-      "name": "АбесТрейд",
-      "industry": "ИТ-дистрибьютор",
-      "city": "Минск",
-      "website": "https://abeslab.by",
-      "description": "Сертифицированный дистрибьютор ПО.",
-      "coursesAttended": "",
-      "contacts": [
-        { "name": "Вячеслав", "position": "начальник отдела обучения",
-          "phone": "+375339027636", "email": "V.Zakrevsky@naftan.by" }
-      ],
-      "calls": [
-        { "date": "29.05.2026", "notes": "Направила КП по всем лагерям" }
-      ],
-      "nextContact": { "date": "08.06.2026", "purpose": "созвониться по КП" }
-    }
-  ]
-}
-```
-
-`unp` is deliberately absent: a model invents those numbers and a wrong one is
-worse than a missing one (ADR-0015). `is_main` is deliberately absent: the
-export does not distinguish a primary contact, and
-`MailingService::effectiveMainContact()` falls back to the lowest-ID contact.
-`annualPlan` is deliberately absent for the same reason the CSV path does not
-populate it: the import has no use for it, and a model asked for a plan
-statement invents one.
-Call `date` values are carried **verbatim** — the JSON path reuses
-`InteractionDateParser` (D6a) and does not impose ISO 8601, because the source
-dates are not ISO and reformatting them is a lossy guess. A `date` without an
-unambiguous year stays in the entry's notes rather than becoming a dated call.
-
-### D14: One payload per run, from a paste or a file, chunked by the application
-
-**Choice:** the JSON tab accepts a response containing any number of
-organizations, supplied either as pasted text or as an uploaded file. The two
-are the same thing from that point on: the application counts the
-`organizations` array, writes the payload to the run's stored file, sets
-`totalRows` to the array length, and then presents the same 25-organization
-review chunks as the CSV tab. `processedRows` therefore counts organizations, not
-CSV records, on both paths.
-
-**Rationale:** the user should not have to split a 386-organization response
-into 20 pieces by hand. `totalRows` keeps its meaning — organizations — so the
-progress indicator, the "Продолжить" link and the completion flash behave
-identically on both tabs, and `ImportRun` needs no second notion of row
-count.
-
-Accepting a file as well as a paste costs one form field and buys three things:
-a response produced earlier can be re-imported without being re-copied through
-the clipboard; the payload is a file like any other, so the replacement flow
-(D8) is available on the JSON tab with no extra mechanism; and the LLM response
-path has somewhere to put a large body of text other than a textarea.
-
-**Cost:** one bad character invalidates the whole payload, so the validator
-reports the offending organization by index and field rather than failing
-silently. This is accepted: a per-chunk submission protocol moves the failure
-handling burden onto the user for every chunk instead of once.
-
-### D15: The LLM call is made by the browser, the key never reaches the server
-
-**Choice:** a small JavaScript client calls the provider directly from the
-page. Both supported providers are OpenAI-compatible, so one client with a
-`{ baseUrl, apiKey, model }` configuration serves both:
-
-| | OpenRouter | Ollama |
-| --- | --- | --- |
-| Endpoint | `POST https://openrouter.ai/api/v1/chat/completions` | `POST http://<host>:11434/v1/chat/completions` |
-| Auth | `Authorization: Bearer <key>`, plus `HTTP-Referer` / `X-OpenRouter-Title` for attribution | any value, ignored |
-| Model list | `GET /api/v1/models` | `GET /api/tags` |
-| Structured output | `response_format: { type: "json_schema", json_schema: { … } }` | supported through the OpenAI-compatible route |
-
-The key is held in a JavaScript variable backed by `sessionStorage`, never
-`localStorage`, with an explicit «Забыть ключ» action. The response is written
-into the JSON tab's textarea and validated by the same schema as a manual
-paste.
-
-**Rationale:** keeping the key client-side removes the entire class of concerns
-a server-side integration carries — no new entity, no secrets in the vault, no
-key in backups, no audit log to leak, and no dependency on
-`symfony/http-client`. The loss is a server-side record of what was sent, which
-matters little here because the import is still reviewed organization by
-organization and recorded through `ImportRun`.
-
-Two consequences the specification must state:
-
-- an Ollama host must set `OLLAMA_ORIGINS` to the CRM's origin, or the browser
-  blocks the request; this is a deployment prerequisite, not an application
-  setting;
-- a browser-held key is exposed to XSS and to anyone with access to the
-  workstation. This is why the key is session-scoped rather than persisted and
-  why it is never written to a form field the server can read.
-
-**Alternatives considered:**
-
-- Server-side provider calls: would allow audit and rate limiting, but needs
-  key storage, a new dependency and a new surface for a secret. Rejected for a
-  one-shot migration tool.
-- Copy-paste into the user's own chat application: already supported by D14 —
-  the tab works with no key at all. The built-in client exists for convenience
-  and for `response_format`, which makes a malformed response impossible.
-
-### D16: LLM output that cannot be trusted is still reviewed
-
-**Choice:** the JSON path reuses the chunk review form unchanged. Every
-organization arrives in an editable form where the administrator can correct
-fields, add or remove contacts and calls, and skip a row. `response_format`
-reduces malformed JSON; it does not make the *content* correct.
-
-**Rationale:** a model filling `industry` and `website` from public sources
-will occasionally produce a plausible wrong value, and a 386-row import is not
-a thing the user wants to reverse afterwards. The review form is the same
-safety net the CSV path already relies on for heuristic mis-parsing (D3), which
-is why the two paths were merged at the DTO layer in the first place.
-
 ## Architecture
 
 ### Component Diagram
 
-*Assumptions:* purpose = design for an existing monolith; format = plain Mermaid `flowchart`; rigor = lightweight C4-inspired (container + key components only). `totalRows` counts organizations on both tabs (D14).
+*Assumptions:* purpose = design for an existing monolith; format = plain Mermaid `flowchart`; rigor = lightweight C4-inspired (container + key components only). The second source format and the browser-side LLM client are not in this diagram: they are the whole subject of `add-organizations-json-import`, which extends this design.
 
 ```mermaid
 flowchart TB
   subgraph Browser["Browser — администратор"]
-    CSVTab["Вкладка CSV<br/>форма загрузки, список, проверка пакета"]
-    JSONTab["Вкладка JSON<br/>промпт, скачивание схемы,<br/>вставка ответа или выбор файла"]
-    LLMTab["Вкладка LLM<br/>провайдер, ключ, выбор модели"]
-    LLMJS["LlmClient (JS)<br/>OpenAI-совместимый<br/>ключ только в sessionStorage"]
+    ImportPage["Страница импорта<br/>форма загрузки, список, проверка пакета"]
   end
 
   subgraph App["Symfony — ROLE_ADMIN"]
-    IC["ImportController<br/>upload, json, jsonSchema, list,<br/>review, approve, replace, confirmReplace, llm"]
+    IC["ImportController<br/>upload, list, review,<br/>approve, replace, confirmReplace"]
     ST["ImportFileStorage<br/>var/storage/imports<br/>хранит и никогда не удаляет файл"]
-    SCH["ImportJsonSchema<br/>схема — источник истины<br/>промпт, скачивание, валидация"]
     CP["CsvParser<br/>заголовки и записи<br/>обратный слэш — обычный символ"]
     JM["CsvRowMapper<br/>эвристика контактов<br/>фрагменты в description"]
-    JP["JsonImportParser<br/>ответ по схеме"]
     IDP["InteractionDateParser<br/>базовые формы<br/>неясная дата — в заметку"]
     DTO["OrganizationData / ContactData / CallData"]
     IP["ImportProcessor<br/>пакет не более 25<br/>транзакция на строку<br/>проверка дубликата при вставке"]
@@ -662,23 +474,15 @@ flowchart TB
 
   DB[(MySQL<br/>import_run, organization, contact, call)]
 
-  CSVTab --> IC
-  JSONTab --> IC
-  LLMTab --> LLMJS
-  LLMJS -. ответ в поле вставки .-> JSONTab
+  ImportPage --> IC
 
   IC --> ST
   IC --> CP
-  IC --> JP
-  IC --> SCH
   IC --> IP
   IC --> IR
-  JP --> SCH
   CP --> JM
   CP --> IDP
-  JP --> IDP
   JM --> DTO
-  JP --> DTO
   DTO --> IP
   IP --> DB
   IR --> DB
@@ -741,8 +545,7 @@ sequenceDiagram
 
 ### Replacement Flow (Dynamic)
 
-Available on both tabs; the payload is a CSV file, a pasted response or an
-uploaded response, and the previous file is always retained (D8).
+The payload is a CSV file and the previous file is always retained (D8).
 
 ```mermaid
 sequenceDiagram
@@ -786,19 +589,9 @@ sequenceDiagram
   in the export become four organizations, and resolving them is a manual
   merge (ADR-0015).
 - **Importing 260 past next-contact dates floods the overdue-calls dashboard**
-  → Accepted deliberately (D12). The information is real, and the resulting
+  → Accepted deliberately. The information is real, and the resulting
   count is readable rather than silently lost. The alternative — dropping
   already-past dates — discards 83% of the column.
-- **A browser-held API key is exposed to XSS and to a shared workstation**
-  → Mitigated by scope, not removed: the key lives in `sessionStorage` only,
-  `localStorage` is not used, it is never written into a field the server can
-  read, and «Забыть ключ» clears it. The user is told this in the UI.
-- **Ollama may refuse browser requests** → A deployment prerequisite: the
-  Ollama host needs `OLLAMA_ORIGINS` set to the CRM origin. Not detectable from
-  application code, so it is stated in the requirement and the setup notes.
-- **One bad character invalidates a whole JSON paste** → Accepted (D14). The
-  validator names the offending organization by index and field, so the user
-  fixes one character rather than re-splitting 20 chunks.
 - **No rollback on stop** → By design. Previously saved data persists, the
   stored file is kept, and the import can be resumed. The proposal explicitly
   states this.
