@@ -5,7 +5,7 @@
 See proposal.md — Why. This change starts from the state the parent change
 `add-organizations-csv-import` leaves behind: an import page with a CSV upload
 form, an import run record, a file store under `var/storage/imports/`, a
-25-organization review table, a per-row transaction, a duplicate choice and a
+20-organization review table, a per-row transaction, a duplicate choice and a
 completion notice. Everything below assumes that machinery exists; the
 decisions D1–D11 of the parent design apply unchanged unless a JSON source
 forces a difference, and each such difference is called out explicitly.
@@ -22,6 +22,13 @@ a multi-year interaction log, and separating them is heuristic. A language
 model returns the same data already separated, and additionally supplies
 `industry`, `website` and `city`, which the export does not contain at all.
 
+That last sentence is also where this design parts company with the parent in
+exactly one place. The CSV format carries no city, so the parent hides the field
+and its scenario asserts `city` stays null; here the city arrives pre-filled and
+a human is asked to confirm it. Filling a field the reviewer cannot see is not
+review, so the parent's prohibition is made format-conditional (D7) rather than
+inherited wholesale. Everywhere else the parent's rules stand as written.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -32,17 +39,26 @@ model returns the same data already separated, and additionally supplies
 - Filling `industry`, `website` and `city` from the model, with the key and the
   request never reaching the server
 - Keeping the human in the loop: a model answer is reviewed package by package
-  like any other
+  like any other, and the two fields the model invents most are among the ones
+  the review actually shows
+- Strictness declared in the contract rather than applied downstream: a payload
+  that does not satisfy the schema is refused whole, before it becomes a run, and
+  nothing on this path repairs, infers or carries over a value
 
 **Non-Goals:**
 - Server-side calls to any provider, and any persistence of an API key
 - Automatic submission of a model answer
+- Automatic start of the import on submission — like the CSV tab, the run appears
+  in the import list and «Импортировать» starts it (D3)
 - A second progress model: `totalRows` counts organizations on both paths, so
   the review package, the progress indicator and the completion flash are the
   same code
 - Any change to the duplicate dialog, the per-row transaction, the completion
   rule or the derived-chunk rule — these are format-neutral by construction and
   are not re-specified here
+- Any heuristic on this path. There is no note-continuation, no year inference
+  and no length repair, because there is nothing to repair: a model answer that
+  needs repair is the wrong answer
 - Storing alternative organization names to detect "same company, two rows"
   (ADR-0015 — the merge choice is the mechanism)
 - Loading an answer from a URL, or detecting that a replacement answer is older
@@ -142,6 +158,39 @@ populate it. Call `date` values are carried **verbatim** — this path reuses
 `InteractionDateParser` and does not impose ISO 8601, because the source dates
 are not ISO and reformatting them is a lossy guess.
 
+**The constraints live in the document, not in the parser.** `calls[].date` and
+`nextContact.date` carry the same `pattern` the date grammar of the CSV tab
+recognises, `maxLength` repeats the column widths, and `required` marks `name`
+and `contacts[].name`. The consequences are deliberate and are the reason this
+path is stricter than the CSV path:
+
+- a date without a full unambiguous day, month and year — `31.08`, `09.04.202`,
+  `09.04.20255` — is a **schema violation**, reported by organization index and
+  field. It is not appended to the previous call's notes, no year is carried
+  over, and no year is inferred. `InteractionDateParser::parseEntries()` and its
+  note-continuation are therefore not on this path at all;
+- a value longer than its column is a schema violation, not an
+  `ImportRowStopped` at approval time;
+- an absent optional field is null, never an empty string — the model writes what
+  it knows and omits what it does not.
+
+`InteractionDateParser::parseDate()` survives as a **normaliser**, not as a
+validator: it maps `21.10.25` to 2025 and stores the call at 12:00 in the
+database time zone. Its `DATE_PATTERN` and the schema's `pattern` are two
+spellings of one grammar and could drift, so a test asserts that every date the
+schema accepts is parsed by `parseDate()` and that `parseDate()` returns null for
+none of them.
+
+`justinrainbow/json-schema` is already present in `composer.lock`, but as a
+**dev-only transitive dependency** of `friendsofphp/php-cs-fixer` and
+`infection/infection` — it lives in `packages-dev`. Since `make prod-deploy`
+runs `composer install --no-dev`, promoting the package to a direct
+requirement must be accompanied by a regenerated lock file; without it the
+validator class is absent in production. `format` keywords (`email`, `uri`) are
+not used: this library treats them as annotations unless a format constraint
+factory is wired in, and an unenforced keyword in a published contract is worse
+than none.
+
 ### D3: One payload per run, from a paste or a file, chunked by the application
 
 **Choice:** the JSON tab accepts a response containing any number of
@@ -149,14 +198,30 @@ organizations, supplied either as pasted text or as an uploaded file. The two
 are the same thing from that point on: the application counts the
 `organizations` array, writes the payload to the run's stored file, sets
 `totalRows` to the array length, records `sourceFormat = json`, and then
-presents the same 25-organization review packages as the CSV tab.
-`processedRows` therefore counts organizations, not CSV records, on both paths.
+**returns the administrator to the import list**, where the new run appears as a
+row of its own. Parsing into DTOs and building a review package do **not** start
+on submission: they start when the administrator presses «Импортировать» in that
+row, exactly as on the CSV tab. `processedRows` therefore counts organizations,
+not CSV records, on both paths.
 
 **Rationale:** the user should not have to split a several-hundred-organization
 answer into twenty pieces by hand. `totalRows` keeps its meaning —
 organizations — so the progress indicator, the "Продолжить" link and the
 completion flash behave identically, and `ImportRun` needs no second notion of
 row count.
+
+The split between *submitting* and *importing* is inherited deliberately rather
+than re-decided. The parent's reason holds verbatim: counting records and
+checking the format are cheap and happen on submission, so an unusable payload
+is rejected before it becomes a run, while DTO construction is deferred so that a
+pasted answer does not start parsing 300 organizations the moment it is
+accepted. It also keeps `ImportRunRepository::findUnfinished()` meaningful — a run
+created but not yet imported is an active run under the parent's D9 rule on both
+tabs, and the JSON tab does not get a stricter single-active-run regime of its
+own.
+
+The run's `filename` is the uploaded file's client name, or `ответ.json` for a
+pasted answer, because the run list column «Файл» must name something.
 
 Accepting a file as well as a paste costs one form field and buys three things:
 an answer produced earlier can be re-imported without being re-copied through
@@ -212,24 +277,35 @@ Two consequences the specification must state:
 
 ### D5: LLM output that cannot be trusted is still reviewed
 
-**Choice:** this path reuses the package review form unchanged. Every
-organization arrives in an editable form where the administrator can correct
-fields, add or remove contacts and calls, and remove a row. `response_format`
-reduces malformed JSON; it does not make the *content* correct.
+**Choice:** this path reuses the package review form unchanged, except for the
+two fields the parent table does not have at all (D7). Every organization
+arrives in an editable form where the administrator can correct fields, add or
+remove contacts and calls, and remove a row. `response_format` reduces
+malformed JSON; it does not make the *content* correct.
 
 **Rationale:** a model filling `industry` and `website` from public sources will
 occasionally produce a plausible wrong value, and a several-hundred-row import
 is not a thing the user wants to reverse afterwards. The review form is the same
 safety net the CSV path already relies on for heuristic mis-parsing, which is
-why the two paths were merged at the DTO layer in the first place.
+why the two paths were merged at the DTO layer in the first place. This is also
+why D7 exists: a safety net that does not render the field it is supposed to
+check is not a safety net.
 
 ### D6: A JSON run replaces its file with the same report, compared structurally
 
-**Choice:** the replacement flow needs no new mechanism. The parent's D8 is
-already written against "the format declared for the run's source" and "a row
-compared as the format defines a row", so this change only supplies the second
-half of that rule: for a JSON run, two organizations differ when they differ in
-any field, independent of key order and of how the payload is written.
+**Choice:** the replacement flow needs no new mechanism and no new method. It is
+the parent's `ImportController::replace()` and its private
+`finishReplacement()`, with one thing changed: the candidate travels in the URL
+(`/admin/import/{id}/replace?candidate=<storageKey>`), so the report is
+reproducible from its address and nothing about the pending replacement is held
+between the two requests — that rule is load-bearing and is inherited, not
+reinvented. On confirmation the run switches to the new payload, `filename` and
+`storageKey` are replaced, **the file the run pointed at before is deleted**
+(the parent's D5/D8, and the only place the import flow deletes a file), and a
+candidate whose organization count is below `processedRows` is confirmed with a
+warning and completes the run. For a JSON run, two organizations differ when
+they differ in any field, independent of key order and of how the payload is
+written.
 
 **Rationale:** a textual diff of two JSON payloads reports every line as changed
 when nothing changed in the data, which would make the report noise. The
@@ -238,11 +314,81 @@ file — holds unchanged, and so does the exclusion of timestamps: a browser
 supplied payload carries no client timestamp, and a replaced run's organizations
 cannot be mapped back to rows.
 
+**What the implementation actually needs here.** `ImportController::replacementReport()`
+is presently written against `CsvParser::recordText()` and
+`CsvParser::organizationName()` directly, so the format dispatch has to be lifted
+out of the controller before a JSON run can be reported at all: the record source,
+the row-comparison and the name-at-resume-row all become format-dependent. This
+is in addition to `ImportProcessor::processChunk()` and `persistRows()`, which
+are the dispatch points the parent's design names. The comparator lives beside
+the parsers rather than in the controller, so a third format would add one class
+instead of a third branch.
+
 **Consequence:** a replacement of a JSON run validates against the published
 schema, accepts a paste or a file, and renders the same confirmation page with
-the counts in organizations, the resume row and its organization, and the
-differing positions within the processed prefix. The single-active-run check
-still does not apply to a run's own replacement.
+the counts in organizations, the resume row and its organization, the differing
+positions within the processed prefix, and the shorter-file warning. The
+single-active-run check still does not apply to a run's own replacement.
+
+### D7: The review table shows `industry` and `city` for a JSON run, and hides them for a CSV one
+
+**Choice:** `industry` and `city` become reviewable **as a function of the run's
+source format**. A run created from JSON renders two extra columns and accepts
+edits to them; a run created from CSV renders neither, and `city` stays null
+exactly as the parent's requirement says.
+
+```
+                     review table
+              +---------------------+---------------------+
+              |  run.sourceFormat   | "Отрасль" "Город"   |
+              +---------------------+---------------------+
+              |  csv                |  нет                |  <- parent, unchanged
+              |  json               |  да                 |  <- this change
+              +---------------------+---------------------+
+
+              save path:  OrganizationData -> ImportRow -> newOrganization()
+                          needs industry + city on both hops
+```
+
+**Rationale:** the alternative is to fill two fields the reviewer cannot see.
+D5 names a plausible wrong `industry` or `city` as the reason a human stays in
+the loop, and an import that stores an invented city for three hundred
+organizations is exactly the outcome the review exists to prevent. The parent's
+prohibition was not "a city column is forbidden" but "there is no city in the
+source format, so there is nothing to pre-fill and nothing to review" — on the
+JSON tab that premise no longer holds. Keeping the prohibition conditional
+rather than lifting it globally preserves the CSV rationale verbatim, including
+its scenario «В прогоне нет города».
+
+**Consequence:** `OrganizationData` and `ImportRow` gain two optional fields,
+`newOrganization()` sets them, `ImportRow`'s length checks cover them, and the
+controller reads them from the form only when the run's format asks for them — a
+CSV review form carries no such inputs, so a CSV row cannot acquire a city by
+form tampering. The review template needs the run's `sourceFormat`, which it does
+not currently receive.
+
+### D8: The three new routes are literal-first, because `/{id}` already exists
+
+**Choice:** the new routes are declared on the existing controller with an `id`
+requirement that keeps `/{id}` from swallowing them:
+
+```php
+#[Route('/{id}', requirements: ['id' => '\d+'])]          // existing review
+#[Route('/json',  requirements: ['id' => '0'])]           // new JSON tab
+#[Route('/json-schema', requirements: ['id' => '0'])]    // new schema download
+#[Route('/llm',   requirements: ['id' => '0'])]           // new LLM tab
+```
+
+**Rationale:** `ImportController` already serves `/admin/import/{id}` for the
+review, and `debug:router` confirms it today. Three new literals that collide
+with it would 404 before any method of this change ran, and the failure would
+look like a missing action rather than a routing collision. The parent's own
+route already carries a `requirements` argument for the same reason, so the fix
+is the established pattern in this file rather than a new mechanism.
+
+**Alternative considered:** renaming `{id}` to a fixed segment. Rejected — it
+would churn the parent's URLs, its spec scenarios and its bookmarkable pages for
+no behavioural gain.
 
 ## Architecture
 
@@ -267,13 +413,15 @@ flowchart TB
   end
 
   subgraph App["Symfony — ROLE_ADMIN"]
-    IC["ImportController<br/>json, jsonSchema, llm, list,<br/>review, approve, replace, confirmReplace"]
-    ST["ImportFileStorage (parent D5)<br/>var/storage/imports<br/>хранит и никогда не удаляет файл"]
+    IC["ImportController<br/>list, json, jsonSchema, llm,<br/>review, approve, replace<br/>(finishReplacement — родительский)"]
+    ST["ImportFileStorage (parent D5)<br/>var/storage/imports<br/>хранит; удаляет прежний файл при подтверждении замены"]
     SCH["ImportJsonSchema<br/>схема — источник истины<br/>промпт, скачивание, валидация"]
-    JP["JsonImportParser<br/>ответ по схеме"]
+    JP["JsonImportParser<br/>ответ по схеме, дата через parseDate"]
+    CMP["RowComparator (рядом с парсерами)<br/>csv: текст записи · json: поля по очереди"]
     IDP["InteractionDateParser (parent D6a)"]
-    DTO["OrganizationData / ContactData / CallData"]
-    IP["ImportProcessor (parent D8)<br/>пакет не более 25, транзакция на строку"]
+    DTO["OrganizationData / ContactData / CallData<br/>+ industry, city"]
+    IP["ImportProcessor (parent D8)<br/>пакет не более 20, транзакция на строку"]
+    RV["Таблица проверки<br/>«Отрасль»/«Город» только для json"]
     IR["ImportRunRepository"]
   end
 
@@ -325,20 +473,27 @@ sequenceDiagram
     else годен
         IC->>ST: store(payload как файл)
         IC->>DB: INSERT import_run (sourceFormat = json,<br/>totalRows = len(organizations), processedRows = 0)
-        IC-->>Admin: 302 на проверку первого пакета
+        IC-->>Admin: 302 к списку импортов, прогон — отдельной строкой
     end
 
-    Note over Admin,DB: дальше — пакеты по 25, транзакция на строку,<br/>диалог дубликата и итоговое сообщение общие (parent D8)
+    Note over Admin,DB: разбор в DTO и пакет для проверки здесь НЕ начинаются:<br/>«Импортировать» в строке списка запускает их (D3, как на вкладке CSV)
+
+    Admin->>IC: «Импортировать» в строке прогона
+    IC->>DB: пакет организаций processedRows+1 .. min(+20, totalRows),<br/>колонки «Отрасль» и «Город» включены (D7)
+    Note over Admin,DB: дальше — транзакция на строку, диалог дубликата<br/>и итоговое сообщение общие (parent D8)
 
     Admin->>IC: POST replace (новый ответ — вставкой или файлом)
     IC->>SCH: validate(новый ответ)
     alt нарушения схемы
         IC-->>Admin: отчёт, текущий файл не изменён
     else годен
-        IC->>ST: сохранить новый файл, прежний не удалять
-        IC->>IC: сравнить организации 1..processedRows по полям
-        IC-->>Admin: страница подтверждения: числа, строка продолжения<br/>и её организация, изменившиеся позиции
+        IC->>ST: сохранить новый файл-кандидат
+        IC-->>Admin: 302 на ?candidate=<storageKey> — отчёт по адресу,<br/>без состояния между запросами
+        Admin->>IC: GET replace?candidate=... / POST confirm
+        IC->>IC: сравнить организации 1..processedRows по полям (CMP)
+        IC-->>Admin: страница подтверждения: числа, строка продолжения<br/>и её организация, изменившиеся позиции,<br/>предупреждение если файл короче processedRows
         Admin->>IC: подтверждение
+        IC->>ST: удалить прежний файл прогона
         IC->>DB: totalRows = новое число, processedRows сохранён
         IC-->>Admin: 302 на проверку, уведомление о строке и организации
     end
@@ -347,8 +502,21 @@ sequenceDiagram
 ## Risks / Trade-offs
 
 - **A model fills `industry`, `website` or `city` with a plausible wrong
-  value** → Mitigated by the review form (D5), not by validation: the schema
-  checks shape, not truth. A wrong value is visible and correctable per row.
+  value** → Mitigated by the review form (D5, D7), not by validation: the schema
+  checks shape, not truth. `industry` and `city` are rendered and editable for a
+  JSON run precisely so that "visible and correctable per row" is literally true
+  for the fields a model is most likely to invent.
+- **Strictness rejects a payload a human could have repaired** → Accepted, and it
+  is the point: a date like `31.08` is not repairable without guessing the year,
+  and a guessed year is wrong data written silently. The rejection names the
+  organization index and the field, and the answer can be re-imported as a
+  replacement file at no cost.
+- **The schema's date `pattern` drifts from `InteractionDateParser::DATE_PATTERN`**
+  → Pinned by a test that feeds every date shape the schema accepts through
+  `parseDate()` and asserts none returns null, in both directions.
+- **`justinrainbow/json-schema` is a dev-only package today** → The promotion is
+  incomplete without a regenerated `composer.lock`; `make prod-deploy` installs
+  `--no-dev`. A task verifies the class loads under `--no-dev`.
 - **A browser-held API key is exposed to XSS and to a shared workstation** →
   Mitigated by scope, not removed: the key lives in `sessionStorage` only,
   `localStorage` is not used, it is never written into a field the server can
@@ -362,7 +530,9 @@ sequenceDiagram
 - **The prompt and the schema can still drift if the prompt is edited by hand**
   → The prompt's field dictionary is rendered from the schema document, and a
   test asserts that every schema property's description appears in the rendered
-  prompt, so an edit to the prompt text alone cannot remove a field.
+  prompt, so an edit to the prompt text alone cannot remove a field. The same
+  rendering is where the model is told the constraints, so an unenforced field
+  and an undescribed field are the same defect.
 - **`response_format` support differs between providers** → Degraded to
   best-effort: if a provider ignores it, the answer still arrives as text and
   the same server-side schema validation reports any violation, which is the
@@ -382,15 +552,27 @@ None. `import_run.source_format` is created by the first migration of
 `json` into it and selects the parser by that value. Deploy order is therefore
 parent change first, this change second, with no schema work in between.
 
-Rollback: remove the second tab, the LLM client and the two routes. Runs created
-from JSON keep their payload and their `source_format` value, so a CSV-only
-build would fail to parse them — the run list is unaffected, but such a run
-cannot be resumed on a rolled-back build. No data is lost either way, because
-payloads are never deleted.
+Rollback: remove the second tab, the LLM client and the three routes, and drop
+`industry`/`city` from the review table again. Runs created from JSON keep their
+payload and their `source_format` value, so a CSV-only build would fail to parse
+them — the run list is unaffected, but such a run cannot be resumed on a
+rolled-back build. Organizations already imported keep whatever `industry` and
+`city` they were given, since those columns already exist (ADR-0015) and no
+migration removes them. No data is lost either way, because a run's current
+payload is only ever deleted when an admin has confirmed its replacement.
+
+Deploy order is therefore parent change first, this change second, with no
+schema work in between — but note the `composer.lock` regeneration, which is not
+schema work and is easy to overlook precisely because no migration is involved.
 
 ## Open Questions
 
 - Whether a provider that rejects `response_format` should fall back to
   requesting the schema inside the prompt text. It can be answered without
   changing the specs, the approach, or the task breakdown: the current path
-  already degrades to the same server-side validation.
+  already degrades to the same server-side validation, and the rendered prompt
+  already carries the field descriptions.
+- Whether `industry` and `city` should later appear in the CSV review table as
+  empty editable inputs. Not this change: with nothing to pre-fill from the
+  export, the parent deliberately keeps them out, and a CSV row has no reason to
+  offer a city field.

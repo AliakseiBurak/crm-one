@@ -104,9 +104,23 @@ response SHALL be validated by the same server-side validation as a manually
 pasted answer. A response that fails validation SHALL be shown with the same
 violation report and SHALL NOT create an import run.
 
+The prompt SHALL be rendered from that same schema and SHALL state, per field,
+the constraints the schema enforces: the accepted date shapes, the maximum
+lengths and the required fields. The provider is therefore told the format
+before it writes rather than corrected after it fails. The system SHALL NOT ask
+the model to repair, complete or guess a value, and SHALL NOT include a field
+in the prompt that the schema forbids.
+
+`response_format` support SHALL be best-effort: where a provider ignores or
+rejects it, the answer still arrives as text and the same server-side validation
+reports any violation, which is the path a manual paste takes. A rejection by
+the provider SHALL be shown as an error in the tab and SHALL NOT affect the
+import.
+
 The system SHALL NOT automatically submit the response. The administrator
-confirms it, and the organization review of the import remains the step where
-the content is confirmed.
+confirms it, the submission creates an import run that appears in the import
+list, and the organization review of the import remains the step where the
+content is confirmed.
 
 #### Scenario: Ответ модели попадает в поле вкладки JSON
 
@@ -124,6 +138,18 @@ the content is confirmed.
 
 - **WHEN** формируется запрос к провайдеру
 - **THEN** в качестве формата ответа передаётся та же JSON-схема, что доступна для скачивания на вкладке «JSON»
+
+#### Scenario: Промпт сообщает ограничения до генерации
+
+- **WHEN** администратор отправляет промпт
+- **THEN** модель получает в промпте допустимые форматы даты, максимальные длины и обязательные поля
+- **AND** ни одно поле, запрещённое схемой, в промпте не упоминается
+
+#### Scenario: Провайдер не поддерживает формат ответа
+
+- **WHEN** провайдер отклоняет запрос с `response_format`
+- **THEN** во вкладке отображается сообщение об ошибке
+- **AND** существующий импорт при этом не затрагивается
 
 ### Requirement: Развёртывание Ollama требует настройки источника
 
