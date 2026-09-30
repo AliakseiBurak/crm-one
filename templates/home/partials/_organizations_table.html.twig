@@ -78,7 +78,9 @@
                                 data-org-annualplan="{{ organization.annualPlan|default('') }}"
                                 data-org-description="{{ organization.description|default('') }}"
                                 data-org-coursesattended="{{ organization.coursesAttended|default('') }}"
-                                data-org-unp="{{ organization.unp|default('') }}">
+                                data-org-unp="{{ organization.unp|default('') }}"
+                                data-org-website="{{ organization.website|default('') }}"
+                                data-org-city="{{ organization.city|default('') }}">
                                 <td class="org-table__name table--org__name">
                                     <a class="org-table__name-link" href="{{ path('app_organization_edit', { id: organization.id }) }}"
                                        data-organization-cell="name">{{ organization.name }}</a>
@@ -114,6 +116,18 @@
                                             <span class="org-details__meta-item">
                                                 <span class="org-details__label">Учились у нас:</span>
                                                 <span data-organization-cell="coursesAttended">{{ organization.coursesAttended|default('—') }}</span>
+                                            </span>
+                                            {# Сайт и город видны в раскрытой строке. Колонок в
+                                               таблице нет ни для того, ни для другого: таблица
+                                               перегружена, а оба поля нужны при чтении карточки,
+                                               а не при сканировании списка (ADR-0015). #}
+                                            <span class="org-details__meta-item">
+                                                <span class="org-details__label">Сайт:</span>
+                                                <span data-organization-cell="website">{{ organization.website|default('—') }}</span>
+                                            </span>
+                                            <span class="org-details__meta-item">
+                                                <span class="org-details__label">Город:</span>
+                                                <span data-organization-cell="city">{{ organization.city|default('—') }}</span>
                                             </span>
                                         </div>
 

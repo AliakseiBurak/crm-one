@@ -171,6 +171,8 @@ class OrganizationController extends AbstractController
                     'description' => $organization->description,
                     'coursesAttended' => $organization->coursesAttended,
                     'unp' => $organization->unp,
+                    'website' => $organization->website,
+                    'city' => $organization->city,
                     'isActive' => $organization->isActive,
                 ],
             ]);
@@ -216,6 +218,12 @@ class OrganizationController extends AbstractController
         $organization->setIndustry($industry !== null && $industry !== '' ? trim((string) $industry) : null);
         $annualPlan = $request->request->get('annualPlan');
         $organization->setAnnualPlan($annualPlan !== null && $annualPlan !== '' ? trim((string) $annualPlan) : null);
+        // ADR-0015: справочные поля сайта и города. Сайт в таблице панели
+        // показывается доменом, но хранится в том виде, в каком введён.
+        $website = $request->request->get('website');
+        $organization->setWebsite($website !== null && $website !== '' ? trim((string) $website) : null);
+        $city = $request->request->get('city');
+        $organization->setCity($city !== null && $city !== '' ? trim((string) $city) : null);
         $description = $request->request->get('description');
         $organization->setDescription($description !== null && $description !== '' ? trim((string) $description) : null);
         $organization->setIsActive((bool) $request->request->get('isActive', true));

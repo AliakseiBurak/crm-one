@@ -1,0 +1,173 @@
+{#
+    Проверка пакета импорта (change add-organizations-csv-import).
+    Пакет — таблица, одна организация в строке: название, описание,
+    «Учились у нас», сайт, контакты и звонки. Города нет (формат источника не
+    объявляет колонку города), поля годового плана нет (импорт его не
+    заполняет), списка нераспознанных дат нет: непрочитанное остаётся текстом
+    в заметках и видно там.
+    Позиция пакета берётся из прогресса прогона, а не из адреса, поэтому
+    страница — обычная закладка на один и тот же пакет.
+    Замены файла здесь нет: она запускается из списка прогонов.
+    Звонок с отметкой «Планируемый» приходит из колонки «Следующий контакт» —
+    у него плановая дата и нет даты звонка.
+    Ожидает: run (ImportRun), rows (ImportRow[]), stoppedRow (int|null)
+#}
+{% extends 'base.html.twig' %}
+
+{% block title %}Проверка импорта — {{ run.filename }}{% endblock %}
+
+{% block body %}
+    <section class="section section--white">
+        <div class="container">
+            <h1>Пошаговый импорт</h1>
+            <p class="import-progress">
+                Обработано <strong>{{ run.processedRows }}</strong> из <strong>{{ run.totalRows }}</strong>
+                ({{ ((run.totalRows - run.processedRows) > 0 ? (100 * run.processedRows / run.totalRows)|round : 100)|round(0) }}%)
+            </p>
+            <p>Файл: <strong>{{ run.filename }}</strong></p>
+
+            <form method="post" action="{{ path('app_import_approve', { id: run.id }) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('import') }}">
+
+                <div class="table-wrap">
+                    <table class="table import-rows">
+                        <thead>
+                            <tr>
+                                <th scope="col">Строка</th>
+                                <th scope="col">Название</th>
+                                <th scope="col">Описание</th>
+                                <th scope="col">Учились у нас</th>
+                                <th scope="col">Сайт</th>
+                                <th scope="col">Контакты</th>
+                                <th scope="col">Звонки</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in rows %}
+                                <tr class="import-row{{ stoppedRow == row.rowNumber ? ' import-row--stopped' : '' }}{{ row.hasConflict ? ' import-row--conflict' : '' }}">
+                                    <th scope="row" class="import-row__number">{{ row.rowNumber }}</th>
+                                    <td>
+                                        <input type="hidden" name="rows[{{ row.rowNumber }}][rowNumber]" value="{{ row.rowNumber }}">
+                                        <input class="field__input"
+                                               type="text"
+                                               name="rows[{{ row.rowNumber }}][name]"
+                                               value="{{ row.name }}"
+                                               maxlength="255"
+                                               {{ stoppedRow == row.rowNumber ? 'required' : '' }}>
+                                        {% if stoppedRow == row.rowNumber and row.name is empty %}
+                                            <span class="field__error" role="alert">Название обязательно для заполнения</span>
+                                        {% endif %}
+                                        {% if row.hasConflict %}
+                                            <input type="hidden" name="rows[{{ row.rowNumber }}][conflictOrganizationId]" value="{{ row.conflictOrganizationId }}">
+                                            <input type="hidden" name="rows[{{ row.rowNumber }}][conflictOrganizationName]" value="{{ row.conflictOrganizationName }}">
+                                            <div class="import-row__conflict">
+                                                <span>Организация «{{ row.conflictOrganizationName }}» уже существует</span>
+                                                <label class="import-row__choice">
+                                                    <input type="radio" name="resolution[{{ row.rowNumber }}]" value="merge">
+                                                    Слить с существующей
+                                                </label>
+                                                <label class="import-row__choice">
+                                                    <input type="radio" name="resolution[{{ row.rowNumber }}]" value="create">
+                                                    Создать новую
+                                                </label>
+                                                <span class="import-row__hint">Не выбрано? Поменяйте название и утвердите пакет снова.</span>
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <textarea class="field__input"
+                                                  name="rows[{{ row.rowNumber }}][description]"
+                                                  rows="2">{{ row.description }}</textarea>
+                                    </td>
+                                    <td>
+                                        <input class="field__input"
+                                               type="text"
+                                               name="rows[{{ row.rowNumber }}][coursesAttended]"
+                                               value="{{ row.coursesAttended }}"
+                                               maxlength="255">
+                                    </td>
+                                    <td>
+                                        <input class="field__input"
+                                               type="text"
+                                               name="rows[{{ row.rowNumber }}][website]"
+                                               value="{{ row.website }}"
+                                               maxlength="255">
+                                    </td>
+                                    <td class="import-row__nested">
+                                        {% for contact in row.contacts %}
+                                            <fieldset class="import-nested">
+                                                <legend>Контакт {{ loop.index }}</legend>
+                                                <input class="field__input" type="text" placeholder="Имя"
+                                                       name="rows[{{ row.rowNumber }}][contacts][{{ loop.index0 }}][name]"
+                                                       value="{{ contact.name }}" maxlength="255">
+                                                <input class="field__input" type="text" placeholder="Телефон"
+                                                       name="rows[{{ row.rowNumber }}][contacts][{{ loop.index0 }}][phone]"
+                                                       value="{{ contact.phone }}" maxlength="32">
+                                                <input class="field__input" type="text" placeholder="Email"
+                                                       name="rows[{{ row.rowNumber }}][contacts][{{ loop.index0 }}][email]"
+                                                       value="{{ contact.email }}" maxlength="255">
+                                                <input class="field__input" type="text" placeholder="Должность"
+                                                       name="rows[{{ row.rowNumber }}][contacts][{{ loop.index0 }}][position]"
+                                                       value="{{ contact.position }}" maxlength="255">
+                                                <textarea class="field__input"
+                                                          placeholder="Заметки"
+                                                          name="rows[{{ row.rowNumber }}][contacts][{{ loop.index0 }}][notes]"
+                                                          rows="2">{{ contact.notes }}</textarea>
+                                                <label class="import-nested__main"
+                                                       title="Отмечается для контакта, созданного из этой строки. В организации основной контакт один: отметка снимается с остальных контактов этой организации.">
+                                                    <input type="hidden" name="rows[{{ row.rowNumber }}][contacts][{{ loop.index0 }}][isMain]" value="0">
+                                                    <input type="checkbox" name="rows[{{ row.rowNumber }}][contacts][{{ loop.index0 }}][isMain]" value="1"
+                                                           {{ contact.isMain ? 'checked' : '' }}>
+                                                    Основной
+                                                </label>
+                                            </fieldset>
+                                        {% else %}
+                                            <span class="import-row__hint">Контактов нет</span>
+                                        {% endfor %}
+                                    </td>
+                                    <td class="import-row__nested">
+                                        {% for call in row.calls %}
+                                            <fieldset class="import-nested">
+                                                <legend>Звонок {{ loop.index }}</legend>
+                                                <input class="field__input" type="text" placeholder="дд.мм.гггг"
+                                                       name="rows[{{ row.rowNumber }}][calls][{{ loop.index0 }}][date]"
+                                                       value="{{ call.date }}">
+                                                <textarea class="field__input"
+                                                          placeholder="Заметки"
+                                                          name="rows[{{ row.rowNumber }}][calls][{{ loop.index0 }}][notes]"
+                                                          rows="2">{{ call.notes }}</textarea>
+                                                <label class="import-nested__planned"
+                                                       title="Отмечается для звонка из колонки «Следующий контакт»: у него есть плановая дата и нет даты звонка.">
+                                                    <input type="hidden" name="rows[{{ row.rowNumber }}][calls][{{ loop.index0 }}][planned]" value="0">
+                                                    <input type="checkbox" name="rows[{{ row.rowNumber }}][calls][{{ loop.index0 }}][planned]" value="1"
+                                                           {{ call.planned ? 'checked' : '' }}>
+                                                    Планируемый
+                                                </label>
+                                            </fieldset>
+                                        {% else %}
+                                            <span class="import-row__hint">Звонков нет</span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    {# Кнопка утверждения пакета и возврат к списку стоят рядом,
+                       но это разные действия: возврат — ссылка, а не submit,
+                       иначе он отправил бы пакет. Прогон при этом остаётся
+                       незавершённым и продолжает блокировать новые загрузки
+                       (design D9). #}
+                    <button class="btn btn--primary" type="submit">Импортировать</button>
+                    {{ include('components/button.html.twig', {
+                        variant: 'secondary',
+                        text: 'Назад к списку',
+                        href: path('app_import_index'),
+                    }) }}
+                </p>
+            </form>
+        </div>
+    </section>
+{% endblock %}

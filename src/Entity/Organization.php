@@ -32,6 +32,14 @@ class Organization
     #[Assert\Length(max: 255, maxMessage: 'Годовой план не должен превышать {{ limit }} символов')]
     public private(set) ?string $annualPlan = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255, maxMessage: 'Сайт не должен превышать {{ limit }} символов')]
+    public private(set) ?string $website = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255, maxMessage: 'Город не должен превышать {{ limit }} символов')]
+    public private(set) ?string $city = null;
+
     #[ORM\Column(type: 'text', nullable: true)]
     public private(set) ?string $description = null;
 
@@ -95,6 +103,20 @@ class Organization
     public function setAnnualPlan(?string $annualPlan): self
     {
         $this->annualPlan = $annualPlan;
+
+        return $this;
+    }
+
+    public function setWebsite(?string $website): self
+    {
+        $this->website = $website;
+
+        return $this;
+    }
+
+    public function setCity(?string $city): self
+    {
+        $this->city = $city;
 
         return $this;
     }

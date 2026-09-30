@@ -1,0 +1,12 @@
+// Импорт организаций: список прогонов и форма загрузки.
+@use '../tokens' as *;
+
+.import-actions {
+    white-space: nowrap;
+}
+
+.import-actions__replace {
+    display: inline-block;
+    margin: 0 0.3rem;
+    vertical-align: middle;
+}

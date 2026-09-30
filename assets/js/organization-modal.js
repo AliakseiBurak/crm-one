@@ -16,6 +16,8 @@ if (modal && modal.querySelector('[data-organization-edit-form]')) {
         annualPlan: modal.querySelector('[data-organization-field="annualPlan"]'),
         description: modal.querySelector('[data-organization-field="description"]'),
         coursesAttended: modal.querySelector('[data-organization-field="coursesAttended"]'),
+        website: modal.querySelector('[data-organization-field="website"]'),
+        city: modal.querySelector('[data-organization-field="city"]'),
     };
     const isActiveCheckbox = modal.querySelector('[data-organization-field="isActive"]');
     const isOptedOutCheckbox = modal.querySelector('[data-organization-field="isOptedOut"]');
@@ -153,6 +155,8 @@ if (modal && modal.querySelector('[data-organization-edit-form]')) {
             activeRow.dataset.orgDescription = payload.organization.description ?? '';
             activeRow.dataset.orgCoursesattended = payload.organization.coursesAttended ?? '';
             activeRow.dataset.orgUnp = payload.organization.unp ?? '';
+            activeRow.dataset.orgWebsite = payload.organization.website ?? '';
+            activeRow.dataset.orgCity = payload.organization.city ?? '';
             activeRow.dataset.orgIsactive = payload.organization.isActive ? '1' : '0';
             const orgId = activeRow.dataset.orgId;
             const detailsBox = document.getElementById(`org-details-${orgId}`);

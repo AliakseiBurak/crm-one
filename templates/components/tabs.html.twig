@@ -1,0 +1,20 @@
+{#
+    Вкладки (see components/tabs.scss). Активная вкладка помечается
+    модификатором --active; кликабельность появится вместе со вторым форматом
+    источника импорта.
+    Параметры: items — список { label, href|null, active }
+#}
+<nav class="tabs" role="tablist">
+    {% for item in items|default([]) %}
+        {% if item.href is defined and item.href %}
+            <a class="tabs__item{% if item.active|default(false) %} tabs__item--active{% endif %}"
+               role="tab"
+               aria-selected="{{ item.active|default(false) ? 'true' : 'false' }}"
+               href="{{ item.href }}">{{ item.label }}</a>
+        {% else %}
+            <span class="tabs__item{% if item.active|default(false) %} tabs__item--active{% endif %}"
+                  role="tab"
+                  aria-selected="{{ item.active|default(false) ? 'true' : 'false' }}">{{ item.label }}</span>
+        {% endif %}
+    {% endfor %}
+</nav>

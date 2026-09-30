@@ -72,6 +72,20 @@
                 }) }}
 
                 {{ include('components/form_field.html.twig', {
+                    name: 'website',
+                    label: 'Сайт',
+                    value: organization.website|default(''),
+                    error: errors.website|default(null),
+                }) }}
+
+                {{ include('components/form_field.html.twig', {
+                    name: 'city',
+                    label: 'Город',
+                    value: organization.city|default(''),
+                    error: errors.city|default(null),
+                }) }}
+
+                {{ include('components/form_field.html.twig', {
                     type: 'textarea',
                     name: 'description',
                     label: 'Описание',

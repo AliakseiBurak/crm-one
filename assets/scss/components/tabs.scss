@@ -1,0 +1,33 @@
+@use '../tokens' as *;
+
+// Вкладки импорта организаций. Вторая вкладка появится вместе со вторым
+// форматом источника (change add-organizations-json-import): компонент заведён
+// заранее, чтобы новому формату было куда встать, а не чтобы рисовать
+// переключатель с нуля.
+.tabs {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.tabs__item {
+    padding: 0.5rem 1.1rem;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: $radius-modal $radius-modal 0 0;
+    background: none;
+    color: $color-text-body;
+    font: inherit;
+    text-decoration: none;
+    cursor: default;
+
+    // Активная вкладка — единственная вкладка страницы: она же текущая.
+    &--active {
+        background: #fff;
+        border-color: #e5e7eb;
+        color: $color-info-blue;
+        font-weight: 600;
+        margin-bottom: -1px;
+    }
+}

@@ -1,0 +1,95 @@
+{#
+    Подтверждение замены файла импорта (change add-organizations-csv-import,
+    design D8). Отчёт перечисляет числа строк, строку продолжения с
+    организацией на ней и номера изменившихся строк в уже обработанном
+    префиксе. Никаких сведений о давности источника здесь нет и быть не может:
+    файл приходит из браузера и метки времени источника не несёт.
+    Прогон и файл-кандидат приходят из URL, поэтому отчёт воспроизводим по
+    адресу без серверной сессии.
+    Ожидает: run (ImportRun), candidate (string), report (array)
+#}
+{% extends 'base.html.twig' %}
+
+{% block title %}Замена файла импорта{% endblock %}
+
+{% block body %}
+    <section class="section section--white">
+        <div class="container">
+            <h1>Замена файла</h1>
+
+            {% if report is null %}
+                <p>Прогон «{{ run.filename }}» ещё не изменён. Выберите исправленный файл — система покажет отчёт и не тронет прогон, пока замена не подтверждена.</p>
+                <form method="post" action="{{ path('app_import_replace', { id: run.id }) }}" enctype="multipart/form-data">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('import') }}">
+                    <p>
+                        <input type="file" name="file" accept=".csv,text/csv" required>
+                        <button class="btn btn--primary" type="submit">Проверить замену</button>
+                    </p>
+                </form>
+            {% else %}
+            <p>Прогон «{{ run.filename }}» ещё не изменён: файл переключится только после подтверждения.</p>
+
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Показатель</th>
+                            <th scope="col">Значение</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th scope="row">Строк в текущем файле</th>
+                            <td>{{ report.currentRows }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Строк в новом файле</th>
+                            <td>{{ report.candidateRows }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Импорт продолжится с строки</th>
+                            <td>{{ report.resumeRow }} — «{{ report.resumeOrganization }}»</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Изменившиеся строки в обработанной части</th>
+                            <td>
+                                {% if report.changedRows is empty %}
+                                    нет
+                                {% else %}
+                                    {{ report.changedRows|join(', ') }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            {% if report.shorter %}
+                <p class="alert alert--warning" role="alert">
+                    В новом файле {{ report.candidateRows }} строк, а обработано было {{ run.processedRows }}:
+                    после замены импорт будет считаться завершённым.
+                </p>
+            {% endif %}
+
+            <p class="import-progress">
+                Обработано <strong>{{ run.processedRows }}</strong> из <strong>{{ run.totalRows }}</strong>
+            </p>
+
+            {% set replaceUrl = path('app_import_replace', {
+                id: run.id,
+                candidate: app.request.query.get('candidate'),
+                name: app.request.query.get('name'),
+            }) %}
+            <p>
+                <form method="post" action="{{ replaceUrl }}" class="import-replace__actions">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('import') }}">
+                    <button class="btn btn--primary" type="submit" name="action" value="confirm">
+                        Продолжить с строки {{ report.resumeRow }}
+                    </button>
+                    <button class="btn btn--secondary" type="submit" name="action" value="cancel">Отмена</button>
+                </form>
+            </p>
+            {% endif %}
+        </div>
+    </section>
+{% endblock %}

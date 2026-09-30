@@ -33,6 +33,7 @@ RUN docker-php-ext-install \
     && rm -rf /var/lib/apt/lists/*
 
 RUN echo 'date.timezone = ${TZ}' > /usr/local/etc/php/conf.d/timezone.ini
+RUN echo 'max_input_vars = 5000' > /usr/local/etc/php/conf.d/import-form.ini
 RUN echo 'xdebug.mode=debug,coverage' > /usr/local/etc/php/conf.d/xdebug.ini \
     && echo 'xdebug.start_with_request=trigger' >> /usr/local/etc/php/conf.d/xdebug.ini \
     && echo 'xdebug.client_host=host.docker.internal' >> /usr/local/etc/php/conf.d/xdebug.ini \

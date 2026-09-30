@@ -43,8 +43,21 @@
             </div>
 
             <div class="field">
-                <label class="field__label" for="modal-organization-description">Описание</label>
-                <textarea class="field__input" id="modal-organization-description" name="description"
+                <label class="field__label" for="modal-organization-website">Сайт</label>
+                <input class="field__input" type="text" id="modal-organization-website" name="website"
+                       placeholder="https://example.by" data-organization-field="website">
+                <span class="field__error" role="alert" data-organization-error="website" hidden></span>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="modal-organization-city">Город</label>
+                <input class="field__input" type="text" id="modal-organization-city" name="city"
+                       placeholder="Минск" data-organization-field="city">
+                <span class="field__error" role="alert" data-organization-error="city" hidden></span>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="modal-organization-description">Описание</label>                <textarea class="field__input" id="modal-organization-description" name="description"
                           rows="3" data-organization-field="description"></textarea>
                 <span class="field__error" role="alert" data-organization-error="description" hidden></span>
             </div>

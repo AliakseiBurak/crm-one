@@ -13,8 +13,10 @@
 @use 'components/org-combobox';
 @use 'components/date-picker';
 @use 'components/group-chip';
+@use 'components/tabs';
 @use 'pages/welcome';
 @use 'pages/dashboard-orgs';
 @use 'pages/campaigns';
 @use 'pages/groups';
+@use 'pages/organization-import';
 @use 'pages/users';
