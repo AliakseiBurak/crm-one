@@ -596,18 +596,28 @@ the row is not saved, `processedRows` is not advanced, and the row is displayed
 for correction with an error state. There is no partial acceptance of the rest
 of the chunk: the rows after a stopped row are not saved.
 
-One row kind is exempt: a record that carries no organization data — no name, no
-contacts and no calls. Such a record is not necessarily an empty line of the
-file: records whose every field is empty are dropped by the reader before the
-package is built, and a record that keeps, say, only «Актуальный курс» reaches
-the review table nameless and is the case this rule is about. Such a row has nothing to correct, and because
-a package always starts at `processedRows + 1`, leaving it undecided would put
-it at the head of every package forever. The system SHALL skip it, SHALL advance
-`processedRows` by one as if the row were decided, and SHALL report the skipped
-row numbers in a notice of its own. A record with an empty name but any contacts
-or calls is NOT empty and still stops the import for correction. `processedRows`
-therefore counts decided rows — saved or skipped — and there is no second
-counter.
+One row kind is exempt: a record that carries no organization data — no name and
+no contacts. Such a record is not necessarily an empty line of the file: records
+whose every field is empty are dropped by the reader before the package is
+built, and a record that keeps, say, only «Актуальный курс» reaches the review
+table nameless and is the case this rule is about. Such a row has nothing to
+correct, and because a package always starts at `processedRows + 1`, leaving it
+undecided would put it at the head of every package forever. The system SHALL
+skip it, SHALL advance `processedRows` by one as if the row were decided, and
+SHALL report the skipped row numbers in a notice of its own. A record with an
+empty name but any contact is NOT empty and still stops the import for
+correction.
+
+A call does not lift a record out of this exemption. A call belongs to an
+organization, so a call on a row that has none has nowhere to be stored, and the
+«Актуальный курс» fragment in the description does not stand in for a name:
+naming the row is what makes its data savable, and a row that cannot be named
+cannot be saved at all. The real export contains such rows — an empty `Компания`,
+an empty `Контакты` and one interaction entry — and stopping on each of them
+would wedge the import on data that can never be corrected.
+
+`processedRows` therefore counts decided rows — saved or skipped — and there is
+no second counter.
 
 A contact or a call of a saved row is a case of its own, and it is decided at
 saving time rather than by stopping the import. The review table offers no
@@ -694,6 +704,13 @@ keeps falling back to the contact with the lowest ID.
 - **WHEN** у строки пустое название, но есть хотя бы один контакт
 - **THEN** строка не пропускается
 - **AND** импорт останавливается на ней для исправления названия
+
+#### Scenario: Запись без названия, но со звонком, пропускается
+
+- **WHEN** в пакете есть строка, у которой пустое название и нет контактов, но есть звонок
+- **THEN** строка не создаёт организацию, а звонок ни к чему не прикрепляется
+- **AND** `processedRows` увеличивается на один, как если бы строка была сохранена
+- **AND** номер строки называется в уведомлении о пропуске
 
 #### Scenario: Сохранение пакета из 20 строк
 

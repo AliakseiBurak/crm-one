@@ -108,10 +108,13 @@ Three consequences of the simplification:
   `savedRows` and no second counter. A row that cannot be saved must be corrected
   in the review table first: an empty name, or a conflict the admin declined to
   resolve, blocks approval of that row rather than advancing the counter.
-  There is exactly one kind of skip — a record carrying nothing at all (no name,
-  no contacts, no calls). It is advanced past with its own notice, because there
-  is nothing in it to correct: the row would otherwise sit at the head of every
-  package forever, since a package always starts at `processedRows + 1`. The
+  There is exactly one kind of skip — a record carrying nothing at all (no name
+  and no contacts). A call does not count towards it: a call belongs to an
+  organization, so on a row that has none it has nowhere to be stored, and the
+  «Актуальный курс» fragment in the description does not stand in for a name.
+  The row is advanced past with its own notice, because there is nothing in it to
+  correct: the row would otherwise sit at the head of every package forever,
+  since a package always starts at `processedRows + 1`. The
   consequence for reporting: `X` in the completion flash is the number of source
   rows that became an organization **or** were skipped, so the flash counts
   processed rows and the skip count is reported separately, when it happens.
@@ -498,9 +501,11 @@ separate decision.
 ### D11: Completion flash with run and cumulative counts
 
 **Choice:** When `processedRows` reaches or exceeds `totalRows`, the system
-flashes «Импортировано в этом прогоне: X, импортировано всего: Y», where X is
+flashes «Обработано строк в этом прогоне: X, обработано всего: Y», where X is
 this `ImportRun`'s `processedRows` and Y is the sum of `processedRows` across
-all import runs. No summary page and no per-entity breakdown.
+all import runs. No summary page and no per-entity breakdown. The wording counts
+rows rather than organizations, because `X` is decided rows, not created ones —
+saying «Импортировано» would misreport every skipped row as an organization.
 
 **Rationale:** Enough signal for a one-shot migration without a second counter or
 a summary view. Because empty records are skipped rather than saved (D2), `X` is
@@ -692,7 +697,8 @@ sequenceDiagram
 - **Skipping is limited to records that carry nothing** → A row that cannot be
   saved (empty name, unresolvable duplicate the admin declines to resolve) still
   stops the run at that row rather than advancing past it, because the admin can
-  fix it in the review table. Only a record with no name, no contacts and no
-  calls is skipped, with its own notice. The cost is that a chunk cannot be
-  finished by discarding a row that merely looks wrong — and, in exchange, a
-  genuinely empty record cannot wedge the import permanently.
+  fix it in the review table. Only a record with no name and no contacts is
+  skipped, with its own notice; a call on such a row does not keep it, since a
+  call without an organization has nowhere to be stored. The cost is that a chunk
+  cannot be finished by discarding a row that merely looks wrong — and, in
+  exchange, a genuinely empty record cannot wedge the import permanently.
