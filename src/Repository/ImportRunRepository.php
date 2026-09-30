@@ -48,7 +48,7 @@ class ImportRunRepository extends ServiceEntityRepository
     }
 
     /**
-     * Сумма processedRows по всем прогонам — «импортировано всего» в итоговом
+     * Сумма processedRows по всем прогонам — «обработано всего» в итоговом
      * flash-сообщении (design D11).
      */
     public function sumProcessedRows(): int
