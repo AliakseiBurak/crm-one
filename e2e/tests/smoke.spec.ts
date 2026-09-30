@@ -102,7 +102,7 @@ test('новый пользователь устанавливает парол�
 
   // Проверяем сообщение об успехе
   await expect(page).toHaveURL(/\/login/);
-  await expect(page.locator('.alert--warning')).toContainText('Пароль установлен');
+  await expect(page.locator('.alert--success')).toContainText('Пароль установлен');
 
   // Теперь входим с новым паролем
   await page.fill('input[name="_login"]', loginName);

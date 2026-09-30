@@ -26,9 +26,10 @@ final class HeaderTest extends DatabaseWebTestCase
         $this->assertSelectorExists('.header__actions .header-create__toggle');
         self::assertSame(6, $crawler->filter('.header__actions .header-create__menu .header-create__item')->count());
 
-        // «⚙ Админ ▾» с двумя пунктами.
+        // «⚙ Админ ▾»: Пользователи, Скрытые организации, Импорт организаций.
         $this->assertSelectorExists('.header__actions .header-admin__toggle');
-        self::assertSame(2, $crawler->filter('.header__actions .header-admin__menu .header-admin__item')->count());
+        self::assertSame(3, $crawler->filter('.header__actions .header-admin__menu .header-admin__item')->count());
+        self::assertSame(1, $crawler->filter('.header__actions .header-admin__menu a[href="/admin/import"]')->count());
 
         // Выпадающий список пользователя: «Профиль», первый пункт — логин, затем имя/email, затем «Выйти».
         $this->assertSelectorTextContains('.header__actions .header-user__toggle', 'Профиль');

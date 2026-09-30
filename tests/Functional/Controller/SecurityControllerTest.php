@@ -97,7 +97,8 @@ final class SecurityControllerTest extends DatabaseWebTestCase
 
         $this->assertResponseRedirects('/login');
         $this->client->followRedirect();
-        $this->assertSelectorTextContains('.alert--warning', 'Пароль установлен');
+        // Успешное сообщение рендерится своим классом, а не предупреждением.
+        $this->assertSelectorTextContains('.alert--success', 'Пароль установлен');
 
         $this->em()->clear();
         $refreshed = $this->em()->find(User::class, $user->id);
