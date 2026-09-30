@@ -237,11 +237,12 @@ for all users, «⚙ Админ ▾» for admin, «Профиль ▾» user dro
 dropdown buttons SHALL be styled like the navigation links, distinguished
 only by a downward caret. The create dropdown SHALL show short labels:
 Организацию, Контакт, Звонок, Рассылку; Группу for `ROLE_MANAGER`;
-Пользователя for `ROLE_ADMIN`. A user dropdown SHALL show the label
-«Профиль» with a caret; its menu SHALL contain as the first item the
-user's login, name and surname (if present), and email (if present),
-followed by the «Выйти» link. All dropdowns SHALL open on click and close
-when clicking outside.
+Пользователя for `ROLE_ADMIN`. The admin dropdown SHALL show:
+Пользователи, Скрытые организации, Импорт организаций. A user dropdown
+SHALL show the label «Профиль» with a caret; its menu SHALL contain as the
+first item the user's login, name and surname (if present), and email
+(if present), followed by the «Выйти» link. All dropdowns SHALL open on
+click and close when clicking outside.
 On screens ≤768px, the header SHALL collapse navigation into a hamburger
 button (☰) that opens a slide-in sidebar from the left. The footer SHALL
 render on the green gradient `#55964a → #478540` with white text: only the
@@ -269,7 +270,7 @@ copyright line «© YYYY B2B Call CRM» centered.
 - **WHEN** пользователь с ролью `ROLE_ADMIN` открывает страницу с шапкой
 - **THEN** справа отображается кнопка «⚙ Админ ▾»
 - **AND** при нажатии на кнопку открывается выпадающий список
-- **AND** в списке отображаются пункты: Пользователи, Скрытые организации
+- **AND** в списке отображаются пункты: Пользователи, Скрытые организации, Импорт организаций
 
 #### Scenario: Список «Админ» не виден другим ролям
 - **WHEN** пользователь без роли `ROLE_ADMIN` открывает страницу с шапкой
