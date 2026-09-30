@@ -218,13 +218,27 @@ data record. The system SHALL reject files with missing or unexpected
 non-empty columns and SHALL display the list of expected headers. The
 system SHALL store the uploaded file and create an `ImportRun`
 record with `totalRows` equal to the number of non-empty data records
-(excluding the header) and `processedRows` = 0.
+(excluding the header) and `processedRows` = 0, and SHALL return the
+administrator to the import list where the new run appears as a row. Parsing the
+records into organization/contact/call DTOs and the 20-row review SHALL NOT start
+on upload: it starts when the administrator chooses «Импортировать» in that
+row («Список импортов»). Counting the records and checking the header are cheap
+and happen on upload, so an unusable file is still rejected before it is
+stored.
 
 #### Scenario: Успешная загрузка CSV-файла
 
 - **WHEN** администратор загружает CSV-файл с правильными заголовками и 400 строками данных
 - **THEN** файл сохраняется на сервере
 - **AND** создаётся запись импорта с totalRows = 400 и processedRows = 0
+- **AND** администратор возвращается к списку импортов, где файл виден отдельной строкой
+
+#### Scenario: Разбор начинается по отдельному действию
+
+- **WHEN** CSV-файл только что загружен и ещё не импортирован
+- **THEN** пакет для проверки не сформирован
+- **AND** разбор записей файла не выполняется
+- **AND** пакет появляется только после нажатия «Импортировать»
 
 #### Scenario: Загрузка при наличии активного прогона импорта
 
@@ -250,54 +264,90 @@ record with `totalRows` equal to the number of non-empty data records
 
 ### Requirement: Список импортов
 
-The system SHALL display a table of all import runs on the
-`/admin/import` page with columns: filename, total rows, processed rows,
-creation date, last processed date, and an action column. The last processed
-date SHALL show when a row of this run was last saved, and be empty while the
-run has no saved rows. The system SHALL update it every time a row of the run is
-saved. The action column SHALL show a
-«Начать» link when `processedRows = 0`, a «Продолжить» link when
-`0 < processedRows < totalRows`, and nothing when `processedRows >= totalRows`.
-A run is completed when `processedRows` is greater than or equal to
-`totalRows`, not only when the two are equal. The table SHALL be ordered by
-creation date descending (newest first).
+The system SHALL display a table of all import runs on the `/admin/import` page
+**before** the upload form, with columns: «Файл», «Всего строк», «Обработано»,
+«Загружен», «Импортирован» and an actions column. «Загружен» SHALL show the date
+the file was stored; «Импортирован» SHALL show when a row of this run was last
+saved, and SHALL be empty while the run has no saved rows. The system SHALL
+update «Импортирован» every time a row of the run is saved.
+
+The actions column SHALL offer three actions:
+
+- «Скачать» — download the run's current file. Available for every run.
+- «Перезагрузить» — supply a replacement file, which builds the confirmation
+  report before anything is written («Подтверждение замены файла импорта»).
+  Available only while `processedRows < totalRows`.
+- «Импортировать» — open the review package, which is where the file is parsed
+  and validated 20 rows at a time. Available only while
+  `processedRows < totalRows`.
+
+A run is completed when `processedRows` is greater than or equal to `totalRows`,
+not only when the two are equal; a completed run offers no «Перезагрузить» and
+no «Импортировать». The table SHALL be ordered by upload date descending
+(newest first).
+
+#### Scenario: Таблица прогонов идёт перед формой загрузки
+
+- **WHEN** администратор открывает `/admin/import`
+- **THEN** сначала отображается таблица прогонов
+- **AND** под таблицей отображается форма загрузки CSV
 
 #### Scenario: Отображение списка импортов
 
 - **WHEN** администратор открывает `/admin/import`
-- **THEN** отображается таблица со всеми ранее созданными импортами
-- **AND** каждый ряд показывает имя файла, количество строк, обработанные строки, дату создания и дату последней обработанной строки
+- **THEN** отображается таблица со всеми ранее загруженными файлами
+- **AND** каждый ряд показывает имя файла, количество строк, обработанные строки, дату загрузки и дату последней импортированной строки
 
-#### Scenario: Дата последней обработанной строки
+#### Scenario: Дата последней импортированной строки
 
 - **WHEN** у импорта с processedRows = 50 последняя строка сохранена 12 марта
-- **THEN** в его строке таблицы отображается 12 марта как дата последней обработанной строки
+- **THEN** в его строке таблицы отображается 12 марта в колонке «Импортирован»
 
-#### Scenario: Дата последней обработанной строки ещё пуста
+#### Scenario: Дата последней импортированной строки ещё пуста
 
-- **WHEN** импорт создан, но ни одна строка не сохранена (processedRows = 0)
-- **THEN** дата последней обработанной строки в его строке таблицы пуста
+- **WHEN** файл загружен, но ни одна строка не импортирована (processedRows = 0)
+- **THEN** колонка «Импортирован» в его строке таблицы пуста
+- **AND** колонка «Загружен» показывает дату загрузки файла
 
-#### Scenario: Кнопка «Начать» для нового импорта
+#### Scenario: Загруженный файл появляется в списке и импорт запускается отдельно
 
-- **WHEN** в системе есть импорт с processedRows = 0
-- **THEN** в колонке действий отображается ссылка «Начать»
+- **WHEN** администратор загружает CSV-файл
+- **THEN** файл появляется в таблице как новый прогон
+- **AND** разбор файла и проверка пакета по 20 строк не начинаются
+- **AND** импорт начинается только после действия «Импортировать» в этой строке
 
-#### Scenario: Кнопка «Продолжить» для незавершённого импорта
+#### Scenario: Кнопка «Импортировать» у незавершённого импорта
 
 - **WHEN** в системе есть импорт с processedRows = 50 и totalRows = 400
-- **THEN** в колонке действий отображается ссылка «Продолжить»
+- **THEN** в колонке действий отображается кнопка «Импортировать»
+- **AND** нажатие открывает пакет для проверки, начинающийся со строки 51
 
-#### Scenario: Действий нет для завершённого импорта
+#### Scenario: Кнопка «Импортировать» у только что загруженного файла
+
+- **WHEN** в системе есть импорт с processedRows = 0
+- **THEN** в колонке действий отображается кнопка «Импортировать»
+
+#### Scenario: Кнопка «Скачать» есть у любого прогона
+
+- **WHEN** в системе есть завершённый импорт
+- **THEN** в его строке доступна кнопка «Скачать»
+
+#### Scenario: Импортировать и перезагрузить недоступны для завершённого импорта
 
 - **WHEN** в системе есть импорт с processedRows = totalRows = 400
-- **THEN** в колонке действий ничего не отображается
+- **THEN** в его строке нет кнопок «Импортировать» и «Перезагрузить»
+- **AND** остаётся кнопка «Скачать»
 
 #### Scenario: Импорт завершён, когда строк в файле стало меньше
 
 - **WHEN** в системе есть импорт с processedRows = 50 и totalRows = 30
 - **THEN** импорт считается завершённым
-- **AND** в колонке действий ничего не отображается
+- **AND** в его строке нет кнопок «Импортировать» и «Перезагрузить»
+
+#### Scenario: Скачивание файла прогона
+
+- **WHEN** администратор нажимает «Скачать» в строке прогона
+- **THEN** отдаётся текущий файл этого прогона под его именем
 
 ### Requirement: Парсинг CSV-строк
 
@@ -350,6 +400,31 @@ whitespace-only cell SHALL yield null.
 - **THEN** создаётся контакт с именем «Без имени» и телефоном «+7-900-111-11-11»
 - **AND** фрагмент не отбрасывается
 
+#### Scenario: Телефон приводится к каноническому виду
+
+- **WHEN** из ячейки «Контакты» извлечён телефон «8017 2XX XXX-XX» (с кодом города после восьмёрки и нулём)
+- **THEN** он сохраняется в виде «+375 17 XXX-XX-XX»
+
+#### Scenario: Телефон без кода города
+
+- **WHEN** из ячейки «Контакты» извлечён телефон «(29) XXX-XX-XX»
+- **THEN** он сохраняется в виде «+375 29 XXX-XX-XX»
+
+#### Scenario: Телефон с кодом оператора
+
+- **WHEN** из ячейки «Контакты» извлечён телефон «+375 17 XXX-XX-XX»
+- **THEN** он сохраняется без изменений
+
+#### Scenario: Номер без кода и без восьмёрки
+
+- **WHEN** из ячейки «Контакты» извлечён телефон «XXX-XX-XX»
+- **THEN** он сохраняется в виде, в котором девять цифр не набирается, то есть без изменений
+
+#### Scenario: Нераспознанная длина не выдумывается
+
+- **WHEN** из ячейки «Контакты» извлечён телефон, у которого после нормализации остаётся не девять цифр
+- **THEN** он сохраняется в исходном виде, без дописанных и отброшенных цифр
+
 #### Scenario: Обрезка телефона контакта
 
 - **WHEN** из ячейки «Контакты» извлекается значение длиннее 32 символов
@@ -377,7 +452,7 @@ whitespace-only cell SHALL yield null.
 
 ### Requirement: Отображение пакета для проверки
 
-The system SHALL display the next up to 25 unprocessed rows from the import
+The system SHALL display the next up to 20 unprocessed rows from the import
 file as a **table**, one organization per row. The chunk size SHALL define only
 how many rows the user reviews at a time and SHALL NOT affect how rows are
 persisted (each row is saved independently — «Утверждение пакета»). Each table
@@ -391,11 +466,25 @@ field, and SHALL be able to add or remove contacts and add or remove calls. The
 page SHALL display the current progress (`processedRows / totalRows`). The
 system SHALL derive the reviewed chunk from the progress of the import itself:
 it SHALL show rows `processedRows + 1` through
-`min(processedRows + 25, totalRows)`. A chunk is therefore reached by its
+`min(processedRows + 20, totalRows)`. A chunk is therefore reached by its
 address alone, reloading that address shows the same chunk, and the import does
 not depend on server-side run state. The system SHALL NOT take the chunk
 position from the request: a position supplied by the client SHALL NOT shift
 the chunk.
+
+The review page SHALL offer a «Назад к списку» action next to the «Импортировать»
+button. It SHALL return the administrator to the import list and SHALL NOT change
+the run in any way: the run stays unfinished, `processedRows` does not move, and
+it keeps blocking further uploads (design D9). The action SHALL be a navigation
+control rather than a form submission, so returning to the list cannot approve the
+package.
+
+The review page SHALL NOT offer a file replacement: replacing the run's file is
+started from the actions column of the import list («Список импортов»), so the
+package page holds only the package. The form SHALL be submitted by a button
+labelled «Импортировать». A call SHALL carry a «Планируемый» mark when it comes
+from the «Следующий контакт» column: such a call has a scheduled date and no call
+date, and the mark is what tells the two kinds of call apart in the table.
 
 The approval form MAY be submitted more than once. On every submission the
 system SHALL persist starting from `processedRows + 1` and SHALL ignore any
@@ -412,14 +501,28 @@ package of the other run.
 
 #### Scenario: Отображение первого пакета
 
-- **WHEN** администратор нажимает «Начать» на импорте с 400 строками и processedRows = 0
-- **THEN** отображается форма с 25 первыми строками, каждая с распарсенными и редактируемыми полями
+- **WHEN** администратор нажимает «Импортировать» на импорте с 400 строками и processedRows = 0
+- **THEN** отображается форма с 20 первыми строками, каждая с распарсенными и редактируемыми полями
 - **AND** прогресс-индикатор показывает «0 / 400»
+- **AND** форма отправляется кнопкой «Импортировать»
 
-#### Scenario: Размер пакета не превышает 25 строк
+#### Scenario: Возврат к списку не меняет прогон
+
+- **WHEN** администратор нажимает «Назад к списку» на странице пакета
+- **THEN** открывается список прогонов
+- **AND** `processedRows` прогона не изменился
+- **AND** организация из пакета не создана
+
+#### Scenario: Отметка «Планируемый» ставится по колонке «Следующий контакт»
+
+- **WHEN** в колонке «Следующий контакт» указана дата 08.06.2026
+- **THEN** соответствующий звонок в пакете отмечен «Планируемый»
+- **AND** у него заполнено поле даты, а «Взаимодействия» дают звонки без этой отметки
+
+#### Scenario: Размер пакета не превышает 20 строк
 
 - **WHEN** администратор продолжает импорт с processedRows = 0 и totalRows = 400
-- **THEN** в форме отображается не более 25 строк
+- **THEN** в форме отображается не более 20 строк
 
 #### Scenario: Отображение последнего неполного пакета
 
@@ -459,13 +562,13 @@ package of the other run.
 - **WHEN** processedRows >= totalRows
 - **THEN** отображается flash-сообщение об итогах: сколько строк импортировано в этом прогоне и сколько всего по всем прогонам
 
-### Requirement: Утверждение пакета
+### Requirement: Импорт пакета
 
 The system SHALL process the rows of the current chunk when the user submits
-the approval form, starting from `processedRows + 1` and ignoring any submitted
+the form by the «Импортировать» button, starting from `processedRows + 1` and ignoring any submitted
 row at or below it, so that a re-submitted form saves nothing a second time and
 skips no row of the source file. A chunk is only the number of rows the user
-reviews at a time (up to 25) and SHALL NOT be a transaction boundary: each row
+reviews at a time (up to 20) and SHALL NOT be a transaction boundary: each row
 SHALL be saved in its own database transaction. For each row the system SHALL
 create an Organization entity, associated Contact entities, and associated Call
 entities, and SHALL increment `processedRows` by one. `processedRows` counts
@@ -493,11 +596,110 @@ the row is not saved, `processedRows` is not advanced, and the row is displayed
 for correction with an error state. There is no partial acceptance of the rest
 of the chunk: the rows after a stopped row are not saved.
 
-#### Scenario: Сохранение пакета из 25 строк
+One row kind is exempt: a record that carries no organization data — no name, no
+contacts and no calls. Such a record is not necessarily an empty line of the
+file: records whose every field is empty are dropped by the reader before the
+package is built, and a record that keeps, say, only «Актуальный курс» reaches
+the review table nameless and is the case this rule is about. Such a row has nothing to correct, and because
+a package always starts at `processedRows + 1`, leaving it undecided would put
+it at the head of every package forever. The system SHALL skip it, SHALL advance
+`processedRows` by one as if the row were decided, and SHALL report the skipped
+row numbers in a notice of its own. A record with an empty name but any contacts
+or calls is NOT empty and still stops the import for correction. `processedRows`
+therefore counts decided rows — saved or skipped — and there is no second
+counter.
 
-- **WHEN** администратор утверждает пакет из 25 строк
-- **THEN** создаётся 25 организаций с контактами и звонками
-- **AND** processedRows увеличивается на 25
+A contact or a call of a saved row is a case of its own, and it is decided at
+saving time rather than by stopping the import. The review table offers no
+control for removing a nested contact or call — only fields — so clearing a
+field is the only way an admin can express «this is not a contact» or «this is
+not a call», and that must not leave the row unsavable. The system SHALL NOT
+stop the import because of a nested contact or call, and SHALL NOT report a
+validation error for one. A contact with no filled field at all — no name, no
+phone, no email, no position, no notes — SHALL NOT be created; a checked «Основной» mark alone is a flag and not a value, so it does not make a contact savable either. A call with no parsed
+date, no notes and no «Планируемый» mark SHALL NOT be created. A contact that
+carries a phone, an email, a position or notes but no name SHALL be created
+under the constant anonymous name «Без имени», because the admin cleared the
+name and kept the values deliberately, and dropping it would discard data
+silently. An empty organization name still stops the import as described above:
+a row with no name is a different case and is not exempted by this rule. The
+system SHALL NOT report which nested contacts and calls were dropped, because
+dropping them is the admin's own edit at the review stage and the package shows
+the fields that are filled.
+
+Every contact in the review form SHALL offer a notes field and a «Основной»
+checkbox, and the values the admin typed there SHALL be saved on the contact.
+The «Планируемый» call, its notes and the contact notes come from the form
+alone: the source format declares no column for them, so they arrive empty from
+the file. A checked «Основной» mark SHALL be stored on that contact, and because
+one organization has at most one main contact, the mark SHALL be cleared from
+the organization's other contacts — the same rule
+`ContactRepository::resetIsMainForOrganization()` applies to the contact
+screen. When no contact is marked, `MailingService::effectiveMainContact()`
+keeps falling back to the contact with the lowest ID.
+
+#### Scenario: Пустой контакт не создаётся и не останавливает импорт
+
+- **WHEN** администратор очистил все поля контакта в строке пакета и утвердил пакет
+- **THEN** строка сохраняется вместе с организацией
+- **AND** контакт не создаётся
+- **AND** ошибка валидации не отображается и импорт не останавливается
+
+#### Scenario: Контакт без имени, но со значениями сохраняется под «Без имени»
+
+- **WHEN** администратор очистил имя контакта, оставив его телефон
+- **THEN** строка сохраняется
+- **AND** контакт создаётся с именем «Без имени» и с оставленным телефоном
+
+#### Scenario: Звонок без даты и без заметок не создаётся
+
+- **WHEN** администратор очистил дату и заметки звонка в строке пакета
+- **THEN** строка сохраняется вместе с организацией
+- **AND** звонок не создаётся
+- **AND** остальные контакты и звонки этой строки создаются как обычно
+
+#### Scenario: Заметка контакта сохраняется из формы
+
+- **WHEN** администратор ввёл заметку в поле «Заметки» контакта
+- **THEN** контакт сохраняется с этой заметкой
+
+#### Scenario: Отмеченный контакт становится основным
+
+- **WHEN** администратор отметил «Основной» у одного контакта строки
+- **THEN** этот контакт сохраняется с отметкой основного
+- **AND** у остальных контактов той же организации отметка снята
+
+#### Scenario: Пустое название организации при пустых контактах всё равно останавливает импорт
+
+- **WHEN** у строки пустое название, а её единственный контакт очищен администратором
+- **THEN** строка не сохраняется и импорт останавливается на ней
+- **AND** отображается ошибка о незаполненном названии организации
+
+#### Scenario: Запись без данных пропускается с уведомлением
+
+- **WHEN** в пакете есть строка, у которой пустое название, нет контактов и нет звонков
+- **THEN** строка не создаёт организацию
+- **AND** `processedRows` увеличивается на один, как если бы строка была сохранена
+- **AND** система показывает отдельное уведомление с номерами пропущенных строк
+- **AND** остальные строки пакета сохраняются как обычно
+
+#### Scenario: Уведомление о пропуске не мешает остальным
+
+- **WHEN** в пакете три строки без данных и пять заполненных
+- **THEN** уведомление называет все три номера пропущенных строк
+- **AND** пять заполненных строк сохраняются
+
+#### Scenario: Пустое название при непустых контактах не пропускается
+
+- **WHEN** у строки пустое название, но есть хотя бы один контакт
+- **THEN** строка не пропускается
+- **AND** импорт останавливается на ней для исправления названия
+
+#### Scenario: Сохранение пакета из 20 строк
+
+- **WHEN** администратор утверждает пакет из 20 строк
+- **THEN** создаётся 20 организаций с контактами и звонками
+- **AND** processedRows увеличивается на 20
 
 #### Scenario: Ошибка при сохранении строки
 
@@ -531,7 +733,8 @@ of the chunk: the rows after a stopped row are not saved.
 #### Scenario: Завершение импорта
 
 - **WHEN** processedRows становится больше или равным totalRows после сохранения пакета
-- **THEN** отображается flash-сообщение: «Импортировано в этом прогоне: X, импортировано всего: Y», где X — processedRows текущего прогона, Y — сумма processedRows по всем прогонам
+- **THEN** отображается flash-сообщение: «Обработано строк в этом прогоне: X, обработано всего: Y», где X — processedRows текущего прогона, Y — сумма processedRows по всем прогонам
+- **AND** строки, пропущенные как не содержащие данных, учтены в X и отдельно названы в своём уведомлении в момент пропуска
 - **AND** в списке импортов действия недоступны
 
 ### Requirement: Обнаружение дубликатов названий
@@ -584,7 +787,7 @@ is not abandoned for it.
 
 #### Scenario: Конфликт в середине пакета — пакет продолжается
 
-- **WHEN** конфликт по названию возникает на 13-й строке пакета из 25 строк
+- **WHEN** конфликт по названию возникает на 13-й строке пакета из 20 строк
 - **THEN** отображается пакет, начинающийся с этой строки, с сохранёнными введёнными значениями
 - **AND** после выбора администратора оставшиеся строки пакета сохраняются без повторного открытия пакета
 
@@ -628,8 +831,8 @@ place.
 
 ### Requirement: Подтверждение замены файла импорта
 
-The system SHALL let the administrator supply a replacement file on the import
-review page while `processedRows < totalRows`. In every case the system SHALL
+The system SHALL let the administrator supply a replacement file from the
+actions column of the import list while `processedRows < totalRows`. In every case the system SHALL
 NOT modify the run on submission. It SHALL validate the replacement against
 the format declared for the import's own source — the format the run's
 source is stored with — SHALL keep the run pointing at its current file, and
@@ -665,6 +868,19 @@ instead of being rejected, and the import SHALL then be treated as completed.
 The already-processed prefix SHALL stay frozen: row content that changed within
 `processedRows` SHALL NOT be re-parsed, re-reviewed, or re-inserted. When
 `processedRows` equals `totalRows`, the replacement form SHALL NOT be available.
+
+#### Scenario: Замена запускается из списка
+
+- **WHEN** администратор нажимает «Перезагрузить» в строке прогона с processedRows = 50 и totalRows = 400
+- **AND** выбирает новый CSV-файл
+- **THEN** система переходит к отчёту о замене до внесения изменений
+- **AND** прогон остаётся без изменений
+
+#### Scenario: На странице пакета замены файла нет
+
+- **WHEN** администратор открывает страницу проверки пакета
+- **THEN** на ней нет ни формы замены файла, ни ссылки на замену
+- **AND** замена запускается только из списка прогонов
 
 #### Scenario: Отчёт о замене до внесения изменений
 

@@ -31,7 +31,7 @@ controller-driven chunk processing.
 ## Goals / Non-Goals
 
 **Goals:**
-- Interactive wizard: upload → parse → review/approve packages of 25 → persist
+- Interactive wizard: upload → parse → review/approve packages of 20 → persist
 - Heuristic parsing of unstructured CSV columns (contacts, interactions)
 - User can edit, add and remove contacts and calls before approving each package
 - Duplicate detection with merge/create-new choice
@@ -104,14 +104,19 @@ when it occurs and is not stored on the run.
 
 Three consequences of the simplification:
 
-- **`processedRows` counts saved rows.** There is no `savedRows` and no skip
-  action. A row that cannot be saved must be corrected in the review table
-  first; an empty name blocks approval of that row rather than advancing the
-  counter. This keeps the completion flash honest — `X` is literally the number
-  of organizations created — and removes the invariant that two counters must
-  stay in step.
+- **`processedRows` counts decided rows: saved or skipped.** There is no
+  `savedRows` and no second counter. A row that cannot be saved must be corrected
+  in the review table first: an empty name, or a conflict the admin declined to
+  resolve, blocks approval of that row rather than advancing the counter.
+  There is exactly one kind of skip — a record carrying nothing at all (no name,
+  no contacts, no calls). It is advanced past with its own notice, because there
+  is nothing in it to correct: the row would otherwise sit at the head of every
+  package forever, since a package always starts at `processedRows + 1`. The
+  consequence for reporting: `X` in the completion flash is the number of source
+  rows that became an organization **or** were skipped, so the flash counts
+  processed rows and the skip count is reported separately, when it happens.
 - **The chunk is derived, not addressed.** The reviewed chunk is
-  `[processedRows + 1 … min(processedRows + 25, totalRows)]`, computed at
+  `[processedRows + 1 … min(processedRows + 20, totalRows)]`, computed at
   render time from the run's own progress. The review page therefore takes
   no chunk position as input, and a position supplied by the client is
   ignored: the address `/admin/import/{id}` is a bookmark that always renders
@@ -143,12 +148,12 @@ remaining text. Show parsed results in editable form for user correction.
 positions, phones, emails mixed freely. No reliable automatic parsing is
 possible. The interactive review step is the safety net.
 
-### D4: Chunk size of 25 rows
+### D4: Chunk size of 20 rows
 
-**Choice:** Process up to 25 rows per chunk. Each chunk is a full page with
+**Choice:** Process up to 20 rows per chunk. Each chunk is a full page with
 editable fields for all rows in the chunk.
 
-**Rationale:** 25 is the agreed maximum for one review page, while keeping the
+**Rationale:** 20 is the agreed maximum for one review page, while keeping the
 review burden manageable. The chunk is a review batch only, not a transaction
 boundary (see D7). The last chunk may be smaller (e.g., 5 rows for a 400-row
 file).
@@ -292,15 +297,35 @@ review batch. The stored file is never deleted, so after an error the user
 can replace the file and continue from `processedRows`.
 
 **A stop is a stop: the report names the file row.** Whatever the cause — an
-empty name, a value the database rejects, a contact without a name — the run
+empty name, a value the database rejects — the run
 halts at that row, the error message states the row number in the source file
 and what is wrong with it, and the row is presented for correction in place
-inside the re-displayed package. There is no partial acceptance of the rest of
-the chunk: rows after the stopped one are not saved, because `processedRows`
+inside the re-displayed package. There is no partial acceptance of the rest
+of the chunk: rows after the stopped one are not saved, because `processedRows`
 counts saved rows and a row that was not reviewed as saved has no business
 advancing the counter. The admin either fixes the value in the table and
 re-approves, or fixes the source file and replaces it (D8) — both land on the
 same continuation, the first unprocessed row.
+
+**A nested contact or a nested call is not a stop.** D3 makes the review table
+the safety net for the unstructured contact column, and the review table
+offers no control for removing a nested contact or call — only fields. That
+makes clearing a field the only way an admin can say «this is not a contact»,
+so a stop there would trap the admin in a form with no exit: they cannot delete
+the row, only empty it, and an emptied row would keep refusing to save. The
+decision is therefore taken when the row is saved rather than by stopping:
+
+- a contact with no filled field is not created;
+- a call with no parsed date, no notes and no «Планируемый» mark is not created;
+- a contact with a phone, an email or a position but no name is created under
+  the constant anonymous name — the admin cleared the name and kept the values
+  on purpose, so dropping it would discard data without a word.
+
+Nothing is reported about what was dropped: the package already shows which
+fields are filled, so the drop is the admin's own edit made in front of them,
+not a surprise. An empty **organization** name still stops the import, because
+that row has no identity to save at all. The reader is untouched: this is a
+decision about what to save, not about how the source is understood.
 
 ### D8: Replacing the file is a confirmed resume from a fixed row
 
@@ -395,8 +420,8 @@ state; a redirect is right for a page that only shows state.
 **The approval form is idempotent, and it is idempotent for free.** Submitting
 the same form twice inserts nothing the second time, because the server persists
 starting from `processedRows + 1` and ignores any submitted row that lies at or
-below it (D2). Rows 1..25 of a chunk that already saved row 13 are not
-"re-inserted": rows 1..13 are below the counter and are skipped, and 14..25 —
+below it (D2). Rows 1..20 of a chunk that already saved row 13 are not
+"re-inserted": rows 1..13 are below the counter and are skipped, and 14..20 —
 if the stop happened there — are saved once. A re-submission of a stale form
 therefore resumes exactly where the run stands, which is the same behaviour as
 reopening the review page and pressing the button again. No idempotency key, no
@@ -438,8 +463,8 @@ first.
        v
   row 13 = "Нафтан" already exists
        |
-       +-- re-render package [13..25], conflict marked on row 13
-       |     (entered values of 13..25 kept; 1..12 are gone from the form
+       +-- re-render package [13..20], conflict marked on row 13
+       |     (entered values of 13..20 kept; 1..12 are gone from the form
        |      because they are already below processedRows)
        |
        +-- POST /approve again, with the choice on row 13
@@ -448,7 +473,7 @@ first.
              +-- create new -> a second "Нафтан" is created
              |
              v
-           rows 14..25 persisted in the same request -> chunk done
+           rows 14..20 persisted in the same request -> chunk done
 ```
 
 **Rationale:** Review-time checking misses within-file duplicates (the first
@@ -457,7 +482,7 @@ duplicates on the same stop path as other insert failures, and the re-display
 rule of D2 makes the resumed package start at exactly the row that needs a
 decision. Continuing the chunk in the same request is what makes the choice
 cheap: the alternative — persisting the row and stopping — forces the admin
-through a second review cycle for rows 14–25 that they had already reviewed.
+through a second review cycle for rows 14–20 that they had already reviewed.
 Date and other field errors stay review-time edits only — they never pause
 insert.
 
@@ -478,10 +503,12 @@ this `ImportRun`'s `processedRows` and Y is the sum of `processedRows` across
 all import runs. No summary page and no per-entity breakdown.
 
 **Rationale:** Enough signal for a one-shot migration without a second counter or
-a summary view. Because there is no skip action (D2), `processedRows` is the
-number of source rows that became a persisted organization — either created or
-merged into one — so `X` needs no qualification, and the two counters of the
-earlier design are not needed to tell a saved row from a skipped one.
+a summary view. Because empty records are skipped rather than saved (D2), `X` is
+the number of source rows that became a persisted organization — created or
+merged into one — **or** were skipped as carrying nothing, so the flash counts
+processed rows and the skips are reported in their own notice at the moment they
+occur. One counter still tells a decided row from an undecided one, which is all
+the resume logic needs.
 
 ## Architecture
 
@@ -502,7 +529,7 @@ flowchart TB
     JM["CsvRowMapper<br/>эвристика контактов<br/>фрагменты в description"]
     IDP["InteractionDateParser<br/>базовые формы<br/>неясная дата — в заметку"]
     DTO["OrganizationData / ContactData / CallData"]
-    IP["ImportProcessor<br/>пакет не более 25<br/>транзакция на строку<br/>проверка дубликата при вставке"]
+    IP["ImportProcessor<br/>пакет не более 20<br/>транзакция на строку<br/>проверка дубликата при вставке"]
     IR["ImportRunRepository"]
   end
 
@@ -539,19 +566,22 @@ sequenceDiagram
     participant IP as ImportProcessor
     participant DB as MySQL
 
-    Admin->>IC: POST /admin/import (файл CSV)
+    Admin->>IC: POST /admin/import/upload (файл CSV)
     IC->>ST: store(file)
     ST->>DB: запись файла в var/storage/imports
     IC->>P: validateHeaders и countRecords
     P-->>IC: 9 колонок, N записей
     IC->>DB: INSERT import_run (sourceFormat = csv,<br/>totalRows = N, processedRows = 0)
-    IC-->>Admin: 302 на /admin/import/{id}
+    IC-->>Admin: 302 на /admin/import (файл виден в списке)
 
+    Note over IC,P: разбор записей и проверка пакета<br/>не начинаются на загрузке —<br/>администратор запускает их кнопкой<br/>«Импортировать» в строке прогона
+
+    Admin->>IC: «Импортировать» в строке прогона
     Admin->>IC: GET /admin/import/{id}
-    IC->>IP: processChunk() — строки processedRows+1 … min(+25, totalRows)
+    IC->>IP: processChunk() — строки processedRows+1 … min(+20, totalRows)
     IP->>P: записи этого пакета
     P->>IP: InteractionDateParser, CsvRowMapper, DTO
-    IP-->>IC: не более 25 редактируемых строк
+    IP-->>IC: не более 20 редактируемых строк
     IC-->>Admin: таблица пакета и прогресс
 
     Admin->>IC: POST /admin/import/{id}/approve
@@ -583,7 +613,8 @@ sequenceDiagram
     participant ST as ImportFileStorage
     participant DB as MySQL
 
-    Admin->>IC: POST /admin/import/{id}/replace (новый файл)
+    Admin->>IC: «Перезагрузить» в строке списка
+   Admin->>IC: POST /admin/import/{id}/replace (новый файл)
     IC->>ST: сохранить новый файл
     IC->>ST: прочитать текущий файл прогона и новый
     Note over IC: отчёт — числа строк, строка продолжения и<br/>организация на ней, номера изменившихся строк.<br/>Прогон не меняется
@@ -605,7 +636,7 @@ sequenceDiagram
 - **Heuristic parsing may misclassify contacts** → Mitigated by the review
   table; user can correct any field before approval.
 - **Large multiline cells may exceed PHP memory** → CSV is read row-by-row
-  with `fgetcsv()`, not loaded entirely into memory. Chunk size of 25 limits
+  with `fgetcsv()`, not loaded entirely into memory. Chunk size of 20 limits
   per-request memory.
 - **PHP's default `$escape` silently corrupts the real export** → 421 records
   instead of 398, with 23 fragments presented as organizations named after
@@ -658,9 +689,10 @@ sequenceDiagram
   replacement (D8). Two admins interleaving actions on the one active run
   are not prevented; their writes still serialise on `processedRows`, and the
   duplicate dialog catches the interleaving they cause.
-- **No skip action** → A row that cannot be saved (empty name, unresolvable
-  duplicate the admin declines to resolve) stops the run at that row rather
-  than advancing past it. This is a deliberate simplification: with
-  `processedRows` counting saved rows only, the completion flash reports
-  organizations actually created. The cost is that a chunk cannot be finished
-  by discarding its problem rows.
+- **Skipping is limited to records that carry nothing** → A row that cannot be
+  saved (empty name, unresolvable duplicate the admin declines to resolve) still
+  stops the run at that row rather than advancing past it, because the admin can
+  fix it in the review table. Only a record with no name, no contacts and no
+  calls is skipped, with its own notice. The cost is that a chunk cannot be
+  finished by discarding a row that merely looks wrong — and, in exchange, a
+  genuinely empty record cannot wedge the import permanently.

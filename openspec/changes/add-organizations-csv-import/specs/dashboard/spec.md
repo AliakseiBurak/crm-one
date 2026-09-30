@@ -4,12 +4,11 @@
 
 ### Requirement: Таблица организаций на панели
 The system SHALL render on the dashboard, below the statistics blocks, a
-table of organizations with columns for the organization name, website, date of
+table of organizations with columns for the organization name, date of
 the last completed call, date of the next scheduled call, activity status and
-opt-out date. The website column SHALL render the bare domain of the stored
-address (for example `armis.by` for `https://armis.by/`) and SHALL render that
-address as the link target, and SHALL render an empty cell for an organization
-without a website; the stored value SHALL NOT be rewritten. The last call date
+opt-out date. There SHALL be no website column and no city column: the table
+holds five columns, and both fields are shown in the expanded organization
+details row instead. The last call date
 SHALL be derived from the latest `Call.made_at` of the organization, the next
 call date SHALL be derived from the nearest future `Call.scheduled_at`. The
 activity status column SHALL render `Organization.isActive` as a checkbox, the
@@ -19,7 +18,7 @@ next call date column. Organizations SHALL be listed within the user's access
 scope, in the sort order selected by the user. The organization name column
 SHALL occupy the maximum available width and allow text wrapping; the remaining
 columns SHALL be at least as wide as their header text (including sort arrows) on
-one line and grow to fit cell content. There SHALL be no city column.
+one line and grow to fit cell content.
 
 #### Scenario: Список организаций с датами звоноков
 
@@ -28,17 +27,18 @@ one line and grow to fit cell content. There SHALL be no city column.
 - **THEN** в таблице отображаются названия организаций
 - **AND** для каждой организации отображаются дата последнего завершённого звонка и дата ближайшего запланированного звонка
 
-#### Scenario: Колонка «Сайт» доменом со ссылкой
+#### Scenario: Колонки сайта и города отсутствуют
 
-- **WHEN** организация «ООО Ромашка» имеет сайт «https://romashka.by»
+- **WHEN** организация имеет сайт и город
 - **AND** пользователь открывает панель организаций
-- **THEN** в ячейке колонки «Сайт» отображается «romashka.by»
-- **AND** значение в ячейке является ссылкой на «https://romashka.by»
+- **THEN** в таблице отсутствуют колонки «Сайт» и «Город»
+- **AND** таблица состоит из пяти колонок: название, последний звонок, следующий звонок, активна, дата отписки
+- **AND** сайт и город видны в раскрытой строке организации
 
-#### Scenario: Пустой сайт в таблице
+#### Scenario: Сортировка по сайту недоступна
 
-- **WHEN** организация не имеет сайта
-- **THEN** ячейка колонки «Сайт» пуста
+- **WHEN** пользователь открывает панель организаций
+- **THEN** среди сортируемых заголовков отсутствует «Сайт»
 
 #### Scenario: Организация без звонков
 
@@ -66,9 +66,9 @@ one line and grow to fit cell content. There SHALL be no city column.
 
 ### Requirement: Сортировка таблицы организаций
 The system SHALL let the user sort the organization table by organization
-name, website, last call date, next call date, activity status and opt-out date.
-Sorting by industry and by city SHALL NOT be offered, because neither column is
-rendered in this table. By default,
+name, last call date, next call date, activity status and opt-out date.
+Sorting by website, by industry and by city SHALL NOT be offered, because none of
+those columns is rendered in this table. By default,
 without a sort parameter, the table SHALL be sorted by organization name
 in ascending order. The sortable column headers SHALL render as plain
 clickable headers with the currently applied sort direction (and column)
@@ -84,12 +84,6 @@ links SHALL preserve the applied search query and filters.
 - **WHEN** пользователь кликает по заголовку «Название» таблицы организаций
 - **THEN** организации сортируются по названию (А–Я, затем Я–А при повторном клике)
 - **AND** направление сортировки отражается в заголовке
-
-#### Scenario: Сортировка по сайту
-
-- **WHEN** пользователь сортирует таблицу организаций по колонке «Сайт»
-- **THEN** организации располагаются в порядке возрастания или убывания значения сайта
-- **AND** при равных значениях порядок определяется названием по возрастанию
 
 #### Scenario: Сортировка по сфере деятельности недоступна
 

@@ -64,6 +64,8 @@ erDiagram
         string name "уникальность не гарантируется"
         string industry "nullable, сфера деятельности"
         string annual_plan "nullable, годовой план обучения"
+        string website "nullable, сайт организации (ADR-0015)"
+        string city "nullable, город (ADR-0015)"
         text description "nullable, описание организации"
         string courses_attended "nullable, «Учились у нас» — свободный текст"
         string unp "nullable, УНП (32)"

@@ -7,10 +7,11 @@
 The system SHALL support an optional website field (string 255, nullable) on
 Organization. The website SHALL be editable in the organization create/edit form
 and in the quick-edit modal, and SHALL be displayed in the expanded organization
-details row on the dashboard. The website SHALL also be a sortable column of the
-dashboard organization table, rendered as the bare domain (for example
-`armis.by`) and linking to the full address. The stored value SHALL NOT be
-silently rewritten when it is displayed as a domain.
+details row on the dashboard as stored. The website SHALL NOT be rendered as a
+column of the dashboard organization table and SHALL NOT be sortable there,
+because that table holds five columns and the website is needed when reading a
+card rather than when scanning the list. The stored value SHALL NOT be rewritten
+for display.
 
 #### Scenario: Создание организации с сайтом
 
@@ -27,23 +28,23 @@ silently rewritten when it is displayed as a domain.
 - **WHEN** пользователь раскрывает строку организации на панели
 - **THEN** в раскрытой секции отображается значение поля сайта
 
-#### Scenario: Сайт колонкой таблицы организаций
-
-- **WHEN** администратор открывает панель с организациями
-- **THEN** в таблице присутствует колонка «Сайт»
-- **AND** для организации "ООО Ромашка" с сайтом "https://romashka.by" в ячейке отображается "romashka.by"
-- **AND** значение в ячейке является ссылкой на "https://romashka.by"
-
-#### Scenario: Пустой сайт в таблице
+#### Scenario: Пустой сайт в раскрытой строке
 
 - **WHEN** организация не имеет сайта
-- **THEN** ячейка колонки «Сайт» пуста
+- **THEN** в раскрытой строке вместо сайта отображается «—»
 
-#### Scenario: Сортировка таблицы по сайту
+#### Scenario: Сайт колонкой таблицы не отображается
 
-- **WHEN** администратор сортирует таблицу организаций по колонке «Сайт»
-- **THEN** организации располагаются в порядке возрастания или убывания значения сайта
-- **AND** при равных значениях порядок определяется названием по возрастанию
+- **WHEN** администратор открывает панель с организациями
+- **THEN** в таблице отсутствует колонка «Сайт»
+- **AND** среди сортируемых заголовков отсутствует «Сайт»
+
+#### Scenario: Сайт отображается как сохранён
+
+- **WHEN** организация "ООО Ромашка" имеет сайт "https://romashka.by/contacts/"
+- **AND** пользователь раскрывает строку организации на панели
+- **THEN** в раскрытой секции отображается "https://romashka.by/contacts/"
+- **AND** значение не переписывается в домен
 
 #### Scenario: Редактирование сайта в quick-edit модалке
 
