@@ -29,7 +29,9 @@ final class HeaderTest extends DatabaseWebTestCase
         // «⚙ Админ ▾»: Пользователи, Скрытые организации, Импорт организаций.
         $this->assertSelectorExists('.header__actions .header-admin__toggle');
         self::assertSame(3, $crawler->filter('.header__actions .header-admin__menu .header-admin__item')->count());
-        self::assertSame(1, $crawler->filter('.header__actions .header-admin__menu a[href="/admin/import"]')->count());
+        // Импорт открывается на своей вкладке «Результаты» (change
+        // add-organizations-json-import).
+        self::assertSame(1, $crawler->filter('.header__actions .header-admin__menu a[href="/admin/import/results"]')->count());
 
         // Выпадающий список пользователя: «Профиль», первый пункт — логин, затем имя/email, затем «Выйти».
         $this->assertSelectorTextContains('.header__actions .header-user__toggle', 'Профиль');

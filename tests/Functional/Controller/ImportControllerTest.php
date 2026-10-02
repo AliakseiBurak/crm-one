@@ -26,6 +26,8 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  */
 final class ImportControllerTest extends DatabaseWebTestCase
 {
+    use ImportReviewFormTrait;
+
     /**
      * Индекс ячейки «Последняя обработанная строка» в строке списка:
      * 0 — файл, 1 — всего строк, 2 — обработано, 3 — создан, 4 — последняя
@@ -96,7 +98,7 @@ final class ImportControllerTest extends DatabaseWebTestCase
         $this->open('/admin/import');
         $this->upload('valid.csv');
 
-        $this->assertResponseRedirects('/admin/import');
+        $this->assertResponseRedirects('/admin/import/results');
         $run = $this->singleRun();
         $this->client->followRedirect();
 
@@ -149,24 +151,28 @@ final class ImportControllerTest extends DatabaseWebTestCase
         );
     }
 
-    public function testTableComesBeforeTheUploadForm(): void
+    public function testRunTableLivesOnItsOwnTab(): void
     {
         $this->login($this->makeAdmin());
         $this->createRun(3);
 
-        $crawler = $this->open('/admin/import');
-
-        $table = $crawler->filter('table')->first();
-        self::assertGreaterThan(0, $table->count());
-        $formAction = $crawler->filter('form[action$="/admin/import/upload"]');
-        self::assertSame(1, $formAction->count());
-        $form = $formAction->getNode(0);
-        // Форма объявлена после таблицы в разметке.
+        // Список прогонов — на первой вкладке, под вкладками и без формы
+        // загрузки (change add-organizations-json-import).
+        $results = $this->open('/admin/import/results');
+        self::assertSame(1, $results->filter('table')->count());
+        self::assertSame(0, $results->filter('form[action$="/admin/import/upload"]')->count());
+        $this->assertSelectorTextContains('.tabs__item--active', 'Результаты');
         self::assertGreaterThan(
-            $this->domPositionOf($table->getNode(0)),
-            $this->domPositionOf($form),
-            'Таблица прогонов должна идти перед формой загрузки.',
+            $this->domPositionOf($results->filter('.tabs')->getNode(0)),
+            $this->domPositionOf($results->filter('table')->getNode(0)),
+            'Таблица прогонов должна идти под вкладками.',
         );
+
+        // На вкладке загрузки таблицы нет: она про формат, а не про состояние.
+        $csv = $this->open('/admin/import');
+        self::assertSame(0, $csv->filter('table')->count());
+        self::assertSame(1, $csv->filter('form[action$="/admin/import/upload"]')->count());
+        $this->assertSelectorTextContains('.tabs__item--active', 'CSV');
         $this->assertPageNotContains('Загрузки');
     }
 
@@ -189,7 +195,7 @@ final class ImportControllerTest extends DatabaseWebTestCase
         return PHP_INT_MAX;
     }
 
-    public function testUploadIsRejectedWhileAnImportIsUnfinished(): void
+    public function testUploadIsNotBlockedByAnUnfinishedRun(): void
     {
         $this->login($this->makeAdmin());
 
@@ -197,12 +203,24 @@ final class ImportControllerTest extends DatabaseWebTestCase
         $this->upload('valid.csv');
         $this->client->followRedirect();
 
+        // Незавершённый прогон не блокирует следующую загрузку: у каждого своя
+        // строка, свои действия и свой счётчик (design D12).
         $this->open('/admin/import');
         $this->upload('valid.csv');
         $this->client->followRedirect();
 
-        $this->assertSelectorTextContains('.alert--error', 'не завершён');
-        self::assertCount(1, $this->runs());
+        $this->assertSelectorNotExists('.alert--error');
+        self::assertCount(2, $this->runs());
+
+        $this->open('/admin/import/results');
+        $crawler = $this->open('/admin/import/results');
+        self::assertSame(2, $crawler->filter('tbody tr')->count());
+        // У обоих прогонов есть действия: импорт можно продолжить в любом.
+        self::assertSame(2, $crawler->filter('tbody tr a[href$="/replace"]')->count());
+        self::assertSame(
+            2,
+            $crawler->filterXPath('//tbody/tr//a[normalize-space(.) = "Импортировать"]')->count(),
+        );
     }
 
     public function testUploadWithWrongHeadersIsRejectedWithExpectedHeaders(): void
@@ -264,15 +282,18 @@ final class ImportControllerTest extends DatabaseWebTestCase
         self::assertSame($chunk, $this->rowNumbers());
     }
 
-    public function testReviewRedirectsToAnotherUnfinishedRun(): void
+    public function testReviewShowsItsOwnRunWhileAnotherIsUnfinished(): void
     {
         $this->login($this->makeAdmin());
-        $finished = $this->createRun(2, processed: 2);
+        $this->createRun(2, processed: 2);
         $unfinished = $this->createRun(5);
 
-        $this->open('/admin/import/' . $finished->id);
+        // Прогоны независимы: страница показывает пакет того, кого открыли, а не
+        // перенаправляет на самый свежий незавершённый (design D12).
+        $this->open('/admin/import/' . $unfinished->id);
 
-        $this->assertResponseRedirects('/admin/import/' . $unfinished->id);
+        $this->assertResponseIsSuccessful();
+        self::assertCount(5, $this->client->getCrawler()->filter('.import-row'));
     }
 
     public function testReviewOfFinishedRunRedirectsToListWithTotals(): void
@@ -282,10 +303,11 @@ final class ImportControllerTest extends DatabaseWebTestCase
 
         $this->open('/admin/import/' . $run->id);
 
-        $this->assertResponseRedirects('/admin/import');
+        $this->assertResponseRedirects('/admin/import/results');
         $this->client->followRedirect();
-        $this->assertSelectorTextContains('.alert--success', 'Обработано строк в этом прогоне: 2');
-        $this->assertSelectorTextContains('.alert--success', 'обработано всего: 2');
+        // Итог считается по текущему прогону: прогоны независимы, и сумма по всем
+        // отвечала бы на вопрос, которого не задавали (design D12).
+        $this->assertSelectorTextContains('.alert--success', 'Обработано строк в этом прогоне: 2 из 2');
     }
 
     public function testApproveCreatesOrganizationsContactsAndCallsAndAdvancesProgress(): void
@@ -1020,7 +1042,7 @@ final class ImportControllerTest extends DatabaseWebTestCase
                 'action' => 'confirm',
             ]);
 
-        $this->assertResponseRedirects('/admin/import');
+        $this->assertResponseRedirects('/admin/import/results');
         $this->client->followRedirect();
         $this->assertSelectorTextContains('.alert--warning', 'считается завершённым');
 
@@ -1059,10 +1081,13 @@ final class ImportControllerTest extends DatabaseWebTestCase
         $finished = $this->createRun(40, processed: 40);
         $aboveTotal = $this->createRun(30, processed: 45);
 
-        $this->open('/admin/import');
+        // Список прогонов живёт на своей вкладке (change
+        // add-organizations-json-import).
+        $this->open('/admin/import/results');
 
         $this->assertPageContains('Загружен');
         $this->assertPageContains('Импортирован');
+        $this->assertPageContains('Всего');
 
         // «Импортировать» и «Перезагрузить» — только у незавершённых прогонов,
         // «Скачать» — у любого.
@@ -1128,7 +1153,7 @@ final class ImportControllerTest extends DatabaseWebTestCase
         $crawler = $this->open('/admin/import/' . $run->id);
         $back = $crawler->filterXPath('//a[normalize-space(.) = "Назад к списку"]');
         self::assertCount(1, $back);
-        self::assertSame('/admin/import', $back->attr('href'));
+        self::assertSame('/admin/import/results', $back->attr('href'));
         // Ссылка, а не кнопка отправки: переход не может утвердить пакет.
         // Что submit у формы ровно один и он «Импортировать» — проверяет
         // testReviewPageSubmitsThePackageByTheImportButton.
@@ -1187,7 +1212,7 @@ final class ImportControllerTest extends DatabaseWebTestCase
         $this->login($this->makeAdmin());
         $this->open('/organizations/new');
 
-        $this->assertSelectorExists('[data-header-admin] a[href="/admin/import"]');
+        $this->assertSelectorExists('[data-header-admin] a[href="/admin/import/results"]');
 
         $this->client->restart();
         $this->login($this->makeUser('manager-menu', 'manager-menu@b2b-crm.loc', UserRole::Manager));
@@ -1290,7 +1315,7 @@ final class ImportControllerTest extends DatabaseWebTestCase
     {
         $this->open('/admin/import');
         $this->upload($fixtureName);
-        self::assertResponseRedirects('/admin/import');
+        self::assertResponseRedirects('/admin/import/results');
 
         return $this->singleRun();
     }
@@ -1419,87 +1444,6 @@ final class ImportControllerTest extends DatabaseWebTestCase
             '_csrf_token' => $this->csrfToken(),
             ...$fields,
         ]);
-    }
-
-    /**
-     * Поля формы ровно такие, какие отрисовала страница проверки: тест
-     * утверждает настоящий пакет, а не собранные вручную данные.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private function reviewRows(): array
-    {
-        $rows = [];
-        $crawler = $this->client->getCrawler();
-
-        foreach ($crawler->filter('input[name$="[rowNumber]"]') as $node) {
-            \assert($node instanceof \DOMElement);
-            $number = (int) $node->getAttribute('value');
-            $prefix = 'rows[' . $number . ']';
-            $values = [];
-
-            foreach ($crawler->filter(\sprintf('*[name^="%s["]', $prefix)) as $field) {
-                \assert($field instanceof \DOMElement);
-                $name = $field->getAttribute('name');
-                $key = substr($name, \strlen($prefix) + 1);
-                $type = $field->getAttribute('type');
-
-                if ('checkbox' === $type) {
-                    $value = $field->hasAttribute('checked') ? '1' : '0';
-                } elseif ('hidden' === $type) {
-                    $value = $field->getAttribute('value');
-                } else {
-                    $value = $field->textContent !== '' ? $field->textContent : $field->getAttribute('value');
-                }
-
-                $this->assign($values, $this->splitName($key), $value);
-            }
-
-            $rows[$number] = $values;
-        }
-
-        self::assertNotEmpty($rows);
-
-        return $rows;
-    }
-
-    /**
-     * `contacts[0][name]` → ['contacts', 0, 'name']: имя поля формы надо
-     * разобрать в массив, иначе PHP не построит вложенность из
-     * `contacts][0][name`.
-     *
-     * @return array<int, string|int>
-     */
-    private function splitName(string $key): array
-    {
-        preg_match_all('/^([A-Za-z_]+)|\[([^\]]+)\]/', $key, $matches, PREG_SET_ORDER);
-        $parts = [];
-        foreach ($matches as $match) {
-            $part = '' !== ($match[1] ?? '') ? $match[1] : ($match[2] ?? '');
-            $parts[] = ctype_digit($part) ? (int) $part : $part;
-        }
-
-        return $parts;
-    }
-
-    /**
-     * @param array<string, mixed>          $target
-     * @param array<int, string|int>        $path
-     */
-    private function assign(array &$target, array $path, string $value): void
-    {
-        $cursor = &$target;
-        $last = \count($path) - 1;
-        foreach ($path as $index => $part) {
-            if ($index === $last) {
-                $cursor[$part] = $value;
-                break;
-            }
-            if (!isset($cursor[$part]) || !\is_array($cursor[$part])) {
-                $cursor[$part] = [];
-            }
-            $cursor = &$cursor[$part];
-        }
     }
 
     /**

@@ -182,9 +182,11 @@ final class CsvRowMapperTest extends TestCase
 
     public function testAnnualPlanIsNeverPopulated(): void
     {
-        // У OrganizationData вообще нет поля annualPlan: объявленный формат
-        // источника его не несёт, а URL уходит в website.
-        self::assertFalse(property_exists($this->mapper->map($this->record('Нафтан', annualPlan: 'https://armis.by/')), 'annualPlan'));
+        // Объявленный формат источника годовой план не несёт, а URL из этой
+        // колонки уходит в website. Проверяется значение, а не отсутствие
+        // свойства: с приходом JSON-пути поле annualPlan в OrganizationData
+        // появилось — его заполняет ответ, а не выгрузка (design D7).
+        self::assertNull($this->mapper->map($this->record('Нафтан', annualPlan: 'https://armis.by/'))->annualPlan);
     }
 
     public function testTwoContactsInOneCellBecomeTwoContactDtos(): void
