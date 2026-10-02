@@ -35,7 +35,7 @@ inherited wholesale. Everywhere else the parent's rules stand as written.
 - A second source format on the existing import page, sharing every stage after
   parsing
 - One published contract driving the prompt, the download and the validation
-- Accepting a model answer by paste or by file, treated identically
+- Accepting a model answer as a file, the same way as any other response file
 - Filling `industry`, `website` and `city` from the model, with the key and the
   request never reaching the server
 - Keeping the human in the loop: a model answer is reviewed package by package
@@ -47,7 +47,9 @@ inherited wholesale. Everywhere else the parent's rules stand as written.
 
 **Non-Goals:**
 - Server-side calls to any provider, and any persistence of an API key
-- Automatic submission of a model answer
+- Automatic submission of a model answer: the answer is shown, downloaded and
+  uploaded by the administrator, never sent on its own
+- A field for pasting a response into the JSON tab
 - Automatic start of the import on submission — like the CSV tab, the run appears
   in the import list and «Импортировать» starts it (D3)
 - A second progress model: `totalRows` counts organizations on both paths, so
@@ -68,20 +70,26 @@ inherited wholesale. Everywhere else the parent's rules stand as written.
 
 ### D1: Two front-ends, one back-end
 
-**Choice:** the import has two front-ends and one back-end, merging at the DTO
-layer.
+**Choice:** the import has four front-ends and one back-end, merging at the DTO
+layer: «CSV», «JSON», «LLM» and «Промпт» differ in how a row is obtained, and the
+list of runs is a fifth tab rather than a block repeated on each of them — a run
+is state, not format, and the same table on four screens told the administrator
+nothing about the tab they were on.
 
 ```mermaid
 flowchart TB
-    JSONTab["Вкладка JSON<br/>промпт, схема, вставка или файл"]
-    LLMJS["LlmClient (JS)<br/>OpenAI-совместимый<br/>ключ только в sessionStorage"]
+    RTab["Вкладка Результаты<br/>список прогонов"]
+    JSONTab["Вкладка JSON<br/>схема, файл ответа"]
+    PRTab["Вкладка Промпт<br/>инструкция для копирования"]
+    LLMJS["LlmClient (JS)<br/>родной API провайдера<br/>ключ только в sessionStorage"]
     JP["JsonImportParser<br/>ответ по схеме"]
     SCH["ImportJsonSchema<br/>схема — источник истины<br/>промпт, скачивание, валидация"]
     Dates["InteractionDateParser (parent D6a)"]
     DTO["OrganizationData / ContactData / CallData"]
     Proc["ImportProcessor (parent D8)"]
 
-    LLMJS -. ответ в поле вставки .-> JSONTab
+    LLMJS -. скачанный файл .-> JSONTab
+    LLMJS -. тот же промпт .-> PRTab
     JSONTab --> JP
     JP --> SCH
     JP --> Dates
@@ -91,9 +99,10 @@ flowchart TB
 ```
 
 The JSON tab and the LLM tab converge before the server is involved: the LLM
-client writes into the JSON tab's textarea and the administrator submits it
-like any pasted text. The server therefore has exactly one entry point for this
-path.
+client shows the answer and writes it to a file the administrator downloads, and
+that file is uploaded on the JSON tab like any other. The server therefore has
+exactly one entry point for this path and never learns where the answer came
+from.
 
 **Rationale:** the value of the JSON path is not a second import — it is that
 contacts, calls and organization fields arrive already split, so the fragile
@@ -108,12 +117,26 @@ so the package review stays the safety net (D5).
 
 ### D2: One JSON Schema document is the source of truth for three consumers
 
-**Choice:** a single JSON Schema (draft 2020-12) document is stored in the
+**Choice:** a single JSON Schema (draft 2019-09) document is stored in the
 repository and drives all three of:
 
-1. the field dictionary rendered inside the prompt shown on the JSON tab;
+1. the field dictionary rendered inside the prompt shown on the «Промпт» tab;
 2. the file served by «Скачать JSON-схему» (`Content-Disposition: attachment`);
-3. server-side validation of a pasted response.
+3. server-side validation of an uploaded response.
+
+The schema sent to a provider is a reduced copy of the same document: the
+keywords a structured-output engine cannot parse (`$ref`, `$id`, `$schema`,
+`pattern`, `maxLength`, `additionalProperties`) are stripped, the field names,
+types and required fields are kept. The reduced copy exists because a provider
+rejects the whole request on an unknown keyword — with it gone, the answer comes
+back structured instead of the request failing.
+
+The copy is taken from the **root** of the document, not from
+`properties.organizations`. Projecting the property alone yields the array's
+schema, and an engine asked for an array produces an array: the answer came back
+as `[{…}, {…}]`, which validation rejects at the very first step. Reduction is
+about removing keywords an engine cannot read; what is sent is the whole
+contract, one level down from the file being downloaded.
 
 **Rationale:** the failure this prevents is the prompt and the importer
 disagreeing — the prompt tells the model a field is optional while the validator
@@ -127,39 +150,62 @@ requirement; no new package is introduced.
 shape and the database's shape coincide, so no assembly step is needed:
 
 ```json
-{
-  "organizations": [
-    {
-      "name": "АбесТрейд",
-      "industry": "ИТ-дистрибьютор",
-      "city": "Минск",
-      "website": "https://abeslab.by",
-      "description": "Сертифицированный дистрибьютор ПО.",
-      "coursesAttended": "",
-      "contacts": [
-        { "name": "Вячеслав", "position": "начальник отдела обучения",
-          "phone": "+375339027636", "email": "V.Zakrevsky@naftan.by" }
-      ],
-      "calls": [
-        { "date": "29.05.2026", "notes": "Направила КП по всем лагерям" }
-      ],
-      "nextContact": { "date": "08.06.2026", "purpose": "созвониться по КП" }
-    }
-  ]
-}
+{ "organizations": [ { "name": …, …вложенные объекты контактов, звонков и nextCall… } ] }
 ```
 
-`unp` is deliberately absent: a model invents those numbers and a wrong one is
-worse than a missing one (ADR-0015). `is_main` is deliberately absent: the
-export does not distinguish a primary contact, and
-`MailingService::effectiveMainContact()` falls back to the lowest-ID contact.
-`annualPlan` is deliberately absent for the same reason the CSV path does not
-populate it. Call `date` values are carried **verbatim** — this path reuses
+The prompt carries no worked example, and the snippet above is the design's
+sketch of the shape, not text sent to a model. That is the third revision of the
+example question. It started as a real organization with a named contact, a
+phone number and a mailbox; the model returned that organization as part of the
+answer, contacts and all. Making the values obviously invented did not help: it
+returned «Организация-пример» with «Имя-контакта» and `+000000000000`, and
+copied the sample's `nextCall` to the first real organization it parsed. A
+sample is data to a model — that is what it is for — and a sample cannot be made
+safe, only less realistic. So the prompt describes the format in words: the
+field dictionary already carries every name, type, length, required flag and
+date shape, which is what an example was repeating.
+
+What replaces the example is a rule about absence. With nothing to copy, a model
+invents placeholders instead — «пример», «неизвестно», «-», and the same contact
+and mailbox across every organization. The prompt says: a field without data is
+omitted, a placeholder is never written, and each organization gets its own
+values. For `unp` the rule is stated in both directions, because "never invent an
+UNP" alone reads to a model as "leave the field out", and the field was empty in
+answers where the source did carry one.
+
+**Provider format.** The document sent as the response format is the *root* of
+the schema — object, required `organizations` — not the array property. The
+array is what a projection of `properties.organizations` yields, and Ollama
+answered it exactly: a bare `[{…}, {…}]` with no wrapper, which the importer
+rejects with "ожидается объект JSON с полем organizations". A structured-output
+engine constrains what it is told, so telling it the array means getting the
+array.
+
+`unp`, `annualPlan` and `isMain` are **declared**, and this is a reversal of an
+earlier decision in this same document. The original reasoning was that a model
+invents UNPs and a wrong number is worse than a missing one (ADR-0015), which is
+true — but it was answered by removing the fields from the contract and
+rejecting any answer that carried them. That answers a question nobody asked: a
+payload handed over from another source legitimately has all three, and refusing
+it wholesale refuses the plain list of organizations the format is also for.
+The prompt is where the "do not invent" instruction belongs; the schema is where
+"here is where it goes" belongs.
+
+What remains true and is stated instead: the prompt asks for neither `unp` nor
+`annualPlan`, a model is told not to invent them, and neither is required. On a
+CSV run `Organization.unp` and `Organization.annualPlan` still stay null, because
+the «Составление плана на год» column of the export carries a website address in
+58 cases — that is a fact about the export, not about the field. And with no
+`isMain` arriving, `MailingService::effectiveMainContact()` still falls back to
+the lowest-ID contact.
+
+`additionalProperties: false` stays. A misspelled `nmae` is a bug worth failing
+on, and the fields the format can store are now enumerated rather than guessed. Call `date` values are carried **verbatim** — this path reuses
 `InteractionDateParser` and does not impose ISO 8601, because the source dates
 are not ISO and reformatting them is a lossy guess.
 
 **The constraints live in the document, not in the parser.** `calls[].date` and
-`nextContact.date` carry the same `pattern` the date grammar of the CSV tab
+`nextCall.date` carry the same `pattern` the date grammar of the CSV tab
 recognises, `maxLength` repeats the column widths, and `required` marks `name`
 and `contacts[].name`. The consequences are deliberate and are the reason this
 path is stricter than the CSV path:
@@ -183,26 +229,63 @@ none of them.
 
 `justinrainbow/json-schema` is already present in `composer.lock`, but as a
 **dev-only transitive dependency** of `friendsofphp/php-cs-fixer` and
-`infection/infection` — it lives in `packages-dev`. Since `make prod-deploy`
+`infection/infection` — it lived in `packages-dev`. Since `make prod-deploy`
 runs `composer install --no-dev`, promoting the package to a direct
-requirement must be accompanied by a regenerated lock file; without it the
-validator class is absent in production. `format` keywords (`email`, `uri`) are
+requirement is only half the work; the lock file must be regenerated so the
+package leaves `packages-dev` and is installed in production.
+
+**The document is draft 2019-09, not 2020-12.** The pinned library ships
+constraint classes only up to `draft2019`, so `$defs` — the 2020-12 keyword for
+reusable subschemas — resolves to nothing and every `$ref` would silently
+validate as "any", rejecting nothing at all. `definitions` is what the installed
+version actually enforces, and the schema declares what it can be checked
+against. A schema that claims a dialect the validator does not implement is a
+published contract that promises more than it keeps. `format` keywords (`email`, `uri`) are
 not used: this library treats them as annotations unless a format constraint
 factory is wired in, and an unenforced keyword in a published contract is worse
 than none.
 
-### D3: One payload per run, from a paste or a file, chunked by the application
+### D12: Import runs are independent — no single active run
+
+**Reversal of the parent's D9.** The parent enforced one active run: a new
+upload was rejected while any run had `processedRows < totalRows`, and opening
+another run's page redirected to the newest unfinished one. The reason given was
+coordination — UI-only limitation fails with two tabs or two admins — and the
+cost accepted was that the import is a single-admin, single-tab activity.
+
+The cost turned out to be the wrong one to accept. Nothing in the storage model
+shared state between runs: each run has its own file, its own counter and its
+own position, and the duplicate check runs against the database at insert time
+(the parent's D10), so two runs carrying the same organization resolve through
+the duplicate choice rather than by refusing to exist. What the rule actually
+bought was a guarantee that only one run can be half-done — and the price was an
+admin who uploaded a file, did not import it, and then could not upload
+anything else at all, including the fix for the file they just uploaded. That is
+not coordination; it is a stuck state with no way out but the replace flow.
+
+So: no run blocks another. A new upload always creates a run, a run's page
+always shows that run, and the run list gives every unfinished run its own
+«Импортировать» and «Перезагрузить». The completion notice counts the current
+run's rows against its own total — the parent's wording summed `processedRows`
+across runs, which only read correctly while a single run could exist.
+
+**What is gone:** `ImportRunRepository::findUnfinished()` and `sumProcessedRows()`
+have no callers and are removed. **What stays:** the parent's idempotent
+approval form, which relies on the run's own counter and needs no cross-run
+state; and `processedRows >= totalRows` as the definition of completion, which is
+what decides whether a row still offers «Импортировать».
+
+### D3: One payload per run, from a file, chunked by the application
 
 **Choice:** the JSON tab accepts a response containing any number of
-organizations, supplied either as pasted text or as an uploaded file. The two
-are the same thing from that point on: the application counts the
+organizations as an uploaded file. The application counts the
 `organizations` array, writes the payload to the run's stored file, sets
 `totalRows` to the array length, records `sourceFormat = json`, and then
 **returns the administrator to the import list**, where the new run appears as a
 row of its own. Parsing into DTOs and building a review package do **not** start
 on submission: they start when the administrator presses «Импортировать» in that
 row, exactly as on the CSV tab. `processedRows` therefore counts organizations,
-not CSV records, on both paths.
+not CSV records, on every path.
 
 **Rationale:** the user should not have to split a several-hundred-organization
 answer into twenty pieces by hand. `totalRows` keeps its meaning —
@@ -213,21 +296,22 @@ row count.
 The split between *submitting* and *importing* is inherited deliberately rather
 than re-decided. The parent's reason holds verbatim: counting records and
 checking the format are cheap and happen on submission, so an unusable payload
-is rejected before it becomes a run, while DTO construction is deferred so that a
-pasted answer does not start parsing 300 organizations the moment it is
-accepted. It also keeps `ImportRunRepository::findUnfinished()` meaningful — a run
-created but not yet imported is an active run under the parent's D9 rule on both
-tabs, and the JSON tab does not get a stricter single-active-run regime of its
-own.
+is rejected before it becomes a run, while DTO construction is deferred so that an
+uploaded answer does not start parsing 300 organizations the moment it is
+accepted. What D12 changes here is only the regime around it: the split between
+*submitting* and *importing* holds on every tab, but no run is active in the
+parent's D9 sense any more, so an answer is never refused because some other run
+happens to be half-done.
 
-The run's `filename` is the uploaded file's client name, or `ответ.json` for a
-pasted answer, because the run list column «Файл» must name something.
+The run's `filename` is the uploaded file's client name, because the run list
+column «Файл» must name something.
 
-Accepting a file as well as a paste costs one form field and buys three things:
-an answer produced earlier can be re-imported without being re-copied through
-the clipboard; the payload is a file like any other, so the replacement flow is
-available with no extra mechanism; and a large body of text has somewhere to go
-other than a textarea.
+The JSON tab takes a file and nothing else. Two ways of delivering one document
+would differ only up to the upload form and then converge, and the paste form is
+the one an administrator is least likely to need: an answer came from somewhere,
+and it came from somewhere with a way to save it. The field is kept on the
+replacement form, where an already-started run is being corrected rather than
+created.
 
 **Cost:** one bad character invalidates the whole payload, so the validator
 reports the offending organization by index and field rather than failing
@@ -237,19 +321,31 @@ handling burden onto the user for every chunk instead of once.
 ### D4: The LLM call is made by the browser, the key never reaches the server
 
 **Choice:** a small JavaScript client calls the provider directly from the
-page. Both supported providers are OpenAI-compatible, so one client with a
-`{ baseUrl, apiKey, model }` configuration serves both:
+page. The two providers are not asked the same question: each is called the way
+it documents, and the client picks the request shape and the path to the answer
+by provider.
 
 | | OpenRouter | Ollama |
 | --- | --- | --- |
-| Endpoint | `POST https://openrouter.ai/api/v1/chat/completions` | `POST http://<host>:11434/v1/chat/completions` |
-| Auth | `Authorization: Bearer <key>`, plus `HTTP-Referer` / `X-OpenRouter-Title` for attribution | any value, ignored |
+| Endpoint | `POST https://openrouter.ai/api/v1/chat/completions` | `POST http://<host>:11434/api/chat` |
+| Auth | `Authorization: Bearer <key>`, plus `HTTP-Referer` / `X-OpenRouter-Title` for attribution | none |
 | Model list | `GET /api/v1/models` | `GET /api/tags` |
-| Structured output | `response_format: { type: "json_schema", json_schema: { … } }` | supported through the OpenAI-compatible route |
+| Structured output | `response_format: { type: "json_schema", json_schema: { … } }` | `format: <schema>`, `stream: false`, `temperature: 0` |
+| Answer | `choices[0].message.content` | `message.content` |
+
+An empty Ollama host means `http://localhost:11434`. Native endpoints are used
+rather than the OpenAI-compatible route because the route is a compatibility
+layer Ollama may not be running: asking for `/api/tags` and `/api/chat` works
+against the server as installed, and the answer no longer has to be dug out of an
+OpenAI-shaped envelope.
 
 The key is held in a JavaScript variable backed by `sessionStorage`, never
-`localStorage`, with an explicit «Забыть ключ» action. The response is written
-into the JSON tab's textarea and validated by the same schema as a manual paste.
+`localStorage`. Closing the tab clears it, which is why there is no «Забыть
+ключ» action: a button next to the field would mean what the browser already
+does when the tab is closed, and the user is told that in the warning under the
+field. The response is shown on
+the page and offered as a download; the administrator uploads that file on the
+JSON tab, where the same schema validates it as any other response file.
 
 **Rationale:** keeping the key client-side removes the entire class of concerns
 a server-side integration carries — no new entity, no secrets in the vault, no
@@ -260,9 +356,11 @@ organization and recorded through `ImportRun`.
 
 Two consequences the specification must state:
 
-- an Ollama host must set `OLLAMA_ORIGINS` to the CRM's origin, or the browser
-  blocks the request; this is a deployment prerequisite, not an application
-  setting;
+- a request the browser refuses to issue is reported in the tab as an error and
+  leaves the import untouched. How a third-party host is reached and configured
+  is out of scope here: the client speaks the provider's documented API, and the
+  specification describes what the tab does with the answer, not how the provider
+  is deployed;
 - a browser-held key is exposed to XSS and to anyone with access to the
   workstation. This is why the key is session-scoped rather than persisted and
   why it is never written to a form field the server can read.
@@ -272,8 +370,9 @@ Two consequences the specification must state:
   key storage, a new dependency and a new surface for a secret. Rejected for a
   one-shot migration tool.
 - Copy-paste into the user's own chat application: already supported by D3 —
-  the tab works with no key at all. The built-in client exists for convenience
-  and for `response_format`, which makes a malformed response impossible.
+  the file the administrator saves from anywhere is uploaded as it is. The
+  built-in client exists for convenience and for structured output, which makes
+  a malformed response unlikely.
 
 ### D5: LLM output that cannot be trusted is still reviewed
 
@@ -332,19 +431,19 @@ single-active-run check still does not apply to a run's own replacement.
 
 ### D7: The review table shows `industry` and `city` for a JSON run, and hides them for a CSV one
 
-**Choice:** `industry` and `city` become reviewable **as a function of the run's
-source format**. A run created from JSON renders two extra columns and accepts
-edits to them; a run created from CSV renders neither, and `city` stays null
-exactly as the parent's requirement says.
+**Choice:** `industry`, `city`, `unp` and `annualPlan` become reviewable **as a
+function of the run's source format**. A run created from JSON renders four extra
+columns and accepts edits to them; a run created from CSV renders none of them,
+and all four columns stay null exactly as the parent's requirement says.
 
 ```
                      review table
-              +---------------------+---------------------+
-              |  run.sourceFormat   | "Отрасль" "Город"   |
-              +---------------------+---------------------+
-              |  csv                |  нет                |  <- parent, unchanged
-              |  json               |  да                 |  <- this change
-              +---------------------+---------------------+
+              +---------------------+---------------------------------------+
+              |  run.sourceFormat   | "Отрасль" "Город" "УНП" "Годовой план" |
+              +---------------------+---------------------------------------+
+              |  csv                |  нет                                   |  <- parent, unchanged
+              |  json               |  да                                    |  <- this change
+              +---------------------+---------------------------------------+
 
               save path:  OrganizationData -> ImportRow -> newOrganization()
                           needs industry + city on both hops
@@ -360,31 +459,39 @@ JSON tab that premise no longer holds. Keeping the prohibition conditional
 rather than lifting it globally preserves the CSV rationale verbatim, including
 its scenario «В прогоне нет города».
 
-**Consequence:** `OrganizationData` and `ImportRow` gain two optional fields,
-`newOrganization()` sets them, `ImportRow`'s length checks cover them, and the
-controller reads them from the form only when the run's format asks for them — a
-CSV review form carries no such inputs, so a CSV row cannot acquire a city by
-form tampering. The review template needs the run's `sourceFormat`, which it does
-not currently receive.
+`isMain` needs no column: the main-contact checkbox is already in the contacts
+block for every run, and an answer that carries `isMain` simply arrives with it
+ticked. The four columns belong to the organization, and the row is now eleven
+columns wide inside a `.table-wrap`, which is the pattern the page already uses
+for wide rows.
 
-### D8: The three new routes are literal-first, because `/{id}` already exists
+**Consequence:** `OrganizationData` and `ImportRow` gain four optional fields,
+`newOrganization()` sets them, `ImportRow`'s length checks cover them — `unp` at
+32 characters like the column, `annualPlan` at 255 — and the controller reads them
+from the form only when the run's format asks for them, so a CSV review form
+carries no such inputs and a CSV row cannot acquire them by form tampering. The
+review template needs the run's `sourceFormat`, which it did not receive before.
+
+### D8: The new routes are literal-first, because `/{id}` already exists
 
 **Choice:** the new routes are declared on the existing controller with an `id`
 requirement that keeps `/{id}` from swallowing them:
 
 ```php
 #[Route('/{id}', requirements: ['id' => '\d+'])]          // existing review
+#[Route('/results', requirements: ['id' => '0'])]        // new runs list (7.6)
 #[Route('/json',  requirements: ['id' => '0'])]           // new JSON tab
 #[Route('/json-schema', requirements: ['id' => '0'])]    // new schema download
+#[Route('/prompt', requirements: ['id' => '0'])]         // new prompt tab (4.6)
 #[Route('/llm',   requirements: ['id' => '0'])]           // new LLM tab
 ```
 
 **Rationale:** `ImportController` already serves `/admin/import/{id}` for the
-review, and `debug:router` confirms it today. Three new literals that collide
-with it would 404 before any method of this change ran, and the failure would
-look like a missing action rather than a routing collision. The parent's own
-route already carries a `requirements` argument for the same reason, so the fix
-is the established pattern in this file rather than a new mechanism.
+review, and `debug:router` confirms it today. A new literal that collides with it
+would 404 before any method of this change ran, and the failure would look like a
+missing action rather than a routing collision. The parent's own route already
+carries a `requirements` argument for the same reason, so the fix is the
+established pattern in this file rather than a new mechanism.
 
 **Alternative considered:** renaming `{id}` to a fixed segment. Rejected — it
 would churn the parent's URLs, its spec scenarios and its bookmarkable pages for
@@ -431,7 +538,7 @@ flowchart TB
   ImportPage --> LLMJS
   LLMJS --> OR
   LLMJS --> OL
-  LLMJS -. ответ в поле вставки .-> ImportPage
+  LLMJS -. ответ на странице и файл для скачивания .-> ImportPage
 
   IC --> ST
   IC --> JP
@@ -462,11 +569,11 @@ sequenceDiagram
     participant ST as ImportFileStorage
     participant DB as MySQL
 
-    Admin->>Page: нажимает «Отправить» (или вставляет вручную)
+    Admin->>LLMJS: вставляет исходный текст и нажимает «Отправить»
     LLMJS->>LLMJS: ключ из sessionStorage
-    LLMJS-->>Page: ответ провайдера в поле вставки, без отправки
-    Admin->>Page: подтверждает вставку
-    Page->>IC: POST json (текст или файл)
+    LLMJS-->>Page: ответ провайдера показан на странице, без отправки
+    Admin->>Page: скачивает ответ как файл
+    Admin->>IC: POST json (файл)
     IC->>SCH: validate(payload)
     alt нарушения схемы
         SCH-->>Page: отчёт по индексу организации и полю, прогон не создан
@@ -518,13 +625,16 @@ sequenceDiagram
   incomplete without a regenerated `composer.lock`; `make prod-deploy` installs
   `--no-dev`. A task verifies the class loads under `--no-dev`.
 - **A browser-held API key is exposed to XSS and to a shared workstation** →
-  Mitigated by scope, not removed: the key lives in `sessionStorage` only,
-  `localStorage` is not used, it is never written into a field the server can
-  read, and «Забыть ключ» clears it. The user is told this in the UI.
-- **Ollama may refuse browser requests** → A deployment prerequisite: the Ollama
-  host needs `OLLAMA_ORIGINS` set to the CRM origin. Not detectable from
-  application code, so it is stated in the requirement and the setup notes.
-- **One bad character invalidates a whole JSON paste** → Accepted (D3). The
+  Mitigated by scope, not removed: the key lives in `sessionStorage` only, so it
+  dies with the tab, `localStorage` is not used, and the key is never written
+  into a field the server can read. The user is told this in the warning under the
+  key field.
+- **The browser may refuse the request outright (cross-origin policy, host down)**
+  → Not detectable from application code and not the application's to fix: a
+  `TypeError` from `fetch` is what a blocked request looks like, so the client
+  reports it as a blocked request and leaves the import untouched. How the
+  provider is configured belongs to the provider's own documentation.
+- **One bad character invalidates a whole uploaded answer** → Accepted (D3). The
   validator names the offending organization by index and field, so the user
   fixes one character rather than re-splitting twenty packages.
 - **The prompt and the schema can still drift if the prompt is edited by hand**
@@ -535,8 +645,20 @@ sequenceDiagram
   and an undescribed field are the same defect.
 - **`response_format` support differs between providers** → Degraded to
   best-effort: if a provider ignores it, the answer still arrives as text and
-  the same server-side schema validation reports any violation, which is the
-  path a manual paste takes.
+  the same server-side schema validation reports any violation when the file is
+  uploaded.
+- **A provider rejects a keyword the full schema carries** → Mitigated by the
+  reduced copy (D2): the keywords a structured-output engine cannot parse are
+  stripped before the request. Ollama answers `400 Failed to initialize
+  samplers: failed to parse grammar` to a schema with `$ref` or `pattern` in it,
+  which is a rejection of the whole request, not of the answer.
+- **A model answers with a bare array or with the prompt's own example** →
+  Addressed, and both were observed. The array came from asking for the array's
+  schema (D2); the example came from the prompt carrying one, and the only
+  version of that fix that held was deleting the example and stating how absence
+  is written instead (D4). A provider-side format constrains shape, not content:
+  nothing in the schema can forbid an organization the model already decided to
+  return, which is why the prompt has to forbid it in words.
 - **A replacement answer is compared positionally** → Accepted and stated in the
   requirement: a reordered answer moves the resume point, and the report lists
   the differing positions within the processed prefix so the admin sees it. The

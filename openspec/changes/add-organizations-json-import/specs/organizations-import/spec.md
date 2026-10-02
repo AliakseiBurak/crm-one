@@ -2,50 +2,110 @@
 
 ## ADDED Requirements
 
-### Requirement: Вкладки импорта CSV и JSON
+### Requirement: Вкладки импорта: Результаты, CSV, JSON, LLM и Промпт
 
-The import page SHALL offer two tabs: «CSV» and «JSON». The CSV tab SHALL hold
-the upload form, the import list and the package review. The JSON tab SHALL show
-a ready-to-copy prompt, a link to download the JSON schema, a field for pasting
-a response, and a file field for uploading a response. The JSON tab SHALL accept
-a response either way. Both tabs SHALL feed the same import run, the same review
-packages of at most 20 organizations, the same per-row transaction, the same
-duplicate choice and the same completion notice. The only difference SHALL be
-how a row is obtained: the CSV tab parses cells, the JSON tab receives
-already-structured objects.
+The import page SHALL offer five tabs in this order: «Результаты», «CSV»,
+«JSON», «LLM» and «Промпт». The «Результаты» tab SHALL hold the list of import
+runs and no form; the CSV tab a file field for a CSV export; the JSON tab a file
+field for a response file; the LLM tab the provider controls, a field for the
+source text and the response obtained from the model; the «Промпт» tab no form
+at all but the prompt itself. All of them SHALL feed the same import run, the
+same review packages of at most 20 organizations, the same per-row
+transaction, the same duplicate choice and the same completion notice. The only
+difference SHALL be how a row is obtained: the CSV tab parses cells, the JSON tab
+receives already-structured objects, the LLM tab hands them over as a file the
+administrator downloaded.
 
-#### Scenario: Две вкладки на странице импорта
+The list of import runs SHALL be shown on the «Результаты» tab only. A run is
+where it was created, not where the format happens to be, so a tab about how a
+row is obtained SHALL NOT carry a row of the finished state either; rendered on
+every tab, the same list repeated itself on four screens and told the
+administrator nothing about the tab they were on. The list SHALL be rendered
+under the tabs of that tab, which is the first one.
+
+The «Результаты» tab SHALL be where the administrator lands after any action on a
+run: uploading a file, approving a package and replacing a file SHALL all return
+them there, because that is where the resulting row is visible.
+
+No tab SHALL render section headings: the import pages carry a form, a table or
+a prompt, and a heading above each of them repeats what the element below it
+already says while pushing the useful part of the page below the fold. What a
+tab needs to explain, it says in one line under the tabs.
+
+The prompt SHALL be rendered on its own tab and SHALL NOT be shown as a block on
+the LLM tab. The LLM tab sends that same prompt itself and links to the tab;
+whether to copy the prompt into a chat of one's own is a separate decision from
+whether to call the provider from here, and a prompt hidden behind a disclosure
+on the model's own tab serves neither.
+
+#### Scenario: Пять вкладок, первая — «Результаты»
 
 - **WHEN** администратор открывает страницу импорта
-- **THEN** отображаются две вкладки: «CSV» и «JSON»
-- **AND** активна вкладка «CSV»
+- **THEN** отображаются пять вкладок: «Результаты», «CSV», «JSON», «LLM» и «Промпт»
+- **AND** активна вкладка «Результаты»
 
-#### Scenario: Переключение на вкладку JSON
+#### Scenario: Список прогонов только на своей вкладке
+
+- **WHEN** администратор открывает вкладку «Результаты»
+- **THEN** под вкладками отображается список всех прогонов импорта
+
+#### Scenario: На остальных вкладках списка прогонов нет
+
+- **WHEN** администратор открывает вкладку «CSV», «JSON», «LLM» или «Промпт»
+- **THEN** список прогонов на странице не отображается
+- **AND** вкладка содержит только свою форму или свой текст
+
+#### Scenario: После действия администратор попадает к списку
+
+- **WHEN** администратор загружает файл, утверждает пакет или заменяет файл прогона
+- **THEN** открывается вкладка «Результаты»
+- **AND** изменённый прогон виден в списке
+
+#### Scenario: Вкладка JSON — только загрузка файла
 
 - **WHEN** администратор открывает вкладку «JSON»
-- **THEN** отображаются готовый к копированию промпт, ссылка «Скачать JSON-схему», поле для вставки ответа и поле для выбора файла
+- **THEN** отображается поле для выбора файла с ответом и одна строка о том, откуда берётся ответ
+- **AND** описание формата ответа и кнопка «Скачать JSON-схему» на этой вкладке не показываются — они на вкладке «Промпт»
 - **AND** переход между вкладками является переходом по адресу, а не переключением видимости на месте
+
+#### Scenario: Переключение на вкладку «Промпт»
+
+- **WHEN** администратор открывает вкладку «Промпт»
+- **THEN** отображается текст промпта целиком, готовый к копированию
+- **AND** рядом — описание формата ответа и ссылка «Скачать JSON-схему»
+- **AND** на вкладке «LLM» промпт отдельным блоком не показывается, а вкладка на него ссылается
+
+#### Scenario: На вкладке «Промпт» описано, чего ждёт импорт
+
+- **WHEN** администратор открывает вкладку «Промпт»
+- **THEN** отображается описание формата ответа: обязательный массив `organizations` и то, что у организации обязательно только название
+
+#### Scenario: Адрес вкладки «Промпт» не перехватывается адресом прогона
+
+- **WHEN** администратор открывает `/admin/import/prompt`
+- **THEN** открывается страница с промптом, а не прогон импорта
 
 #### Scenario: Менеджер не видит вкладки импорта
 
 - **WHEN** аутентифицированный менеджер открывает страницу импорта
 - **THEN** система отклоняет запрос с ошибкой 403
 
-#### Scenario: Пакеты на обеих вкладках одинаковой величины
+#### Scenario: Пакеты на вкладке JSON той же величины
 
 - **WHEN** администратор проверяет пакет на вкладке «JSON»
-- **THEN** отображается не более 20 организаций одной таблицей с теми же полями, что и на вкладке «CSV», кроме отраслей и города, объявленных ниже
+- **THEN** отображается не более 20 организаций одной таблицей с теми же полями, что и на вкладке «CSV», кроме «Отрасли», «Города», «УНП» и «Годового плана», объявленных в «Отображение пакета для проверки»
 
 #### Scenario: Адреса вкладок не перехватываются адресом прогона
 
-- **WHEN** администратор открывает `/admin/import/json`, `/admin/import/json-schema` или `/admin/import/llm`
+- **WHEN** администратор открывает `/admin/import/json`, `/admin/import/json-schema`, `/admin/import/llm` или `/admin/import/prompt`
 - **THEN** открывается соответствующая страница, а не прогон импорта
 - **AND** ни один из этих адресов не трактуется как идентификатор прогона
 
 ### Requirement: Формат JSON-данных
 
-The JSON tab SHALL accept a response as pasted text or as an uploaded file, and
-a file offered through the file field SHALL be treated exactly as pasted text.
+The JSON tab SHALL accept a response as an uploaded file. A response obtained
+from a model SHALL reach it the same way: the administrator downloads it from
+the LLM tab and uploads it here, so one delivery path serves both.
 The response SHALL be a single object with a required `organizations` array
 holding at least one element. Each element of that array describes one
 organization and MAY carry the fields below. The system SHALL publish this
@@ -61,17 +121,26 @@ submitted response.
 | `website` | string | no | `Organization.website`, max 255 |
 | `description` | string | no | `Organization.description` |
 | `coursesAttended` | string | no | `Organization.coursesAttended`, max 255 |
-| `contacts` | array | no | `Contact` entities; each with `name` (required), `position`, `phone` (max 32), `email` |
+| `contacts` | array | no | `Contact` entities; each with `name` (required), `position`, `phone` (max 32), `email`, `isMain` (boolean) |
 | `calls` | array | no | made `Call` entities; each with `date` and `notes` |
-| `nextContact` | object | no | planned `Call`; with `date` and `purpose` |
+| `nextCall` | object | no | planned `Call`; with `date` and `purpose` |
+| `unp` | string | no | `Organization.unp`, max 32 |
+| `annualPlan` | string | no | `Organization.annualPlan`, max 255 |
 
-The format SHALL NOT contain a `unp` field: a model invents those numbers and a
-wrong one is worse than a missing one. The format SHALL NOT contain an
-`is_main` flag: contacts are created with it unset, and
+The format SHALL contain `unp`, `annualPlan` and `contacts[].isMain`, and none
+of them SHALL be required. A payload handed over from another source carries
+them for real, and rejecting such an answer wholesale rejected the plain list of
+organizations this format is also for. What the format cannot do is make a model
+report a value it does not have: the prompt asks the model not to invent `unp`
+and `annualPlan` and to carry them over as they are when the source has them.
+
+`contacts[].isMain` SHALL mean "основной контакт в организации": true is
+admissible for at most one contact of an organization. When no contact carries
+the flag, contacts are saved with it unset and
 `MailingService::effectiveMainContact()` falls back to the contact with the
-lowest ID. The format SHALL NOT contain `annualPlan`.
+lowest ID, so absence is not an error.
 
-A `calls[].date` and a `nextContact.date` value SHALL match the date shapes of
+A `calls[].date` and a `nextCall.date` value SHALL match the date shapes of
 «Формат CSV-файла» — `D.M.YYYY`, `DD.MM.YYYY`, `DD.MM.YY` read as `20YY`,
 `DD/MM/YYYY`, `DD,MM.YYYY`, with an optional trailing `_` or `.` — but SHALL be
 written **without** the parentheses that delimit a CSV entry group and SHALL NOT
@@ -82,32 +151,48 @@ A missing or empty optional field SHALL be treated as absent and SHALL NOT be
 stored as an empty string. An empty `contacts` or `calls` array SHALL mean no
 contacts and no calls for that organization.
 
-#### Scenario: Файл с ответом обрабатывается как вставка
-
-- **WHEN** администратор выбирает файл с ответом вместо вставки текста
-- **THEN** содержимое файла проверяется по той же схеме, что и вставленный текст
-- **AND** отчёт о нарушениях при его наличии показывается так же
-
 #### Scenario: Скачивание JSON-схемы
 
-- **WHEN** администратор нажимает «Скачать JSON-схему» на вкладке «JSON»
+- **WHEN** администратор нажимает «Скачать JSON-схему» на вкладке «Промпт»
 - **THEN** браузер получает файл JSON Schema как вложение
 - **AND** файл описывает те же поля, что перечислены в формате JSON-данных
 
 #### Scenario: Промпт согласован со схемой
 
-- **WHEN** администратор открывает вкладку «JSON»
-- **THEN** описание каждого поля в промпте совпадает с описанием того же поля в скачиваемой схеме
+- **WHEN** администратор открывает вкладку «Промпт»
+- **THEN** описание каждого поля в промпте совпадает с описанием того же поля в скачиваемой на этой же вкладке схеме
 
-#### Scenario: Поле УНП не запрашивается
+#### Scenario: УНП из файла сохраняется
 
-- **WHEN** администратор просматривает промпт или схему
-- **THEN** в них нет поля `unp`
+- **WHEN** в ответе указано `unp` длиной не более 32 символов
+- **THEN** ответ проходит проверку, а значение видно в пакете и сохраняется в `Organization.unp`
 
-#### Scenario: Поле основного контакта не запрашивается
+#### Scenario: Слишком длинный УНП отклоняет ответ
 
-- **WHEN** администратор просматривает промпт или схему
-- **THEN** в них нет поля `is_main`
+- **WHEN** в ответе указано `unp` длиннее 32 символов
+- **THEN** ответ отклоняется с указанием номера организации и поля `unp`
+
+#### Scenario: Годовой план из файла сохраняется
+
+- **WHEN** в ответе указано `annualPlan`
+- **THEN** ответ проходит проверку, а значение видно в пакете и сохраняется в `Organization.annualPlan`
+
+#### Scenario: Отметка основного контакта из файла сохраняется
+
+- **WHEN** в ответе у контакта указано `isMain: true`
+- **THEN** в пакете отметка основного уже стоит, и контакт сохраняется основным
+- **AND** остальные контакты организации сохраняются неосновными
+
+#### Scenario: Модель не выдумывает УНП и годовой план
+
+- **WHEN** промпт объясняет поля `unp` и `annualPlan`
+- **THEN** сказано, что выдумывать их нельзя, а найденное в источнике переносится как есть
+
+#### Scenario: Ответ из одних названий принимается
+
+- **WHEN** администратор отправляет ответ, где у каждой организации есть только `name`
+- **THEN** ответ проходит проверку
+- **AND** каждая организация создаётся при утверждении пакета, с пустыми отраслью, городом, УНП и годовым планом
 
 #### Scenario: Дата в JSON не переформатируется
 
@@ -142,9 +227,10 @@ contacts and no calls for that organization.
 The JSON path SHALL be stricter than the CSV path, and the strictness SHALL be
 declared in the published schema rather than applied downstream. For every field
 it constrains, the schema SHALL carry the constraint the validator enforces: a
-`pattern` on `calls[].date` and `nextContact.date`, a `maxLength` on `name`,
-`industry`, `city`, `website`, `coursesAttended` and `contacts[].phone`, and
-`required` on `name` and `contacts[].name`.
+`pattern` on `calls[].date` and `nextCall.date`, a `maxLength` on `name`,
+`industry`, `city`, `website`, `coursesAttended`, `contacts[].phone`, `unp` and
+`annualPlan`, a `type` of boolean on `contacts[].isMain`, `additionalProperties`
+of false on every object, and `required` on `name` and `contacts[].name`.
 
 A response violating any declared constraint SHALL be rejected in full: no
 import run SHALL be created, no payload SHALL be stored, and no value SHALL be
@@ -163,6 +249,19 @@ same constraints as its schema keywords — the accepted date shapes, the maximu
 lengths, the required fields — so that the model is told the format before it
 writes rather than after it fails.
 
+The prompt SHALL carry no worked example. An example is returned as data: the
+model handed back the sample organization with its contact and phone alongside
+the organizations that really were in the source. What the format is, the field
+dictionary already says in words, and that is what an example repeated.
+
+Because there is no sample to copy, the prompt SHALL say how absence is
+written: a field without data SHALL be omitted rather than filled, a placeholder
+such as «пример», «тест», «неизвестно» or «-» SHALL NOT be written, and the
+same contact, phone or mailbox SHALL NOT be repeated across organizations.
+
+A missing optional field SHALL never block an import. Only an empty required
+`name` or a present-but-unparseable date makes an answer fail.
+
 #### Scenario: Пустое обязательное имя отклоняет весь ответ
 
 - **WHEN** в ответе у третьей организации поле `name` — пустая строка
@@ -179,6 +278,28 @@ writes rather than after it fails.
 - **WHEN** в ответе указаны даты "25.08.2026" и "09.04.202"
 - **THEN** ответ отклоняется, а год 2026 из первой даты ко второй не подставляется
 
+#### Scenario: Опечатка в имени поля отклоняет ответ
+
+- **WHEN** в ответе поле названо `industri` вместо `industry`
+- **THEN** ответ отклоняется как нарушение схемы
+- **AND** поле не переносится в организацию под другим именем
+
+#### Scenario: Отметка основного должна быть логическим значением
+
+- **WHEN** в ответе у контакта `isMain` — строка «да»
+- **THEN** ответ отклоняется с указанием организации и поля `contacts[].isMain`
+
+#### Scenario: В промпте нет примера ответа
+
+- **WHEN** формируется промпт
+- **THEN** он не содержит ни одного примера организации, контакта или звонка
+- **AND** формат ответа описан словами и словарём полей
+
+#### Scenario: Отсутствующее необязательное поле не блокирует импорт
+
+- **WHEN** в ответе у организации указано только `name`
+- **THEN** ответ принимается и создаёт прогон
+
 #### Scenario: Схема не содержит непроверяемых ключевых слов
 
 - **WHEN** администратор скачивает JSON-схему
@@ -187,16 +308,15 @@ writes rather than after it fails.
 
 #### Scenario: Промпт сообщает ограничения до проверки
 
-- **WHEN** администратор открывает промпт на вкладке «JSON»
+- **WHEN** администратор открывает промпт на вкладке «Промпт»
 - **THEN** в нём названы допустимые форматы даты, максимальные длины полей и обязательные поля
 - **AND** эти ограничения совпадают с объявленными в скачиваемой схеме
 
 ### Requirement: Загрузка JSON-ответа
 
-On submission, the system SHALL reject the request while any *other* import run
-has `processedRows < totalRows`, exactly as for a CSV upload. Replacing the file
-of the run being viewed is not a submission under this requirement and SHALL NOT
-be rejected by this check. Otherwise the system SHALL parse the payload,
+Import runs SHALL be independent: an unfinished run SHALL NOT block submitting
+an answer, and one run's progress SHALL NOT affect another's. The system SHALL
+parse the payload,
 validate it against the published JSON Schema, and SHALL report every violation
 it finds, naming the organization by its position in the `organizations` array
 and the offending field. A payload with at least one organization SHALL be stored
@@ -204,48 +324,50 @@ as the run's file, SHALL create an import run with `totalRows` equal to the
 length of the `organizations` array and `processedRows` = 0, and SHALL return the
 administrator to the import list, where the new run appears as a row of its own.
 `totalRows` counts organizations, so the review package, the progress indicator
-and the completion notice behave identically on both tabs.
+and the completion notice behave identically on every tab.
 
 Submitting a response SHALL NOT start the import: parsing the payload into
 organization, contact and call DTOs and building a review package SHALL NOT begin
 on submission. They SHALL begin when the administrator chooses «Импортировать» in
-the run's row, exactly as on the CSV tab. A run created from JSON and not yet
-imported is an unfinished run and blocks further submissions, like any other.
+the run's row, exactly as on the CSV tab.
 
-The run's `filename` SHALL be the uploaded file's original name, or `ответ.json`
-when the response was pasted.
+The run's `filename` SHALL be the uploaded file's original name. The response
+SHALL be uploaded as a file even when the administrator obtained it from the LLM
+tab: a name that came down with the file is more useful in the run list than any
+name the application could invent.
 
 A payload that is not valid JSON, or that violates the schema, SHALL NOT create
 an import run and SHALL NOT be stored.
 
-#### Scenario: Успешная вставка ответа
-
-- **WHEN** администратор вставляет ответ со 120 организациями
-- **THEN** создаётся запись импорта с totalRows = 120 и processedRows = 0
-- **AND** администратор возвращается к списку импортов, где прогон виден отдельной строкой
-
 #### Scenario: Успешная загрузка файла с ответом
 
-- **WHEN** администратор выбирает файл с ответом на 40 организациях вместо вставки текста
+- **WHEN** администратор загружает файл с ответом на 40 организациях
 - **THEN** создаётся запись импорта с totalRows = 40 и processedRows = 0
-- **AND** администратор возвращается к списку импортов, где прогон виден отдельной строкой
+- **AND** администратор возвращается на вкладку «Результаты», где прогон виден отдельной строкой
+
+#### Scenario: Имя прогона — имя загруженного файла
+
+- **WHEN** администратор загружает файл `import-01.10.2026-19-30-00.json`
+- **THEN** в колонке «Файл» строки прогона указано именно это имя
 
 #### Scenario: Разбор ответа начинается по отдельному действию
 
-- **WHEN** ответ только что вставлен и ещё не импортирован
+- **WHEN** файл с ответом только что загружен и прогон ещё не импортирован
 - **THEN** пакет для проверки не сформирован
 - **AND** разбор ответа в DTO не выполняется
 - **AND** пакет появляется только после нажатия «Импортировать»
 
-#### Scenario: Вставка при наличии активного прогона импорта
+#### Scenario: Загрузка ответа при незавершённом прогоне
 
-- **WHEN** администратор вставляет ответ, пока существует другой прогон с processedRows < totalRows
-- **THEN** вставка отклоняется с сообщением о незавершённом импорте
+- **WHEN** администратор загружает ответ, пока существует другой прогон с processedRows < totalRows
+- **THEN** загрузка не отклоняется и создаёт ещё одну запись импорта
+- **AND** оба прогона остаются в списке, у каждого своя строка и свои действия
 
-#### Scenario: Ответ без файла получает имя прогона
+#### Scenario: Файл не выбран
 
-- **WHEN** администратор вставляет ответ текстом, а не файлом
-- **THEN** в строке прогона в списке импортов в колонке «Файл» указано `ответ.json`
+- **WHEN** администратор отправляет форму без выбранного файла
+- **THEN** загрузка отклоняется с сообщением, что файл не выбран
+- **AND** запись импорта не создаётся
 
 #### Scenario: Замена файла своего прогона не отклоняется
 
@@ -255,8 +377,8 @@ an import run and SHALL NOT be stored.
 
 #### Scenario: Некорректный JSON
 
-- **WHEN** администратор вставляет текст, который не является корректным JSON
-- **THEN** вставка отклоняется с указанием места ошибки
+- **WHEN** администратор загружает файл, содержимое которого не является корректным JSON
+- **THEN** загрузка отклоняется с указанием места ошибки
 - **AND** запись импорта не создаётся
 
 #### Scenario: Нарушение схемы указывает организацию и поле
@@ -267,8 +389,8 @@ an import run and SHALL NOT be stored.
 
 #### Scenario: Пустой массив организаций
 
-- **WHEN** администратор вставляет ответ с пустым массивом organizations
-- **THEN** вставка отклоняется с сообщением об отсутствии данных
+- **WHEN** администратор загружает ответ с пустым массивом organizations
+- **THEN** загрузка отклоняется с сообщением об отсутствии данных
 
 ### Requirement: Формат источника определяет разбор прогона
 
@@ -373,40 +495,170 @@ be re-parsed, re-reviewed or re-inserted. When `processedRows` equals
 
 ## MODIFIED Requirements
 
-### Requirement: Отображение пакета для проверки
+### Requirement: Загрузка CSV-файла
+The system SHALL provide an upload form that accepts a single CSV file.
+Import runs SHALL be independent: an unfinished run SHALL NOT block another
+upload. The system SHALL validate the file against
+the declared format («Формат CSV-файла»): the header row SHALL contain
+the expected columns, and the file SHALL contain at least one non-empty
+data record. The system SHALL reject files with missing or unexpected
+non-empty columns and SHALL display the list of expected headers. The
+system SHALL store the uploaded file and create an `ImportRun`
+record with `totalRows` equal to the number of non-empty data records
+(excluding the header) and `processedRows` = 0, and SHALL return the
+administrator to the import list where the new run appears as a row. Parsing the
+records into organization/contact/call DTOs and the 20-row review SHALL NOT start
+on upload: it starts when the administrator chooses «Импортировать» in that
+row («Список импортов»). Counting the records and checking the header are cheap
+and happen on upload, so an unusable file is still rejected before it is
+stored.
 
+#### Scenario: Успешная загрузка CSV-файла
+- **WHEN** администратор загружает CSV-файл с правильными заголовками и 400 строками данных
+- **THEN** файл сохраняется на сервере
+- **AND** создаётся запись импорта с totalRows = 400 и processedRows = 0
+- **AND** администратор возвращается к списку импортов, где файл виден отдельной строкой
+
+#### Scenario: Разбор начинается по отдельному действию
+- **WHEN** CSV-файл только что загружен и ещё не импортирован
+- **THEN** пакет для проверки не сформирован
+- **AND** разбор записей файла не выполняется
+- **AND** пакет появляется только после нажатия «Импортировать»
+
+#### Scenario: Загрузка при наличии активного прогона импорта
+- **WHEN** администратор загружает CSV-файл, пока существует импорт с processedRows < totalRows
+- **THEN** загрузка не отклоняется и создаёт ещё одну запись импорта
+- **AND** оба прогона остаются в списке, у каждого своя строка и свои действия
+
+#### Scenario: Загрузка файла с неправильными заголовками
+- **WHEN** администратор загружает CSV-файл, в котором отсутствует колонка «Взаимодействия»
+- **THEN** загрузка отклоняется
+- **AND** отображается сообщение со списком ожидаемых заголовков
+
+#### Scenario: Загрузка пустого файла
+- **WHEN** администратор загружает CSV-файл без строк данных (только заголовки)
+- **THEN** загрузка отклоняется с сообщением об отсутствии данных
+
+#### Scenario: Повторная загрузка того же файла
+- **WHEN** администратор загружает файл с именем, идентичным ранее загруженному
+- **THEN** создаётся новая запись импорта (допускаются дубли файлов)
+
+### Requirement: Список импортов
+The system SHALL display a table of all import runs on the «Результаты» tab
+(`/admin/import/results`), and no upload form there, with columns: «Файл»,
+«Всего», «Обработано», «Загружен», «Импортирован» and an actions column.
+«Загружен» SHALL show the date
+the file was stored; «Импортирован» SHALL show when a row of this run was last
+saved, and SHALL be empty while the run has no saved rows. The system SHALL
+update «Импортирован» every time a row of the run is saved.
+
+The actions column SHALL offer three actions:
+
+- «Скачать» — download the run's current file. Available for every run.
+- «Перезагрузить» — supply a replacement file, which builds the confirmation
+  report before anything is written («Подтверждение замены файла импорта»).
+  Available only while `processedRows < totalRows`.
+- «Импортировать» — open the review package, which is where the file is parsed
+  and validated 20 rows at a time. Available only while
+  `processedRows < totalRows`.
+
+A run is completed when `processedRows` is greater than or equal to `totalRows`,
+not only when the two are equal; a completed run offers no «Перезагрузить» and
+no «Импортировать». The table SHALL be ordered by upload date descending
+(newest first).
+
+#### Scenario: Список прогонов открыт на первой вкладке импорта
+- **WHEN** администратор открывает страницу импорта
+- **THEN** сначала отображается таблица прогонов — на вкладке «Результаты», которая и есть первая вкладка импорта
+- **AND** форма загрузки CSV отображается на вкладке «CSV», следующей за ней
+
+#### Scenario: Отображение списка импортов
+- **WHEN** администратор открывает `/admin/import/results`
+- **THEN** отображается таблица со всеми ранее загруженными файлами
+- **AND** каждый ряд показывает имя файла, количество строк, обработанные строки, дату загрузки и дату последней импортированной строки
+
+#### Scenario: Загруженный файл появляется в списке и импорт запускается отдельно
+- **WHEN** администратор загружает CSV-файл
+- **THEN** файл появляется в таблице как новый прогон, а администратор возвращается на вкладку «Результаты»
+- **AND** разбор файла и проверка пакета по 20 строк не начинаются
+- **AND** импорт начинается только после действия «Импортировать» в этой строке
+
+#### Scenario: Дата последней импортированной строки
+- **WHEN** у импорта с processedRows = 50 последняя строка сохранена 12 марта
+- **THEN** в его строке таблицы отображается 12 марта в колонке «Импортирован»
+
+#### Scenario: Дата последней импортированной строки ещё пуста
+- **WHEN** файл загружен, но ни одна строка не импортирована (processedRows = 0)
+- **THEN** колонка «Импортирован» в его строке таблицы пуста
+- **AND** колонка «Загружен» показывает дату загрузки файла
+
+#### Scenario: Кнопка «Импортировать» у незавершённого импорта
+- **WHEN** в системе есть импорт с processedRows = 50 и totalRows = 400
+- **THEN** в колонке действий отображается кнопка «Импортировать»
+- **AND** нажатие открывает пакет для проверки, начинающийся со строки 51
+
+#### Scenario: Кнопка «Импортировать» у только что загруженного файла
+- **WHEN** в системе есть импорт с processedRows = 0
+- **THEN** в колонке действий отображается кнопка «Импортировать»
+
+#### Scenario: Кнопка «Скачать» есть у любого прогона
+- **WHEN** в системе есть завершённый импорт
+- **THEN** в его строке доступна кнопка «Скачать»
+
+#### Scenario: Импортировать и перезагрузить недоступны для завершённого импорта
+- **WHEN** в системе есть импорт с processedRows = totalRows = 400
+- **THEN** в его строке нет кнопок «Импортировать» и «Перезагрузить»
+- **AND** остаётся кнопка «Скачать»
+
+#### Scenario: Импорт завершён, когда строк в файле стало меньше
+- **WHEN** в системе есть импорт с processedRows = 50 и totalRows = 30
+- **THEN** импорт считается завершённым
+- **AND** в его строке нет кнопок «Импортировать» и «Перезагрузить»
+
+#### Scenario: Скачивание файла прогона
+- **WHEN** администратор нажимает «Скачать» в строке прогона
+- **THEN** отдаётся текущий файл этого прогона под его именем
+
+### Requirement: Отображение пакета для проверки
 The system SHALL display the next up to 20 unprocessed rows from the import
 file as a **table**, one organization per row. The chunk size SHALL define only
 how many rows the user reviews at a time and SHALL NOT affect how rows are
 persisted (each row is saved independently — «Утверждение пакета»). Each table
 row SHALL show pre-parsed and editable values: organization name, description,
 coursesAttended, website, contacts (name, phone, email, position) and
-calls (date, notes). The table SHALL NOT show an annual-plan field and SHALL NOT
-show a list of unrecognised date tokens.
-
-Which of `industry` and `city` the table shows SHALL depend on the format of the
-run's source. For a run created from a CSV file the table SHALL NOT show an
-industry or a city field, because the declared source format carries neither, so
-there is nothing to pre-fill and nothing to review, and `Organization.city` SHALL
-remain null for every row of that run. For a run created from a JSON response the
-table SHALL show both fields pre-filled from the response and SHALL accept edits
-to them, and the saved row SHALL carry them into `Organization.industry` and
-`Organization.city`.
-
-The user SHALL be able to edit any field, and SHALL be able to add or remove
-contacts and add or remove calls. The page SHALL display the current progress
-(`processedRows / totalRows`). The system SHALL derive the reviewed chunk from
-the progress of the import itself: it SHALL show rows `processedRows + 1` through
+calls (date, notes). The table SHALL NOT show a list of
+unrecognised date tokens. The user SHALL be able to edit any
+field, and SHALL be able to add or remove contacts and add or remove calls. The
+page SHALL display the current progress (`processedRows / totalRows`). The
+system SHALL derive the reviewed chunk from the progress of the import itself:
+it SHALL show rows `processedRows + 1` through
 `min(processedRows + 20, totalRows)`. A chunk is therefore reached by its
 address alone, reloading that address shows the same chunk, and the import does
 not depend on server-side run state. The system SHALL NOT take the chunk
-position from the request: a position supplied by the client SHALL NOT shift the
-chunk.
+position from the request: a position supplied by the client SHALL NOT shift
+the chunk.
+
+The four columns «Отрасль», «Город», «УНП» and «Годовой план» SHALL be a
+function of the run's recorded source format, and the system SHALL read them from
+the form only for a run created from a JSON response:
+
+| `run.sourceFormat` | «Отрасль» / «Город» / «УНП» / «Годовой план» |
+| --- | --- |
+| `csv` | not rendered, no inputs; the four columns stay null |
+| `json` | rendered as editable inputs, pre-filled from the answer |
+
+A CSV source declares no city, annual-plan or industry column, so there is
+nothing to pre-fill and nothing to review: hiding them there keeps the parent's
+rationale verbatim. A JSON answer carries all four, and a value the reviewer
+cannot see is not review — so they are rendered and editable for that run. A CSV
+package SHALL NOT acquire any of the four by submitting tampered form fields:
+with no input of that name rendered, a value posted under it SHALL be ignored and
+the column SHALL be saved as null.
 
 The review page SHALL offer a «Назад к списку» action next to the «Импортировать»
 button. It SHALL return the administrator to the import list and SHALL NOT change
 the run in any way: the run stays unfinished, `processedRows` does not move, and
-it keeps blocking further uploads (design D9). The action SHALL be a navigation
+it does not block any other run (design D12). The action SHALL be a navigation
 control rather than a form submission, so returning to the list cannot approve the
 package.
 
@@ -414,7 +666,7 @@ The review page SHALL NOT offer a file replacement: replacing the run's file is
 started from the actions column of the import list («Список импортов»), so the
 package page holds only the package. The form SHALL be submitted by a button
 labelled «Импортировать». A call SHALL carry a «Планируемый» mark when it comes
-from the «Следующий контакт» column of the CSV source or from `nextContact` of a
+from the «Следующий контакт» column of the CSV source or from `nextCall` of a
 JSON response: such a call has a scheduled date and no call date, and the mark is
 what tells the two kinds of call apart in the table.
 
@@ -426,10 +678,8 @@ nothing a second time and skips no row of the source file.
 The import MAY be interrupted at any point and continued from the last inserted
 row, which is the purpose of the progress indicator.
 
-When the page of a run is opened while a *different* `ImportRun` has
-`processedRows < totalRows`, the system SHALL redirect to the page of that
-unfinished import — the most recently created one — instead of showing a
-package of the other run.
+Runs SHALL NOT influence each other on this page: opening the page of a run
+SHALL show a package of that run, whether or not other runs are unfinished.
 
 #### Scenario: Отображение первого пакета
 - **WHEN** администратор нажимает «Импортировать» на импорте с 400 строками и processedRows = 0
@@ -448,8 +698,8 @@ package of the other run.
 - **THEN** соответствующий звонок в пакете отмечен «Планируемый»
 - **AND** у него заполнено поле даты, а «Взаимодействия» дают звонки без этой отметки
 
-#### Scenario: Отметка «Планируемый» ставится по nextContact ответа
-- **WHEN** у организации в ответе JSON указано `nextContact` с датой 08.06.2026
+#### Scenario: Отметка «Планируемый» ставится по nextCall ответа
+- **WHEN** у организации в ответе JSON указано `nextCall` с датой 08.06.2026
 - **THEN** соответствующий звонок в пакете отмечен «Планируемый»
 - **AND** у него заполнено поле даты, а `calls` дают звонки без этой отметки
 
@@ -475,28 +725,25 @@ package of the other run.
 - **THEN** повторная отправка не создаёт ни одной организации
 - **AND** ни одна строка файла не пропускается: обработка начинается с processedRows + 1
 
-#### Scenario: Проверка чужого импорта при незавершённом
-- **WHEN** администратор открывает страницу импорта, у которого processedRows = 0, пока другой импорт не завершён
-- **THEN** система перенаправляет на страницу незавершённого импорта
-
-#### Scenario: В прогоне нет города
+#### Scenario: В прогоне из выгрузки нет города
 - **WHEN** отображается пакет для проверки прогона, созданного из CSV-файла
-- **THEN** в таблице нет полей «Город» и «Отрасль»
+- **THEN** в таблице нет поля «Город»
 - **AND** при сохранении строки `Organization.city` остаётся равным null
 
-#### Scenario: В прогоне из JSON отрасль и город видны и правятся
-- **WHEN** отображается пакет для проверки прогона, созданного из ответа JSON, где у организации указаны `industry` и `city`
-- **THEN** в таблице есть поля «Отрасль» и «Город» с значениями из ответа
-- **AND** администратор может изменить их в форме пакета
+#### Scenario: В пакете прогона из JSON поля ответа видны и правятся
+- **WHEN** отображается пакет для проверки прогона, созданного из ответа JSON
+- **THEN** в таблице есть поля «Город», «Отрасль», «УНП» и «Годовой план» со значениями ответа
+- **AND** правленое значение сохраняется вместо значения ответа
 
-#### Scenario: Отредактированные отрасль и город сохраняются
-- **WHEN** администратор исправляет «Отрасль» и «Город» в пакете прогона из JSON и утверждает пакет
-- **THEN** организация сохраняется с исправленными `industry` и `city`
+#### Scenario: Пакет из выгрузки не принимает подставленные поля
+- **WHEN** пакет прогона из CSV отправлен с подставленными значениями `city`, `industry`, `unp` и `annualPlan`
+- **THEN** подставленные значения игнорируются, и все четыре поля сохраняются равными null
 
-#### Scenario: CSV-прогон не получает город из формы
-- **WHEN** прогон создан из CSV-файла и его форма пакета отправлена с подставленными значениями отрасли и города
-- **THEN** `Organization.industry` и `Organization.city` остаются равными null
+#### Scenario: Проверка чужого импорта при незавершённом
+- **WHEN** администратор открывает страницу импорта, у которого processedRows = 0, пока другой импорт не завершён
+- **THEN** отображается пакет именно этого импорта, без перенаправления
 
 #### Scenario: Все строки обработаны
 - **WHEN** processedRows >= totalRows
-- **THEN** отображается flash-сообщение об итогах: сколько строк импортировано в этом прогоне и сколько всего по всем прогонам
+- **THEN** отображается flash-сообщение об итогах: сколько строк обработано в этом прогоне из скольких
+- **AND** число относится только к этому прогону, а не к сумме по всем прогонам
