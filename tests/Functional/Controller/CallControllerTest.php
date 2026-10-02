@@ -494,9 +494,14 @@ final class CallControllerTest extends DatabaseWebTestCase
         $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
         $this->open('/calls/' . $call->id . '/edit');
+        // Дата отсчитывается от сегодняшнего дня, а не зашивается: контроллер
+        // отвергает плановую дату в прошлом, и тест на зашитой дате рассыпался
+        // ровно в ту секунду, когда она стала вчерашней.
+        $planned = (new \DateTimeImmutable('today'))->modify('+3 days');
+
         $this->submitFormByButton('Сохранить', [
             'made_at' => '24.08.2026 15:30',
-            'next_call_date' => '2026-10-01',
+            'next_call_date' => $planned->format('Y-m-d'),
         ]);
 
         $this->assertResponseRedirects();
@@ -508,7 +513,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         self::assertCount(2, $calls);
 
         $next = $updated->nextCall;
-        self::assertSame('2026-10-01 00:00', $next->scheduledAt->format('Y-m-d H:i'));
+        self::assertSame($planned->format('Y-m-d 00:00'), $next->scheduledAt->format('Y-m-d H:i'));
         self::assertNull($next->madeAt);
     }
 
@@ -519,9 +524,14 @@ final class CallControllerTest extends DatabaseWebTestCase
         $this->em()->flush();
         $this->login($this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin));
 
+        // Дата отсчитывается от сегодняшнего дня, а не зашивается: контроллер
+        // не принимает плановую дату в прошлом, и зашитая дата однажды становится
+        // вчерашней — ровно тогда тест и рассыпается.
+        $planned = (new \DateTimeImmutable('today'))->modify('+3 days');
+
         $this->submitCallAjax('/calls/' . $call->id . '/edit', '/calls/' . $call->id . '/edit', [
             'made_at' => '24.08.2026 15:30',
-            'next_call_date' => '2026-10-01',
+            'next_call_date' => $planned->format('Y-m-d'),
             'notes' => 'Исходный',
         ]);
 
@@ -530,7 +540,7 @@ final class CallControllerTest extends DatabaseWebTestCase
         self::assertTrue($payload['ok']);
         self::assertArrayHasKey('nextCallRow', $payload);
         self::assertStringContainsString('data-call-row', $payload['nextCallRow']);
-        self::assertStringContainsString('01.10.2026', $payload['nextCallRow']);
+        self::assertStringContainsString($planned->format('d.m.Y'), $payload['nextCallRow']);
 
         $this->em()->clear();
         $updated = $this->findCallById($call->id);

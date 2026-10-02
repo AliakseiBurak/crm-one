@@ -74,7 +74,7 @@ final class CallRepositoryTest extends DatabaseWebTestCase
         // waitingWeek: scheduledAt > now AND <= weekEnd (30.09 15:00)
         $this->makeCall($org5, scheduledAt: '2026-09-24 00:00');
         // waitingMonth: scheduledAt > now AND <= monthEnd (23.10 15:00)
-        $this->makeCall($org6, scheduledAt: '2026-10-23 15:00');
+        $this->makeCall($org6, scheduledAt: (new \DateTimeImmutable('today'))->modify('+3 weeks')->format('Y-m-d H:i'));
 
         // --- overdue org ---
         $org7 = new Organization()->setName('Org7-overdue')->setIndustry('IT');
