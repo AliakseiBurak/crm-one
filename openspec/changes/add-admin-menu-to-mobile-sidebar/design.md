@@ -183,6 +183,12 @@ untouched; the two e2e tests that used the bare selector are narrowed to
 makes the two-instance fact visible instead of papering over it with
 `.first()`.
 
+The assertions added afterwards to close the coverage gap follow the same rule
+rather than a new one: `testAdminHeader` counts
+`.header__sidebar .header-admin__menu .header-admin__item` and `testManagerHeader`
+denies `.header__sidebar .header-admin`, both addressed through the panel rather
+than by position in the document.
+
 **Alternatives considered:**
 - *`.first()` in the e2e tests.* Fewer characters, and it hides the ambiguity —
   a later test would silently keep passing against the top-row block when it
@@ -198,12 +204,15 @@ makes the two-instance fact visible instead of papering over it with
   is the accepted cost of D1, and the mitigation is the requirement itself:
   it now states that the panel *repeats* the header, so the two are expected to
   move together and a reviewer looks for both.
-- [The sidebar's admin block has no executable test] → `HeaderTest::testAdminHeader`
-  asserts the sidebar's create block and the top row's admin block but says
-  nothing about the panel's admin block, and no e2e test drives the panel at all,
-  so the new delta scenario is unverified. Worth a task: assert
-  `.header__sidebar .header-admin__menu .header-admin__item` counts 3 for an
-  admin and 0 for a manager, in the same test that already covers both roles.
+- [The sidebar's admin block was untested] → Resolved while applying, and the
+  resolution is what a reviewer should expect to find.
+  `HeaderTest::testAdminHeader` asserts `.header__sidebar .header-admin__menu
+  .header-admin__item` counts 3 and the toggle starts closed;
+  `HeaderTest::testManagerHeader` asserts `.header__sidebar .header-admin` is
+  absent; `e2e/tests/design-mobile.spec.ts` drives the panel at 576px and pins
+  `position: static` plus the user block moving below the menu. That last
+  assertion was mutation-checked: dropping `.header-admin--sidebar` from the
+  flow-expansion rule turns `position` into `absolute` and fails the test.
 - [Two elements match the admin toggle in the DOM] → Any future locator, in e2e
   or elsewhere, must be container-scoped; an unscoped one fails in strict mode
   rather than passing quietly. `HeaderTest` is already scoped this way, so the
@@ -222,6 +231,10 @@ None. Server-rendered markup and CSS in one partial and one stylesheet: no
 migration, no rebuild of persisted data, no deploy ordering between
 environments.
 
-**Rollback:** revert `templates/components/header.html.twig` and
-`assets/scss/components/header.scss`, and re-widen the two e2e locators to the
-bare `[data-header-admin-toggle]`. Nothing to restore.
+**Rollback:** revert `templates/components/header.html.twig`,
+`assets/scss/components/header.scss` and
+`tests/Functional/Controller/HeaderTest.php`; drop the «боковая панель: «⚙ Админ
+▾» раскрывается в потоке» test from `e2e/tests/design-mobile.spec.ts`; and
+re-widen the two locators in `e2e/tests/users-access.spec.ts` and
+`e2e/tests/organization-hiding-registry.spec.ts` back to the bare
+`[data-header-admin-toggle]`. Nothing to restore.
