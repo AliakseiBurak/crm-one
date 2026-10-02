@@ -22,5 +22,6 @@ final readonly class ContactData
         public ?string $email = null,
         public ?string $position = null,
         public ?string $notes = null,
+        public bool $isMain = false,
     ) {}
 }

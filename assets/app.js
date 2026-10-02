@@ -17,3 +17,4 @@ import './js/date-picker.js';
 import './js/header-create-dropdown.js';
 import './js/campaign-preview-modal.js';
 import './js/campaign-editor.js';
+import './js/llm-client.js';

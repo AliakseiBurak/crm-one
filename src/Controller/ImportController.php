@@ -14,8 +14,11 @@ use App\Service\Import\CsvParser;
 use App\Service\Import\Exception\CsvFormatException;
 use App\Service\Import\Exception\ImportRowConflict;
 use App\Service\Import\Exception\ImportRowStopped;
+use App\Service\Import\Exception\JsonPayloadException;
 use App\Service\Import\ImportFileStorage;
+use App\Service\Import\ImportJsonSchema;
 use App\Service\Import\ImportProcessor;
+use App\Service\Import\ImportRunReader;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -46,47 +49,58 @@ class ImportController extends AbstractController
         private readonly ImportFileStorage $storage,
         private readonly CsvParser $parser,
         private readonly ImportProcessor $processor,
+        private readonly ImportJsonSchema $jsonSchema,
+        private readonly ImportRunReader $reader,
         private readonly EntityManagerInterface $em,
     ) {}
 
     /**
-     * Список прогонов и форма загрузки.
+     * Первая вкладка импорта: список прогонов.
+     *
+     * Таблица получила свою вкладку, потому что на остальных она была чужой:
+     * вкладка отвечает за то, как строка получена, а прогон — это уже состояние
+     * импорта, и на странице загрузки ему не место. Заодно вкладки перестали
+     * различаться по списку прогонов — раньше он был одинаковым везде, и это
+     * только мешало.
      */
-    #[Route('', name: 'app_import_index', methods: ['GET'])]
-    public function list(): Response
+    #[Route('/results', name: 'app_import_results', requirements: ['id' => '0'], methods: ['GET'])]
+    public function results(): Response
     {
-        return $this->render('organization_import/index.html.twig', [
+        return $this->render('organization_import/results.html.twig', [
             'runs' => $this->runs->findAllNewestFirst(),
         ]);
     }
 
     /**
-     * Загрузка файла. Пока есть прогон с `processedRows < totalRows`, новая
-     * загрузка отклоняется: активный импорт ровно один (design D9).
+     * Вкладка загрузки CSV.
+     *
+     * Списка прогонов здесь нет: он на вкладке «Результаты», а сюда приходят
+     * за формой. После загрузки администратор возвращается на список — так он
+     * сразу видит созданный прогон.
+     */
+    #[Route('', name: 'app_import_index', methods: ['GET'])]
+    public function list(): Response
+    {
+        return $this->render('organization_import/index.html.twig');
+    }
+
+    /**
+     * Загрузка файла CSV.
+     *
+     * Незавершённые прогоны не мешают: у каждого свой файл и свой счётчик, а
+     * таблица даёт действия в каждой строке, поэтому несколько импортов живут
+     * рядом (design D12).
      */
     #[Route('/upload', name: 'app_import_upload', methods: ['POST'])]
     public function upload(Request $request): Response
     {
         $this->assertCsrfToken($request);
 
-        $active = $this->runs->findUnfinished();
-        if (null !== $active) {
-            $this->addFlash('error', \sprintf(
-                'Импорт «%s» не завершён: %d из %d строк. Продолжите его или замените его файл, '
-                . 'прежде чем загружать новый.',
-                $active->filename,
-                $active->processedRows,
-                $active->totalRows,
-            ));
-
-            return $this->redirectToRoute('app_import_index');
-        }
-
         $file = $request->files->get('file');
         if (!$file instanceof UploadedFile || !$file->isValid()) {
             $this->addFlash('error', 'Файл не выбран.');
 
-            return $this->redirectToRoute('app_import_index');
+            return $this->redirectToRoute('app_import_results');
         }
 
         $storageKey = $this->storage->store($file);
@@ -98,7 +112,7 @@ class ImportController extends AbstractController
             $this->storage->delete($storageKey);
             $this->addFlash('error', $e->getMessage());
 
-            return $this->redirectToRoute('app_import_index');
+            return $this->redirectToRoute('app_import_results');
         }
 
         $run = (new ImportRun())
@@ -119,7 +133,189 @@ class ImportController extends AbstractController
             $run->totalRows,
         ));
 
-        return $this->redirectToRoute('app_import_index');
+        return $this->redirectToRoute('app_import_results');
+    }
+
+    /**
+     * Вкладка «JSON»: загрузка ответа файлом.
+     *
+     * Метод называется не `json()`, потому что это имя уже занято
+     * `AbstractController::json()` — помощником для JSON-ответов.
+     *
+     * Вставки ответа здесь нет: ответ приходит к администратору из вкладки «LLM»
+     * файлом, он его скачивает и загружает сюда. Смешивать вставку и файл было
+     * незачем — два способа доставить одно и то же расходятся только на
+     * странице загрузки, а на странице модели достаточно одного.
+     *
+     * Ответ — уже разобранные объекты, а не ячейки CSV, поэтому проверяется он
+     * по опубликованной схеме, а не по заголовкам колонок (design D2).
+     */
+    #[Route('/json', name: 'app_import_json', requirements: ['id' => '0'], methods: ['GET', 'POST'])]
+    public function jsonTab(Request $request): Response
+    {
+        if ('POST' === $request->getMethod()) {
+            $this->assertCsrfToken($request);
+
+            return $this->submitJsonResponse($request);
+        }
+
+        return $this->render('organization_import/json.html.twig', [
+            'violations' => [],
+        ]);
+    }
+
+    /**
+     * Отправка ответа файлом.
+     *
+     * Разбор в DTO и пакет для проверки здесь не начинаются — как и на вкладке
+     * CSV, импорт запускает «Импортировать» в строке списка (design D3). Проверка
+     * ответа при этом происходит сразу: она дешёвая, и негодный ответ
+     * отклоняется до того, как станет прогоном.
+     */
+    private function submitJsonResponse(Request $request): Response
+    {
+        $file = $request->files->get('file');
+        if (!$file instanceof UploadedFile || !$file->isValid()) {
+            $this->addFlash('error', 'Файл не выбран.');
+
+            return $this->redirectToRoute('app_import_json');
+        }
+
+        $text = @file_get_contents($file->getPathname());
+        if (false === $text) {
+            $this->addFlash('error', 'Файл не читается.');
+
+            return $this->redirectToRoute('app_import_json');
+        }
+
+        $filename = $file->getClientOriginalName();
+
+        try {
+            $payload = $this->jsonSchema->decode($text);
+            $result = $this->jsonSchema->validate($payload);
+        } catch (JsonPayloadException $e) {
+            return $this->renderJsonRejection($e->getMessage());
+        }
+
+        if (!$result->isValid()) {
+            return $this->renderJsonRejection($result->report());
+        }
+
+        $storageKey = $this->storage->storeContents($text);
+        $run = (new ImportRun())
+            ->setFilename($filename)
+            ->setStorageKey($storageKey)
+            ->setSourceFormat(ImportRun::SOURCE_FORMAT_JSON)
+            ->setTotalRows($this->jsonSchema->organizationCount($payload))
+            ->setCreatedBy($this->currentUser());
+        $this->em->persist($run);
+        $this->em->flush();
+
+        $this->addFlash('success', \sprintf(
+            'Ответ «%s» сохранён: %d организаций. Импорт начнётся по кнопке «Импортировать».',
+            $run->filename,
+            $run->totalRows,
+        ));
+
+        return $this->redirectToRoute('app_import_results');
+    }
+
+    /**
+     * Отклонённый ответ показывается на той же вкладке, с отчётом: прогон не
+     * создан, файл не сохранён, а текст остаётся в поле, чтобы администратор
+     * правил его, а не искал ответ заново.
+     */
+    private function renderJsonRejection(string $report): Response
+    {
+        $response = $this->render('organization_import/json.html.twig', [
+            'violations' => explode("\n", $report),
+        ]);
+
+        $response->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
+
+        return $response;
+    }
+
+    /**
+     * Текст замены: вставка и файл неразличимы дальше этого места.
+     *
+     * Нужно только замене файла уже созданного прогона: основная вкладка JSON
+     * ответа не принимает вставку, там файл один. Пустое имя на месте вставки
+     * означает «не переименовывать прогон».
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function submittedPayload(Request $request): array
+    {
+        $pasted = (string) $request->request->get('payload', '');
+        if ('' !== trim($pasted)) {
+            return [$pasted, ''];
+        }
+
+        $file = $request->files->get('file');
+        if ($file instanceof UploadedFile && $file->isValid()) {
+            $contents = @file_get_contents($file->getPathname());
+
+            return [false === $contents ? '' : $contents, $file->getClientOriginalName()];
+        }
+
+        return ['', ''];
+    }
+
+    /**
+     * Скачивание опубликованного контракта: тот же документ, по которому
+     * проверяется ответ и из которого собран промпт (design D2).
+     */
+    #[Route('/json-schema', name: 'app_import_json_schema', requirements: ['id' => '0'], methods: ['GET'])]
+    public function jsonSchema(): Response
+    {
+        $response = new BinaryFileResponse($this->jsonSchema->path());
+        $response->setContentDisposition(
+            ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+            'organization-import.schema.json',
+        );
+        $response->headers->set('Content-Type', 'application/schema+json; charset=UTF-8');
+
+        return $response;
+    }
+
+    /**
+     * Вкладка «Промпт»: та же инструкция, что отправляет вкладка LLM.
+     *
+     * Отдельная страница, а не блок на странице модели, потому что инструкцией
+     * пользуются и без модели: её копируют в любой чат, где ответ нужен от
+     * другой системы. На вкладке LLM она только упоминается ссылкой — там
+     * содержанием страницы она не является.
+     */
+    #[Route('/prompt', name: 'app_import_prompt', requirements: ['id' => '0'], methods: ['GET'])]
+    public function promptTab(): Response
+    {
+        return $this->render('organization_import/prompt.html.twig', [
+            'prompt' => $this->jsonSchema->prompt(),
+        ]);
+    }
+
+    /**
+     * Вкладка LLM-компонента.
+     *
+     * Страница целиком клиентская: запрос уходит из браузера прямо провайдеру, и
+     * сервер не получает ни ключа, ни промпта, ни ответа (design D4). Поэтому
+     * здесь нет ни одного серверного вызова — только разметка и клиент из
+     * `assets/js`.
+     */
+    #[Route('/llm', name: 'app_import_llm', requirements: ['id' => '0'], methods: ['GET'])]
+    public function llm(): Response
+    {
+        return $this->render('organization_import/llm.html.twig', [
+            'prompt' => $this->jsonSchema->prompt(),
+            // Клиент отправляет провайдеру проекцию того же документа, а не его
+            // копию: проекция выведена из схемы, которая проверяет ответ, поэтому
+            // разойтись с ней не может. Провайдеру отдаётся костяк формы —
+            // генератор грамматики Ollama не переваривает `$ref` и `$id` и падает
+            // с «failed to parse grammar» (design D2), — а проверку длины,
+            // форматов дат и лишних полей сервер всё равно делает у себя.
+            'import_schema' => $this->jsonSchema->providerSchema(),
+        ]);
     }
 
     /**
@@ -157,17 +353,10 @@ class ImportController extends AbstractController
     {
         $run = $this->run($id);
 
-        $unfinished = $this->runs->findUnfinished();
-        if (null !== $unfinished && $unfinished->id !== $run->id) {
-            // Страница только показывает состояние, поэтому отказ заменён
-            // перенаправлением на незавершённый импорт.
-            return $this->redirectToRoute('app_import_review', ['id' => $unfinished->id]);
-        }
-
         if ($run->isFinished()) {
             $this->addFlash('success', $this->completionNotice($run));
 
-            return $this->redirectToRoute('app_import_index');
+            return $this->redirectToRoute('app_import_results');
         }
 
         $chunk = $this->processor->processChunk($run);
@@ -195,7 +384,7 @@ class ImportController extends AbstractController
         if ($run->isFinished()) {
             $this->addFlash('success', $this->completionNotice($run));
 
-            return $this->redirectToRoute('app_import_index');
+            return $this->redirectToRoute('app_import_results');
         }
 
         $chunk = $this->processor->processChunk($run);
@@ -205,13 +394,13 @@ class ImportController extends AbstractController
                 $run,
                 // Пропущенных строк в форме нет, но счётчик обязан перешагнуть
                 // каждую строку файла — иначе импорт встанет на них навсегда.
-                $chunk->forPersist($this->rowsFromRequest($request)),
+                $chunk->forPersist($this->rowsFromRequest($request, $this->isJsonRun($run))),
                 $this->resolutionsFromRequest($request),
             );
         } catch (ImportRowConflict|ImportRowStopped $e) {
             $this->addFlash('error', $e->getMessage());
 
-            $rows = $this->sliceFrom($this->rowsFromRequest($request), $e->rowNumber);
+            $rows = $this->sliceFrom($this->rowsFromRequest($request, $this->isJsonRun($run)), $e->rowNumber);
             if ($e instanceof ImportRowConflict) {
                 // Конфликт обнаружен на вставке, поэтому в отправленных полях его
                 // нет: помечаем строку заново, чтобы на ней появился выбор.
@@ -240,7 +429,7 @@ class ImportController extends AbstractController
         if ($run->isFinished()) {
             $this->addFlash('success', $this->completionNotice($run));
 
-            return $this->redirectToRoute('app_import_index');
+            return $this->redirectToRoute('app_import_results');
         }
 
         return $this->redirectToRoute('app_import_review', ['id' => $run->id]);
@@ -303,30 +492,58 @@ class ImportController extends AbstractController
 
     private function storeReplacementCandidate(Request $request, ImportRun $run): Response
     {
-        $file = $request->files->get('file');
-        if (!$file instanceof UploadedFile || !$file->isValid()) {
-            $this->addFlash('error', 'Файл не выбран.');
+        [$text, $filename] = $this->submittedPayload($request);
+        if ('' === trim($text)) {
+            $this->addFlash('error', $this->isJsonRun($run)
+                ? 'Файл не выбран и ответ не вставлен.'
+                : 'Файл не выбран.');
 
             return $this->redirectToRoute('app_import_review', ['id' => $run->id]);
         }
 
-        $storageKey = $this->storage->store($file);
+        $storageKey = $this->storage->storeContents($text);
         try {
             // Замена проверяется по формату, объявленному для источника самого
-            // прогона; не прошедший файл до отчёта не доходит.
-            $this->parser->assertUsable($this->storage->path($storageKey));
-        } catch (CsvFormatException $e) {
+            // прогона; не прошедший кандидат до отчёта не доходит, а на диске не
+            // остаётся.
+            $this->assertUsableFor($run, $storageKey);
+        } catch (CsvFormatException|JsonPayloadException $e) {
             $this->storage->delete($storageKey);
             $this->addFlash('error', $e->getMessage());
 
             return $this->redirectToRoute('app_import_review', ['id' => $run->id]);
         }
 
+        // Кандидат едет в адресе: отчёт воспроизводим перезагрузкой этой ссылки,
+        // и между двумя запросами на сервере не хранится ничего (design D8).
         return $this->redirectToRoute('app_import_replace', [
             'id' => $run->id,
             'candidate' => $storageKey,
-            'name' => $file->getClientOriginalName(),
+            'name' => $filename,
         ]);
+    }
+
+    /**
+     * Сохранённый кандидат годен для замены, если он годится в формате,
+     * объявленном для источника самого прогона (design D6).
+     */
+    private function assertUsableFor(ImportRun $run, string $candidateKey): void
+    {
+        if ($this->isJsonRun($run)) {
+            $result = $this->jsonSchema->validateText($this->storage->read($candidateKey));
+            if (!$result->isValid()) {
+                throw new JsonPayloadException($result->report());
+            }
+
+            return;
+        }
+
+        $this->parser->assertUsable($this->storage->path($candidateKey));
+    }
+
+    private function isJsonRun(ImportRun $run): bool
+    {
+        return ImportRun::SOURCE_FORMAT_JSON === $run->sourceFormat;
     }
 
     private function renderReplacementReport(Request $request, ImportRun $run): Response
@@ -380,10 +597,9 @@ class ImportController extends AbstractController
             return $this->redirectToRoute('app_import_review', ['id' => $run->id]);
         }
 
-        $candidatePath = $this->storage->path($candidateKey);
         try {
-            $this->parser->assertUsable($candidatePath);
-        } catch (CsvFormatException $e) {
+            $this->assertUsableFor($run, $candidateKey);
+        } catch (CsvFormatException|JsonPayloadException $e) {
             $this->addFlash('error', $e->getMessage());
 
             return $this->redirectToRoute('app_import_review', ['id' => $run->id]);
@@ -394,7 +610,11 @@ class ImportController extends AbstractController
         $filename = (string) $request->query->get('name', '');
 
         $run
-            ->setFilename('' === $filename ? 'файл прогона' : $filename)
+            // Имя из вставки не меняет прогон: замена правит файл и счётчики, а
+            // как прогон называется в списке — то же самое. Своего имени у
+            // вставки нет, и подставлять вместо него выдуманное значило бы
+            // терять то, под чем прогон уже виден администратору.
+            ->setFilename('' === $filename ? $run->filename : $filename)
             ->setStorageKey($candidateKey)
             ->setTotalRows($report['candidateRows']);
         $this->em->flush();
@@ -417,11 +637,10 @@ class ImportController extends AbstractController
             $report['resumeOrganization'],
         ));
 
-
         if ($run->isFinished()) {
             $this->addFlash('success', $this->completionNotice($run));
 
-            return $this->redirectToRoute('app_import_index');
+            return $this->redirectToRoute('app_import_results');
         }
 
         return $this->redirectToRoute('app_import_review', ['id' => $run->id]);
@@ -438,23 +657,26 @@ class ImportController extends AbstractController
      */
     private function replacementReport(ImportRun $run, string $candidateKey): array
     {
+        $format = $run->sourceFormat;
         $current = [];
-        foreach ($this->parser->records($this->storage->path($run->storageKey)) as $index => $record) {
-            $current[$index] = CsvParser::recordText($record);
+        foreach ($this->reader->records($format, $this->storage->path($run->storageKey)) as $index => $record) {
+            $current[$index] = $record;
         }
 
         $candidate = [];
         $resumeOrganization = '';
-        foreach ($this->parser->records($this->storage->path($candidateKey)) as $index => $record) {
-            $candidate[$index] = CsvParser::recordText($record);
+        foreach ($this->reader->records($format, $this->storage->path($candidateKey)) as $index => $record) {
+            $candidate[$index] = $record;
             if ($index === $run->processedRows) {
-                $resumeOrganization = CsvParser::organizationName($record);
+                $resumeOrganization = $this->reader->organizationName($format, $record);
             }
         }
 
+        // Сравнение построено на правилах формата, а не на тексте payload: CSV
+        // сравнивается как запись, JSON — по полям (design D6).
         $changed = [];
         for ($row = 0; $row < $run->processedRows; ++$row) {
-            if (($current[$row] ?? null) !== ($candidate[$row] ?? null)) {
+            if (!$this->reader->equals($format, $current[$row] ?? null, $candidate[$row] ?? null)) {
                 $changed[] = $row + 1;
             }
         }
@@ -480,14 +702,19 @@ class ImportController extends AbstractController
     }
 
     /**
+     * Поля, которых нет в выгрузке, читаются из формы только у прогона из
+     * JSON: у прогонов из CSV их в пакете нет, и подставленное клиентом значение
+     * не должно попасть в организацию, которой эти поля не полагались
+     * (design D7).
+     *
      * @return ImportRow[]
      */
-    private function rowsFromRequest(Request $request): array
+    private function rowsFromRequest(Request $request, bool $json): array
     {
         $rows = [];
         foreach ($request->request->all('rows') as $data) {
             if (isset($data['rowNumber'])) {
-                $rows[] = $this->rowFromRequest($data);
+                $rows[] = $this->rowFromRequest($data, $json);
             }
         }
 
@@ -497,11 +724,15 @@ class ImportController extends AbstractController
     /**
      * @param array<array-key, mixed> $data
      */
-    private function rowFromRequest(array $data): ImportRow
+    private function rowFromRequest(array $data, bool $json): ImportRow
     {
         $row = new ImportRow(
             rowNumber: (int) $data['rowNumber'],
             name: (string) ($data['name'] ?? ''),
+            industry: $json ? $this->text($data['industry'] ?? null) : null,
+            city: $json ? $this->text($data['city'] ?? null) : null,
+            unp: $json ? $this->text($data['unp'] ?? null) : null,
+            annualPlan: $json ? $this->text($data['annualPlan'] ?? null) : null,
             description: $this->text($data['description'] ?? null),
             coursesAttended: $this->text($data['coursesAttended'] ?? null),
             website: $this->text($data['website'] ?? null),
@@ -592,18 +823,24 @@ class ImportController extends AbstractController
     }
 
     /**
-     * «Обработано строк в этом прогоне: X, обработано всего: Y» (design D11).
+     * «Обработано строк в этом прогоне: X из Y» (design D11).
+     *
+     * Число — по текущему прогону, а не сумма по всем. Пока импорт был один,
+     * сумма совпадала с числом строк в файле и читалась как «этот импорт»; с
+     * несколькими независимыми прогонами сумма больше, чем строк в этом файле,
+     * и отвечает на вопрос, которого не задавали.
+     *
+     * Формулировка считает строки, а не организации: X — это решённые строки,
+     * сохранённые и пропущенные как пустые (design D2), поэтому «импортировано»
+     * выдавало бы каждую пропущенную строку за организацию. Пропуски названы
+     * отдельно в момент, когда они произошли.
      */
     private function completionNotice(ImportRun $run): string
     {
-        // Формулировка считает строки, а не организации: X — это решённые строки,
-        // сохранённые и пропущенные как пустые (design D2), поэтому «импортировано»
-        // выдавало бы каждую пропущенную строку за организацию. Пропуски названы
-        // отдельно в момент, когда они произошли.
         return \sprintf(
-            'Обработано строк в этом прогоне: %d, обработано всего: %d',
+            'Обработано строк в этом прогоне: %d из %d',
             $run->processedRows,
-            $this->runs->sumProcessedRows(),
+            $run->totalRows,
         );
     }
 
@@ -626,9 +863,9 @@ class ImportController extends AbstractController
 
     private function text(mixed $value): ?string
     {
-        $value = null === $value ? null : trim((string) $value);
+        $trimmed = trim((string) ($value ?? ''));
 
-        return '' === $value ? null : $value;
+        return $trimmed !== '' ? $trimmed : null;
     }
 
     private function assertCsrfToken(Request $request): void

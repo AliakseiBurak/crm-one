@@ -1,0 +1,141 @@
+{#
+    Вкладка LLM: разбор текста в структурированный ответ (change
+    add-organizations-json-import, design D4).
+
+    Здесь модель получает не файл, а текст, который администратор вставил в поле
+    ниже, и возвращает JSON по опубликованному контракту. Ответ показывается на
+    странице и скачивается как файл; в импорт он попадает только тем, что
+    администратор сам загрузит этот файл на вкладке «JSON». Ничего не происходит
+    само: ни ответа в поле вставки, ни перехода куда-то, ни создания прогона.
+
+    Страница целиком клиентская: запрос уходит из браузера прямо провайдеру, и
+    сервер не получает ни ключа, ни промпта, ни текста, ни ответа. Поэтому в
+    разметке нет ничего, кроме формы и блоков ответа, а вся работа — в
+    `assets/js`.
+
+    Ключ живёт в `sessionStorage`: он не переживает закрытие вкладки, не пишется
+    в `localStorage` и никогда не отправляется в приложение. Отдельной кнопки
+    «забыть» нет: ключ исчезает вместе с вкладкой, и держать рядом ещё одно
+    действие, которое означает то же самое, незачем. Список моделей выключен, пока
+    модели не получены у провайдера, — выбирать из пустого списка нельзя.
+
+    Ожидает: prompt (string), import_schema (array)
+#}
+{% extends 'base.html.twig' %}
+
+{% block title %}Импорт организаций — LLM{% endblock %}
+
+{% block body %}
+    {# Проекция схемы отдаётся клиенту как данные: `format`/`response_format`
+       просит у провайдера ответ нужной формы, а проверить его потом всё равно
+       сервер — по полному документу (design D2). #}
+    <script>
+        window.ORGANIZATION_IMPORT_SCHEMA = {{ import_schema|json_encode|raw }};
+    </script>
+    <section class="section section--white">
+        <div class="container">
+            <h1>Импорт организаций</h1>
+
+            {{ include('components/tabs.html.twig', {
+                items: [
+                    { label: 'Результаты', href: path('app_import_results'), active: false },
+                    { label: 'CSV', href: path('app_import_index'), active: false },
+                    { label: 'JSON', href: path('app_import_json'), active: false },
+                    { label: 'LLM', active: true },
+                    { label: 'Промпт', href: path('app_import_prompt'), active: false },
+                ],
+            }) }}
+
+            <p class="import-llm__note">
+                Вставьте текст, который нужно разобрать: выгрузку, список организаций, письмо. Отправленная
+                инструкция — на вкладке <a href="{{ path('app_import_prompt') }}">Промпт</a>.
+            </p>
+
+            {# Форма никогда не отправляется: запрос уходит из браузера провайдеру,
+               а `submit` перехватывает клиент. У полей нет атрибута `name`, поэтому
+               даже форма, отправленная без клиента, не подставит ключ в адрес
+               приложения. #}
+            <form id="llm-form" class="import-llm" data-prompt="{{ prompt }}">
+                <p>
+                    <label class="field__label" for="llm-source">Текст</label>
+                    <textarea class="field__input"
+                              id="llm-source"
+                              rows="10"
+                              placeholder="Вставьте текст, из которого нужно составить список организаций"></textarea>
+                </p>
+
+                <p>
+                    <label class="field__label" for="llm-provider">Провайдер</label>
+                    <select class="field__input" id="llm-provider">
+                        <option value="openrouter">OpenRouter</option>
+                        <option value="ollama">Ollama</option>
+                    </select>
+                </p>
+
+                <p id="llm-host-row" hidden>
+                    <label class="field__label" for="llm-host">Хост Ollama</label>
+                    <input class="field__input" id="llm-host" placeholder="http://localhost:11434">
+                </p>
+
+                <p>
+                    <label class="field__label" for="llm-key">API-ключ</label>
+                    <input class="field__input" id="llm-key" type="password" autocomplete="off">
+                </p>
+
+                {# Предупреждение — под самым полем, а не внизу страницы: ключ
+                   вводят здесь, и о том, кто его увидит, уместно узнать в этот же
+                   момент. Внизу оно читалось как примечание к уже сделанному. #}
+                <p class="import-llm__note">
+                    Ключ хранится только в этой вкладке браузера и исчезает вместе с ней. Его видят
+                    браузер и любой, кто имеет доступ к рабочей станции.
+                </p>
+
+                {# «Получить модели» — над списком, а не под ним: список пуст и
+                   выключен, пока модели не получены, и кнопка под ним читалась бы
+                   как относящаяся к уже готовому выбору. #}
+                <p>
+                    {{ include('components/button.html.twig', {
+                        variant: 'secondary',
+                        text: 'Получить модели',
+                        sm: true,
+                        type: 'button',
+                        attr: { id: 'llm-models' },
+                    }) }}
+                </p>
+
+                <p>
+                    <label class="field__label" for="llm-model">Модель</label>
+                    {# Список выключен, пока модели не получены: выбрать из пустого
+                       списка нельзя, а перезагрузка страницы их не восстанавливает. #}
+                    <select class="field__input" id="llm-model" disabled></select>
+                </p>
+
+                <p>
+                    <button class="btn btn--primary" type="submit" id="llm-send">Составить JSON</button>
+                </p>
+
+                {# Пока ответ не пришёл, вкладка говорит об этом сама и держит
+                   диалог браузера при попытке уйти: запрос уходит из браузера, и
+                   закрытая вкладка теряет ответ целиком. #}
+                <p id="llm-status" class="import-llm__note" role="status" hidden></p>
+
+                <p id="llm-error" class="field__error" role="alert" hidden></p>
+            </form>
+
+            <p class="import-llm__note">
+                Скачайте ответ как файл и загрузите на вкладке <a href="{{ path('app_import_json') }}">JSON</a>.
+            </p>
+            <pre id="llm-response" class="import-json__prompt-body" hidden></pre>
+            <p id="llm-download-row" hidden>
+                {{ include('components/button.html.twig', {
+                    variant: 'secondary',
+                    text: 'Скачать ответ',
+                    sm: true,
+                    type: 'button',
+                    attr: { id: 'llm-download' },
+                }) }}
+            </p>
+
+        </div>
+    </section>
+{% endblock %}

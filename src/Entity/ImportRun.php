@@ -79,6 +79,13 @@ class ImportRun
 
     public const string SOURCE_FORMAT_CSV = 'csv';
 
+    /**
+     * Прогон создан из ответа языковой модели (change
+     * add-organizations-json-import). Колонка не меняется: значение выбирает
+     * парсер и способ сравнения строк при замене файла.
+     */
+    public const string SOURCE_FORMAT_JSON = 'json';
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();

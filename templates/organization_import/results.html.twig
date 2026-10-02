@@ -1,0 +1,43 @@
+{#
+    Первая вкладка импорта: таблица результатов (change
+    add-organizations-json-import).
+
+    Список прогонов вынесен в отдельную вкладку: вкладки отвечают за то, как
+    строка получена (CSV, ответ моделью, промпт для копирования), а прогон —
+    это состояние импорта, одинаковое для всех форматов. Раньше таблица стояла
+    на каждой вкладке, и на странице, которой прогон не касается, она была
+    чужой строкой экрана.
+
+    Здесь нет формы загрузки: загрузка — на вкладке «CSV», ответ моделью — на
+    вкладке «JSON».
+
+    Ожидает: runs (ImportRun[])
+#}
+{% extends 'base.html.twig' %}
+
+{% block title %}Импорт организаций — результаты{% endblock %}
+
+{% block body %}
+    <section class="section section--white">
+        <div class="container">
+            <h1>Импорт организаций</h1>
+
+            {{ include('components/tabs.html.twig', {
+                items: [
+                    { label: 'Результаты', active: true },
+                    { label: 'CSV', href: path('app_import_index'), active: false },
+                    { label: 'JSON', href: path('app_import_json'), active: false },
+                    { label: 'LLM', href: path('app_import_llm'), active: false },
+                    { label: 'Промпт', href: path('app_import_prompt'), active: false },
+                ],
+            }) }}
+
+            <p>
+                Все прогоны импорта, независимо от формата. Импорт запускается кнопкой
+                «Импортировать» в строке прогона; новый прогон появляется здесь сразу после загрузки файла.
+            </p>
+
+            {{ include('organization_import/_runs_table.html.twig', { runs: runs }) }}
+        </div>
+    </section>
+{% endblock %}

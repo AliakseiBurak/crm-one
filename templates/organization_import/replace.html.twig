@@ -6,6 +6,9 @@
     файл приходит из браузера и метки времени источника не несёт.
     Прогон и файл-кандидат приходят из URL, поэтому отчёт воспроизводим по
     адресу без серверной сессии.
+    Для прогона из JSON форма приглашает вставить ответ или выбрать файл, и
+    число в отчёте — организации, а не записи CSV (change
+    add-organizations-json-import, design D6).
     Ожидает: run (ImportRun), candidate (string), report (array)
 #}
 {% extends 'base.html.twig' %}
@@ -17,12 +20,27 @@
         <div class="container">
             <h1>Замена файла</h1>
 
+            {% set isJsonRun = run.sourceFormat == constant('App\\Entity\\ImportRun::SOURCE_FORMAT_JSON') %}
+            {% set unit = isJsonRun ? 'организаций' : 'строк' %}
             {% if report is null %}
-                <p>Прогон «{{ run.filename }}» ещё не изменён. Выберите исправленный файл — система покажет отчёт и не тронет прогон, пока замена не подтверждена.</p>
+                <p>Прогон «{{ run.filename }}» ещё не изменён. {% if isJsonRun %}Вставьте исправленный ответ или выберите файл{% else %}Выберите исправленный файл{% endif %} — система покажет отчёт и не тронет прогон, пока замена не подтверждена.</p>
                 <form method="post" action="{{ path('app_import_replace', { id: run.id }) }}" enctype="multipart/form-data">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('import') }}">
+                    {% if isJsonRun %}
+                        <p>
+                            <label class="field__label" for="replace-payload">Исправленный ответ</label>
+                            <textarea class="field__input" id="replace-payload" name="payload" rows="10"></textarea>
+                        </p>
+                        <p>
+                            <label class="field__label" for="replace-file">Или файл с ответом</label>
+                            <input type="file" id="replace-file" name="file" accept=".json,application/json">
+                        </p>
+                    {% else %}
+                        <p>
+                            <input type="file" name="file" accept=".csv,text/csv" required>
+                        </p>
+                    {% endif %}
                     <p>
-                        <input type="file" name="file" accept=".csv,text/csv" required>
                         <button class="btn btn--primary" type="submit">Проверить замену</button>
                     </p>
                 </form>
@@ -39,11 +57,11 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <th scope="row">Строк в текущем файле</th>
+                            <th scope="row">{{ unit|capitalize }} в текущем файле</th>
                             <td>{{ report.currentRows }}</td>
                         </tr>
                         <tr>
-                            <th scope="row">Строк в новом файле</th>
+                            <th scope="row">{{ unit|capitalize }} в новом файле</th>
                             <td>{{ report.candidateRows }}</td>
                         </tr>
                         <tr>
@@ -51,7 +69,7 @@
                             <td>{{ report.resumeRow }} — «{{ report.resumeOrganization }}»</td>
                         </tr>
                         <tr>
-                            <th scope="row">Изменившиеся строки в обработанной части</th>
+                            <th scope="row">Изменившиеся {{ isJsonRun ? 'организации' : 'строки' }} в обработанной части</th>
                             <td>
                                 {% if report.changedRows is empty %}
                                     нет
@@ -66,7 +84,7 @@
 
             {% if report.shorter %}
                 <p class="alert alert--warning" role="alert">
-                    В новом файле {{ report.candidateRows }} строк, а обработано было {{ run.processedRows }}:
+                    В новом файле {{ report.candidateRows }} {{ unit }}, а обработано было {{ run.processedRows }}:
                     после замены импорт будет считаться завершённым.
                 </p>
             {% endif %}

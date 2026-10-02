@@ -65,6 +65,26 @@ final class ImportFileStorage
         }
     }
 
+    /**
+     * Содержимое сохранённого файла.
+     *
+     * Отчёт о замене и повторная проверка кандидата читают файл, а не держат его
+     * в памяти между запросами: кандидат едет в адресе, и по этому адресу отчёт
+     * должен воспроизводиться заново (design D8).
+     *
+     * @throws FileException файла нет или он не читается
+     */
+    public function read(string $storageKey): string
+    {
+        $path = $this->path($storageKey);
+        $contents = is_file($path) ? @file_get_contents($path) : false;
+        if (false === $contents) {
+            throw new FileException(\sprintf('Не удалось прочитать файл импорта "%s"', $path));
+        }
+
+        return $contents;
+    }
+
     public function path(string $storageKey): string
     {
         return $this->directory() . \DIRECTORY_SEPARATOR . $storageKey;

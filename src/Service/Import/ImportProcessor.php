@@ -46,10 +46,12 @@ final class ImportProcessor
 
     private const int MAX_ORGANIZATION_FIELD = 255;
 
+    private const int MAX_ORGANIZATION_UNP = 32;
+
     private const int MAX_CONTACT_PHONE = 32;
 
     public function __construct(
-        private readonly CsvParser $parser,
+        private readonly ImportRunReader $reader,
         private readonly CsvRowMapper $mapper,
         private readonly InteractionDateParser $dates,
         private readonly ImportFileStorage $storage,
@@ -68,9 +70,10 @@ final class ImportProcessor
      * каждую строку файла по порядку, иначе импорт встанет на первой же из них.
      * Показывается только `visibleRows()`.
      *
-     * Город сюда не попадает: формат источника не объявляет колонки города,
-     * импортированные организации получают `city = null`, и показывать в
-     * таблице пакета нечего.
+     * Отрасль, город, УНП и годовой план сюда не попадают для прогона из
+     * выгрузки: формат источника их не объявляет, показывать нечего. Для
+     * прогона из ответа JSON они приходят из ответа и показываются — см. design
+     * D7 изменения add-organizations-json-import.
      */
     public function processChunk(ImportRun $run): ImportChunk
     {
@@ -78,7 +81,7 @@ final class ImportProcessor
         $last = min($first + self::CHUNK_SIZE, $run->totalRows);
 
         $rows = [];
-        foreach ($this->parser->records($this->storage->path($run->storageKey)) as $index => $record) {
+        foreach ($this->reader->records($run->sourceFormat, $this->storage->path($run->storageKey)) as $index => $record) {
             if ($index < $first) {
                 continue;
             }
@@ -87,7 +90,7 @@ final class ImportProcessor
             }
             // Нумерация строк в файле — с единицы: `processedRows + 1` это
             // первая необработанная строка.
-            $rows[] = $this->rowFrom($this->mapper->map($record), $index + 1);
+            $rows[] = $this->rowNumbered($record, $index + 1);
         }
 
         $skipped = [];
@@ -232,7 +235,14 @@ final class ImportProcessor
                 \sprintf('название длиннее %d символов', self::MAX_ORGANIZATION_NAME),
             );
         }
-        foreach (['description' => 'описание', 'coursesAttended' => '«Учились у нас»', 'website' => 'сайт'] as $field => $label) {
+        foreach ([
+            'industry' => 'отрасль',
+            'city' => 'город',
+            'description' => 'описание',
+            'coursesAttended' => '«Учились у нас»',
+            'website' => 'сайт',
+            'annualPlan' => 'годовой план',
+        ] as $field => $label) {
             $value = $row->{$field};
             if (null !== $value && mb_strlen($value) > self::MAX_ORGANIZATION_FIELD) {
                 throw new ImportRowStopped(
@@ -241,6 +251,13 @@ final class ImportProcessor
                 );
             }
         }
+        if (null !== $row->unp && mb_strlen($row->unp) > self::MAX_ORGANIZATION_UNP) {
+            throw new ImportRowStopped(
+                $row->rowNumber,
+                \sprintf('УНП длиннее %d символов', self::MAX_ORGANIZATION_UNP),
+            );
+        }
+
         foreach ($row->contacts as $index => $contact) {
             if (null !== $contact->phone && mb_strlen($contact->phone) > self::MAX_CONTACT_PHONE) {
                 throw new ImportRowStopped(
@@ -374,6 +391,10 @@ final class ImportProcessor
         $organization = new Organization();
         $organization
             ->setName(trim($row->name))
+            ->setIndustry($this->nullIfBlank($row->industry))
+            ->setCity($this->nullIfBlank($row->city))
+            ->setUnp($this->nullIfBlank($row->unp))
+            ->setAnnualPlan($this->nullIfBlank($row->annualPlan))
             ->setDescription($this->nullIfBlank($row->description))
             ->setCoursesAttended($this->nullIfBlank($row->coursesAttended))
             ->setWebsite($this->nullIfBlank($row->website))
@@ -381,8 +402,10 @@ final class ImportProcessor
             ->setIsActive(true)
             ->setIsOptedOut(false);
 
-        // `unp`, `industry` и `city` формат источника не несёт: остаются null.
-        // Группы импорт не назначает — это область администратора (ADR-0011).
+        // `industry`, `city`, `unp` и `annualPlan` приходят только из
+        // JSON-ответа (change add-organizations-json-import); у прогонов из
+        // выгрузки они остаются null. Группы импорт не назначает — это область
+        // администратора (ADR-0011).
 
         return $organization;
     }
@@ -430,11 +453,33 @@ final class ImportProcessor
         return $call;
     }
 
+    /**
+     * Строка источника в DTO.
+     *
+     * Формат строки объявляет прогон, а не способ, которым сюда попали: JSON-прогон
+     * уже несёт готовый `OrganizationData` из `JsonImportParser`, CSV-прогон —
+     * запись, которую раскладывает `CsvRowMapper` (design D6).
+     *
+     * @param mixed $record
+     */
+    private function rowNumbered(mixed $record, int $rowNumber): ImportRow
+    {
+        $data = $record instanceof OrganizationData
+            ? $record
+            : $this->mapper->map(\is_array($record) ? $record : []);
+
+        return $this->rowFrom($data, $rowNumber);
+    }
+
     private function rowFrom(OrganizationData $data, int $rowNumber): ImportRow
     {
         $row = new ImportRow(
             rowNumber: $rowNumber,
             name: $data->name,
+            industry: $data->industry,
+            city: $data->city,
+            unp: $data->unp,
+            annualPlan: $data->annualPlan,
             description: $data->description,
             coursesAttended: $data->coursesAttended,
             website: $data->website,
@@ -447,6 +492,10 @@ final class ImportProcessor
                 email: $contact->email,
                 position: $contact->position,
                 notes: $contact->notes,
+                // Отметка приходит из ответа JSON и показывается в форме
+                // пакета отмеченной: на CSV-пути в выгрузке её нет, и там она
+                // всегда false.
+                isMain: $contact->isMain,
             );
         }
         foreach ($data->calls as $call) {

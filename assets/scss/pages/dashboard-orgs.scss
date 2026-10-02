@@ -87,14 +87,6 @@
     }
 }
 
-// Дополнительная маленькая кнопка-действие (изменение организации/даты)
-.btn--sm {
-    min-height: auto;
-    padding: 0.35em 1em;
-    font-size: 0.85rem;
-    border-radius: $radius-pill;
-}
-
 .org-table__row td {
     vertical-align: middle;
 }

@@ -1,15 +1,22 @@
 {#
-    Проверка пакета импорта (change add-organizations-csv-import).
+    Проверка пакета импорта (changes add-organizations-csv-import,
+    add-organizations-json-import).
     Пакет — таблица, одна организация в строке: название, описание,
-    «Учились у нас», сайт, контакты и звонки. Города нет (формат источника не
-    объявляет колонку города), поля годового плана нет (импорт его не
-    заполняет), списка нераспознанных дат нет: непрочитанное остаётся текстом
-    в заметках и видно там.
+    «Учились у нас», сайт, контакты и звонки. Списка нераспознанных дат нет:
+    непрочитанное остаётся текстом в заметках и видно там.
+    «Отрасль», «Город», «УНП» и «Годовой план» выводятся только для прогона из
+    JSON (change add-organizations-json-import, design D7): там их приносит
+    ответ — модель или файл из другого источника, — и заполненное поле обязано
+    быть видно и правящимся. У прогона из выгрузки этих полей в источнике нет,
+    поэтому в форме их нет тоже, и подставленное клиентом значение до
+    организации не доходит. «Годовой план» на вкладке CSV запрещён и по другой
+    причине: колонка «Составление плана на год» в выгрузке содержит адрес сайта,
+    а не план.
     Позиция пакета берётся из прогресса прогона, а не из адреса, поэтому
     страница — обычная закладка на один и тот же пакет.
     Замены файла здесь нет: она запускается из списка прогонов.
-    Звонок с отметкой «Планируемый» приходит из колонки «Следующий контакт» —
-    у него плановая дата и нет даты звонка.
+    Звонок с отметкой «Планируемый» приходит из колонки «Следующий контакт»
+    либо из nextCall ответа — у него плановая дата и нет даты звонка.
     Ожидает: run (ImportRun), rows (ImportRow[]), stoppedRow (int|null)
 #}
 {% extends 'base.html.twig' %}
@@ -17,6 +24,7 @@
 {% block title %}Проверка импорта — {{ run.filename }}{% endblock %}
 
 {% block body %}
+    {% set showInventionFields = run.sourceFormat == constant('App\\Entity\\ImportRun::SOURCE_FORMAT_JSON') %}
     <section class="section section--white">
         <div class="container">
             <h1>Пошаговый импорт</h1>
@@ -35,6 +43,12 @@
                             <tr>
                                 <th scope="col">Строка</th>
                                 <th scope="col">Название</th>
+                                {% if showInventionFields %}
+                                    <th scope="col">Отрасль</th>
+                                    <th scope="col">Город</th>
+                                    <th scope="col">УНП</th>
+                                    <th scope="col">Годовой план</th>
+                                {% endif %}
                                 <th scope="col">Описание</th>
                                 <th scope="col">Учились у нас</th>
                                 <th scope="col">Сайт</th>
@@ -74,6 +88,36 @@
                                             </div>
                                         {% endif %}
                                     </td>
+                                    {% if showInventionFields %}
+                                        <td>
+                                            <input class="field__input"
+                                                   type="text"
+                                                   name="rows[{{ row.rowNumber }}][industry]"
+                                                   value="{{ row.industry }}"
+                                                   maxlength="255">
+                                        </td>
+                                        <td>
+                                            <input class="field__input"
+                                                   type="text"
+                                                   name="rows[{{ row.rowNumber }}][city]"
+                                                   value="{{ row.city }}"
+                                                   maxlength="255">
+                                        </td>
+                                        <td>
+                                            <input class="field__input"
+                                                   type="text"
+                                                   name="rows[{{ row.rowNumber }}][unp]"
+                                                   value="{{ row.unp }}"
+                                                   maxlength="32">
+                                        </td>
+                                        <td>
+                                            <input class="field__input"
+                                                   type="text"
+                                                   name="rows[{{ row.rowNumber }}][annualPlan]"
+                                                   value="{{ row.annualPlan }}"
+                                                   maxlength="255">
+                                        </td>
+                                    {% endif %}
                                     <td>
                                         <textarea class="field__input"
                                                   name="rows[{{ row.rowNumber }}][description]"
@@ -158,13 +202,13 @@
                     {# Кнопка утверждения пакета и возврат к списку стоят рядом,
                        но это разные действия: возврат — ссылка, а не submit,
                        иначе он отправил бы пакет. Прогон при этом остаётся
-                       незавершённым и продолжает блокировать новые загрузки
-                       (design D9). #}
+                       незавершённым, а список на «Результатах» снова показывает
+                       ему «Импортировать» (design D12). #}
                     <button class="btn btn--primary" type="submit">Импортировать</button>
                     {{ include('components/button.html.twig', {
                         variant: 'secondary',
                         text: 'Назад к списку',
-                        href: path('app_import_index'),
+                        href: path('app_import_results'),
                     }) }}
                 </p>
             </form>

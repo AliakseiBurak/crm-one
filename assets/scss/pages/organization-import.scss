@@ -10,3 +10,33 @@
     margin: 0 0.3rem;
     vertical-align: middle;
 }
+
+// Вкладки «JSON» и «LLM». Промпт длинный и моноширинный, поэтому вынесен в
+// блок с прокруткой, а не в поле формы: копировать его оттуда неудобно.
+.import-json__prompt {
+    margin: 1rem 0;
+}
+
+.import-json__prompt-body {
+    max-height: 24rem;
+    overflow: auto;
+    padding: 1rem;
+    border: 1px solid $color-text-secondary;
+    border-radius: $radius-pill;
+    background: $color-bg-card-section;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.import-llm__note {
+    color: $color-text-secondary;
+}
+
+// Ответ модели показывается целиком и может быть длинным: показывать его
+// обрезанным нельзя — администратор должен видеть файл, который собирается
+// скачать, и проверяется он потом по этому же тексту.
+#llm-response {
+    max-height: 32rem;
+    overflow: auto;
+    margin-bottom: 0.5rem;
+}

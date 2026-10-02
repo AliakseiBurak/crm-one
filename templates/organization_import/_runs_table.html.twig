@@ -1,0 +1,66 @@
+{#
+    Таблица прогонов импорта.
+
+    Список один для обоих форматов: колонки у них одинаковые, прогон — это
+    состояние импорта, а не часть формата. Таблица живёт на вкладке «Результаты»
+    и показывает все прогоны независимо от источника
+    (`ImportRunRepository::findAllNewestFirst()`); формат колонкой не выводится.
+
+    Ожидает: runs (ImportRun[])
+#}
+<div class="table-wrap">
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col">Файл</th>
+                <th scope="col">Всего</th>
+                <th scope="col">Обработано</th>
+                <th scope="col">Загружен</th>
+                <th scope="col">Импортирован</th>
+                <th scope="col">Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in runs %}
+                <tr>
+                    <td>{{ run.filename }}</td>
+                    <td>{{ run.totalRows }}</td>
+                    <td>{{ run.processedRows }}</td>
+                    <td>{{ run.createdAt|date('d.m.Y H:i') }}</td>
+                    <td>{{ run.lastProcessedAt ? run.lastProcessedAt|date('d.m.Y H:i') : '' }}</td>
+                    <td class="import-actions">
+                        {{ include('components/button.html.twig', {
+                            variant: 'secondary',
+                            text: 'Скачать',
+                            sm: true,
+                            href: path('app_import_download', { id: run.id }),
+                        }) }}
+                        {# Замена и импорт доступны, пока прогон не завершён:
+                           у завершённого файла уже нечего менять, а строки
+                           импортировать не осталось. #}
+                        {% if run.processedRows < run.totalRows %}
+                            <span class="import-actions__replace">
+                                {{ include('components/button.html.twig', {
+                                    variant: 'secondary',
+                                    text: 'Перезагрузить',
+                                    sm: true,
+                                    href: path('app_import_replace', { id: run.id }),
+                                }) }}
+                            </span>
+                            {{ include('components/button.html.twig', {
+                                variant: 'primary',
+                                text: 'Импортировать',
+                                sm: true,
+                                href: path('app_import_review', { id: run.id }),
+                            }) }}
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="6">Импортов пока нет.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

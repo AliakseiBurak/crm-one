@@ -14,9 +14,10 @@ namespace App\Dto;
  * называется остановившаяся строка и по нему же отсекаются уже сохранённые
  * строки повторно отправленной формы.
  *
- * `city` здесь нет намеренно: формат источника не объявляет колонки города,
- * импортированные организации получают `city = null`, и показывать в таблице
- * пакета нечего.
+ * `industry`, `city`, `unp` и `annualPlan` заполняются только на JSON-пути
+ * (change add-organizations-json-import): их приносит ответ, и в таблице пакета
+ * они показываются и правятся — иначе значение ушло бы в базу вслепую. У
+ * прогонов из CSV-файла они остаются null, и форма для них не выводится.
  */
 final class ImportRow
 {
@@ -42,6 +43,10 @@ final class ImportRow
     public function __construct(
         public int $rowNumber,
         public string $name = '',
+        public ?string $industry = null,
+        public ?string $city = null,
+        public ?string $unp = null,
+        public ?string $annualPlan = null,
         public ?string $description = null,
         public ?string $coursesAttended = null,
         public ?string $website = null,

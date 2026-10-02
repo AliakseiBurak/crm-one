@@ -273,7 +273,7 @@ not only when the two are equal; a completed run offers no «Перезагру�
 no «Импортировать». The table SHALL be ordered by upload date descending
 (newest first).
 
-#### Scenario: Таблица прогонов идёт перед формой загрузки
+#### Scenario: Список прогонов открыт на первой вкладке импорта
 - **WHEN** администратор открывает `/admin/import`
 - **THEN** сначала отображается таблица прогонов
 - **AND** под таблицей отображается форма загрузки CSV
@@ -497,7 +497,7 @@ package of the other run.
 - **THEN** повторная отправка не создаёт ни одной организации
 - **AND** ни одна строка файла не пропускается: обработка начинается с processedRows + 1
 
-#### Scenario: В прогоне нет города
+#### Scenario: В прогоне из выгрузки нет города
 - **WHEN** отображается пакет для проверки
 - **THEN** в таблице нет поля «Город»
 - **AND** при сохранении строки `Organization.city` остаётся равным null

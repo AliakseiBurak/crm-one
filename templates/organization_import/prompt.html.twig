@@ -1,0 +1,66 @@
+{#
+    Вкладка «Промпт» импорта организаций (change add-organizations-json-import,
+    design D2).
+
+    Промпт выводится из опубликованной схемы: словарь полей и ограничения
+    берутся из того же документа, по которому сервер потом проверяет ответ.
+    Расходиться им нельзя, поэтому промпт и не хранится здесь текстом — он
+    рендерится (`ImportJsonSchema::prompt()`).
+
+    Страница для того, кто работает не через встроенный клиент: инструкцию
+    копируют в любой чат и получают ответ там. Ответ приходит на вкладку «JSON»
+    файлом — как и ответ вкладки LLM.
+
+    Списка прогонов здесь нет: он на вкладке «Результаты».
+
+    Ожидает: prompt (string)
+#}
+{% extends 'base.html.twig' %}
+
+{% block title %}Импорт организаций — Промпт{% endblock %}
+
+{% block body %}
+    <section class="section section--white">
+        <div class="container">
+            <h1>Импорт организаций</h1>
+
+            {{ include('components/tabs.html.twig', {
+                items: [
+                    { label: 'Результаты', href: path('app_import_results'), active: false },
+                    { label: 'CSV', href: path('app_import_index'), active: false },
+                    { label: 'JSON', href: path('app_import_json'), active: false },
+                    { label: 'LLM', href: path('app_import_llm'), active: false },
+                    { label: 'Промпт', active: true },
+                ],
+            }) }}
+
+            <p>
+                Ответ — один JSON-объект с обязательным массивом <code>organizations</code>. У организации
+                обязательно только название: ответ из одних названий — полноценный импорт, остальные поля
+                возвращаются, только если они есть в источнике. Составить такой ответ можно на вкладке
+                <a href="{{ path('app_import_llm') }}">LLM</a>, загрузить готовый файл — на вкладке
+                <a href="{{ path('app_import_json') }}">JSON</a>.
+            </p>
+
+            <p>
+                {{ include('components/button.html.twig', {
+                    variant: 'secondary',
+                    text: 'Скачать JSON-схему',
+                    sm: true,
+                    href: path('app_import_json_schema'),
+                }) }}
+            </p>
+
+            <p class="import-llm__note">
+                Инструкция, которую вкладка <a href="{{ path('app_import_llm') }}">LLM</a> отправляет модели:
+                скопируйте, чтобы выполнить тот же запрос в своём чате.
+            </p>
+
+            {# Текст показан целиком, а не обрезан: его копируют, и обрезанная
+               копия была бы неполной инструкцией. Всё, что здесь написано, —
+               ровно то, что уходит провайдеру. #}
+            <pre class="import-json__prompt-body"><code>{{ prompt }}</code></pre>
+
+        </div>
+    </section>
+{% endblock %}

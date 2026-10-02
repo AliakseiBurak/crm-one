@@ -1,0 +1,58 @@
+{#
+    Вкладка «JSON» импорта организаций (change add-organizations-json-import).
+
+    Здесь ответ уже разобран: контакты, звонки и поля организации приходят
+    отдельно, поэтому проверяется он по опубликованной схеме, а не разбирается
+    эвристиками. Ответ — всегда файл: его скачивает модель на вкладке «LLM»,
+    администратор сохраняет и загружает сюда.
+
+    Список прогонов — на вкладке «Результаты».
+
+    Ожидает: violations (string[])
+#}
+{% extends 'base.html.twig' %}
+
+{% block title %}Импорт организаций — JSON{% endblock %}
+
+{% block body %}
+    <section class="section section--white">
+        <div class="container">
+            <h1>Импорт организаций</h1>
+
+            {{ include('components/tabs.html.twig', {
+                items: [
+                    { label: 'Результаты', href: path('app_import_results'), active: false },
+                    { label: 'CSV', href: path('app_import_index'), active: false },
+                    { label: 'JSON', active: true },
+                    { label: 'LLM', href: path('app_import_llm'), active: false },
+                    { label: 'Промпт', href: path('app_import_prompt'), active: false },
+                ],
+            }) }}
+
+            {% if violations is not empty %}
+                <div class="alert alert--error" role="alert">
+                    <p>Ответ не прошёл проверку схемы. Прогон не создан, файл не сохранён.</p>
+                    <ul>
+                        {% for violation in violations %}
+                            <li>{{ violation }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
+            <p>
+                Файл с ответом — из вкладки <a href="{{ path('app_import_llm') }}">LLM</a> или из любого
+                другого источника; формат — на вкладке <a href="{{ path('app_import_prompt') }}">Промпт</a>.
+                Загруженный файл появляется на вкладке «Результаты» отдельной строкой, импорт запускается
+                кнопкой «Импортировать».
+            </p>
+            <form method="post" action="{{ path('app_import_json') }}" enctype="multipart/form-data">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('import') }}">
+                <p>
+                    <input type="file" name="file" accept=".json,application/json" required>
+                    <button class="btn btn--primary" type="submit">Загрузить JSON</button>
+                </p>
+            </form>
+        </div>
+    </section>
+{% endblock %}

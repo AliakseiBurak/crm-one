@@ -1,11 +1,15 @@
 {#
-    Список прогонов импорта организаций (change add-organizations-csv-import).
-    Порядок задан требованием: сначала таблица прогонов, под ней — форма
-    загрузки CSV. Разбор файла и проверка пакета по 20 строк на загрузке не
-    начинаются: их запускает действие «Импортировать» в строке прогона.
-    Формат источника колонкой не показывается: он внутренний дискриминатор,
-    нужный только для выбора парсера (design D2).
-    Ожидает: runs (ImportRun[])
+    Вкладка «CSV» импорта организаций (change add-organizations-csv-import).
+
+    Здесь только форма загрузки. Список прогонов живёт на вкладке «Результаты»:
+    прогон — это состояние импорта, а не часть формата, и на странице, которая
+    занимается загрузкой CSV, он был чужой строкой экрана. После загрузки
+    администратор попадает на «Результаты» и видит созданный прогон.
+
+    Разбор файла и проверка пакета по 20 строк на загрузке не начинаются: их
+    запускает действие «Импортировать» в строке прогона. Формат источника
+    колонкой не показывается: он внутренний дискриминатор, нужный только для
+    выбора парсера (design D2).
 #}
 {% extends 'base.html.twig' %}
 
@@ -16,69 +20,22 @@
         <div class="container">
             <h1>Импорт организаций</h1>
 
+            {# Компонент вкладок и его стили созданы предыдущим изменением
+               (add-organizations-csv-import); кликабельность появилась вместе со
+               вторым форматом источника. Переключение — переход по адресу, а не
+               показ/скрытие на месте, поэтому состояние живёт в URL. #}
+
             {{ include('components/tabs.html.twig', {
-                items: [{ label: 'CSV', active: true }],
+                items: [
+                    { label: 'Результаты', href: path('app_import_results'), active: false },
+                    { label: 'CSV', active: true },
+                    { label: 'JSON', href: path('app_import_json'), active: false },
+                    { label: 'LLM', href: path('app_import_llm'), active: false },
+                    { label: 'Промпт', href: path('app_import_prompt'), active: false },
+                ],
             }) }}
 
-            <div class="table-wrap">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Файл</th>
-                            <th scope="col">Всего строк</th>
-                            <th scope="col">Обработано</th>
-                            <th scope="col">Загружен</th>
-                            <th scope="col">Импортирован</th>
-                            <th scope="col">Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for run in runs %}
-                            <tr>
-                                <td>{{ run.filename }}</td>
-                                <td>{{ run.totalRows }}</td>
-                                <td>{{ run.processedRows }}</td>
-                                <td>{{ run.createdAt|date('d.m.Y H:i') }}</td>
-                                <td>{{ run.lastProcessedAt ? run.lastProcessedAt|date('d.m.Y H:i') : '' }}</td>
-                                <td class="import-actions">
-                                    {{ include('components/button.html.twig', {
-                                        variant: 'secondary',
-                                        text: 'Скачать',
-                                        sm: true,
-                                        href: path('app_import_download', { id: run.id }),
-                                    }) }}
-                                    {# Замена и импорт доступны, пока прогон не завершён:
-                                       у завершённого файла уже нечего менять, а строки
-                                       импортировать не осталось. #}
-                                    {% if run.processedRows < run.totalRows %}
-                                        <span class="import-actions__replace">
-                                            {{ include('components/button.html.twig', {
-                                                variant: 'secondary',
-                                                text: 'Перезагрузить',
-                                                sm: true,
-                                                href: path('app_import_replace', { id: run.id }),
-                                            }) }}
-                                        </span>
-                                        {{ include('components/button.html.twig', {
-                                            variant: 'primary',
-                                            text: 'Импортировать',
-                                            sm: true,
-                                            href: path('app_import_review', { id: run.id }),
-                                        }) }}
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% else %}
-                            <tr>
-                                <td colspan="6">Импортов пока нет.</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <h2>Загрузить CSV</h2>
-            <p>Файл сохраняется и появляется в таблице отдельной строкой. Импорт запускается кнопкой «Импортировать».</p>
+            <p>Файл сохраняется и появляется на вкладке «Результаты» отдельной строкой. Импорт запускается кнопкой «Импортировать».</p>
             <form method="post" action="{{ path('app_import_upload') }}" enctype="multipart/form-data">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('import') }}">
                 <p>
