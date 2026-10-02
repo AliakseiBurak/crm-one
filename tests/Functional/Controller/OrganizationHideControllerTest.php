@@ -258,7 +258,12 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
         // Админские страницы ушли из основной навигации в выпадающий
         // список «⚙ Админ» (change menu-header-footer).
         self::assertSame(0, $crawler->filter('.header__nav a[href="/admin/hides"]')->count());
-        self::assertSame(1, $crawler->filter('.header-admin__menu a[href="/admin/hides"]')->count());
+        // Пункт есть и в верхней строке, и в мобильной боковой панели: панель
+        // повторяет содержимое правой части шапки (change
+        // add-admin-menu-to-mobile-sidebar), поэтому сверху он один, а всего —
+        // два.
+        self::assertSame(1, $crawler->filter('.header__actions .header-admin__menu a[href="/admin/hides"]')->count());
+        self::assertSame(2, $crawler->filter('.header-admin__menu a[href="/admin/hides"]')->count());
     }
 
     public function testManagerNavHasNoHidesEntry(): void
