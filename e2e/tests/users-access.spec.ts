@@ -3,8 +3,10 @@ import { login } from '../helpers/auth';
 
 test('администратор видит ссылку «Пользователи» в навигации', async ({ page }) => {
   await login(page, 'admin@b2b-crm.loc', 'admin123');
-  await page.locator('[data-header-admin-toggle]').click();
-  await expect(page.locator('.header-admin__item', { hasText: 'Пользователи' })).toBeVisible();
+  await page.locator('.header__actions [data-header-admin-toggle]').click();
+  await expect(
+    page.locator('.header__actions .header-admin__item', { hasText: 'Пользователи' }),
+  ).toBeVisible();
 });
 
 test('администратор открывает список пользователей', async ({ page }) => {

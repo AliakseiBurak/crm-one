@@ -19,6 +19,32 @@ test('ссылки навигации шапки видимы', async ({ page })
   await expect(page.locator('[data-header-hamburger]')).toBeVisible();
 });
 
+// Панель повторяет правую часть шапки, и списки в ней раскрываются в потоке,
+// а не поверх панели (change add-admin-menu-to-mobile-sidebar).
+test('боковая панель: «⚙ Админ ▾» раскрывается в потоке', async ({ page }) => {
+  await loginAsAdmin(page);
+
+  await page.click('[data-header-hamburger]');
+  const toggle = page.locator('.header__sidebar [data-header-admin-toggle]');
+  await expect(toggle).toBeVisible();
+
+  // В верхней строке на этом экране блока нет — он уехал в панель.
+  await expect(page.locator('.header__actions [data-header-admin-toggle]')).toBeHidden();
+
+  await toggle.click();
+  const menu = page.locator('.header__sidebar .header-admin__menu');
+  const items = page.locator('.header__sidebar .header-admin__item');
+  await expect(items).toHaveCount(3);
+  await expect(items.first()).toBeVisible();
+  await expect(items.first()).toHaveText('Пользователи');
+  await expect(menu).toHaveCSS('position', 'static');
+
+  // Блок пользователя сдвинут вниз списком, а не перекрыт им.
+  const menuBox = (await menu.boundingBox())!;
+  const userBox = (await page.locator('.header__sidebar-user').boundingBox())!;
+  expect(userBox.y).toBeGreaterThanOrEqual(menuBox.y + menuBox.height - 1);
+});
+
 test('подвал отображается на мобильном', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.footer__note')).toBeVisible();

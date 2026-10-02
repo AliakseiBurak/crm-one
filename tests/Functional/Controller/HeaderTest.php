@@ -54,6 +54,13 @@ final class HeaderTest extends DatabaseWebTestCase
         self::assertSame(1, $crawler->filter('.header__sidebar-user')->count());
         self::assertSame(1, $crawler->filter('.header__sidebar-user a[href="/logout"]')->count());
 
+        // Панель повторяет всю правую часть шапки, включая «⚙ Админ ▾»
+        // (change add-admin-menu-to-mobile-sidebar): те же три пункта.
+        $this->assertSelectorExists('.header__sidebar .header-admin--sidebar [data-header-admin-toggle]');
+        self::assertSame(3, $crawler->filter('.header__sidebar .header-admin__menu .header-admin__item')->count());
+        self::assertSame(1, $crawler->filter('.header__sidebar .header-admin__menu a[href="/admin/import/results"]')->count());
+        self::assertSame('false', $crawler->filter('.header__sidebar [data-header-admin-toggle]')->attr('aria-expanded'));
+
         // Подвал: только копирайт.
         $this->assertSelectorTextContains('.footer', '© ' . date('Y') . ' B2B Call CRM');
         $this->assertSelectorNotExists('.footer__col');
@@ -70,8 +77,9 @@ final class HeaderTest extends DatabaseWebTestCase
         // 5 пунктов: без «Пользователя».
         self::assertSame(5, $crawler->filter('.header__actions .header-create__menu .header-create__item')->count());
 
-        // Нет «⚙ Админ».
+        // Нет «⚙ Админ» ни в верхней строке, ни в боковой панели.
         $this->assertSelectorNotExists('.header__actions .header-admin');
+        $this->assertSelectorNotExists('.header__sidebar .header-admin');
 
         // Пользователь: «Профиль» + «Выйти».
         $this->assertSelectorTextContains('.header__actions .header-user__toggle', 'Профиль');

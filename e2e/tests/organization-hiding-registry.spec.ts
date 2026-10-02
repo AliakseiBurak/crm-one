@@ -19,8 +19,8 @@ test('менеджер получает 403 в разделе скрытий, в
 
   await page.goto('/logout');
   await login(page, ADMIN, ADMIN_PASSWORD);
-  await page.locator('[data-header-admin-toggle]').click();
-  const link = page.locator('.header-admin__item', { hasText: 'Скрытые организации' });
+  await page.locator('.header__actions [data-header-admin-toggle]').click();
+  const link = page.locator('.header__actions .header-admin__item', { hasText: 'Скрытые организации' });
   await expect(link).toBeVisible();
   await link.click();
   await expect(page.locator('h1', { hasText: 'Скрытые организации' })).toBeVisible();

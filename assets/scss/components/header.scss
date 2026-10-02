@@ -239,8 +239,9 @@
     }
 }
 
-// «Создать» внутри боковой панели раскрывается в потоке, а не поверх
-.header-create--sidebar .header-create__menu {
+// «Создать» и «⚙ Админ» внутри боковой панели раскрываются в потоке, а не поверх
+.header-create--sidebar .header-create__menu,
+.header-admin--sidebar .header-admin__menu {
     position: static;
     box-shadow: none;
     min-width: 0;

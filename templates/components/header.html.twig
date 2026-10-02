@@ -2,7 +2,9 @@
     Шапка (spec): белый фон, логотип слева (→ главная), пункты меню
     в верхней строке; справа для вошедших — «Создать ▾», «⚙ Админ ▾»
     (только админ) и выпадающий список пользователя с «Выйти».
-    На экранах ≤768px навигация сворачивается в гамбургер с боковой панелью.
+    На экранах ≤768px навигация сворачивается в гамбургер с боковой панелью, и
+    админский блок переезжает в эту панель: в верхней строке он скрывается
+    вместе с навигацией.
     Параметры: menu — массив {label, href, active}; user — текущий пользователь.
 #}
 <header class="header">
@@ -95,6 +97,22 @@
                     {% endif %}
                 </div>
             </div>
+            {# Админский блок в боковой панели: без него администратор на
+               телефоне не доходит до «Пользователей», «Скрытых организаций» и
+               импорта — в верхней строке эти пункты прячутся вместе с
+               навигацией, и на экране ≤768px их просто некуда нажать. #}
+            {% if is_granted('ROLE_ADMIN') %}
+                <div class="header-admin header-admin--sidebar" data-header-admin>
+                    <button class="header-admin__toggle" type="button" data-header-admin-toggle aria-haspopup="true" aria-expanded="false">
+                        ⚙ Админ<span class="header-admin__caret" aria-hidden="true"></span>
+                    </button>
+                    <div class="header-admin__menu" data-header-admin-menu hidden>
+                        <a class="header-admin__item" href="{{ path('app_user_list') }}">Пользователи</a>
+                        <a class="header-admin__item" href="{{ path('app_organization_hide_list') }}">Скрытые организации</a>
+                        <a class="header-admin__item" href="{{ path('app_import_results') }}">Импорт организаций</a>
+                    </div>
+                </div>
+            {% endif %}
             <div class="header__sidebar-user">
                 <span class="header__sidebar-user-name">{{ user.login }}</span>
                 {% if user.name or user.surname %}
