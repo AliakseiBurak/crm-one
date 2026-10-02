@@ -244,7 +244,12 @@ first item the user's login, name and surname (if present), and email
 (if present), followed by the «Выйти» link. All dropdowns SHALL open on
 click and close when clicking outside.
 On screens ≤768px, the header SHALL collapse navigation into a hamburger
-button (☰) that opens a slide-in sidebar from the left. The footer SHALL
+button (☰) that opens a slide-in sidebar from the left. The sidebar SHALL
+repeat what the header's right-hand side offered: the navigation links, «Создать
+▾», «⚙ Админ ▾» for `ROLE_ADMIN` with the same items as in the header, and the
+user block with «Выйти». Inside the sidebar the dropdowns SHALL expand in the
+flow rather than over it, so that nothing is cut off by the panel's edge. The
+footer SHALL
 render on the green gradient `#55964a → #478540` with white text: only the
 copyright line «© YYYY B2B Call CRM» centered.
 
@@ -301,8 +306,14 @@ copyright line «© YYYY B2B Call CRM» centered.
 #### Scenario: Боковая панель на мобильных
 - **WHEN** пользователь нажимает на кнопку-гамбургер
 - **THEN** слева выезжает боковая панель со всеми пунктами меню
-- **AND** боковая панель содержит: пункты навигации, кнопку «Создать ▾», блок пользователя с «Выйти»
+- **AND** боковая панель повторяет правую часть верхней строки, а не часть её: пункты навигации, кнопку «Создать ▾», блок пользователя с «Выйти» и — для `ROLE_ADMIN` — блок «⚙ Админ ▾»
 - **AND** за пределами панели отображается полупрозрачный оверлей
+
+#### Scenario: Админский блок в боковой панели
+- **WHEN** администратор нажимает на кнопку-гамбургер
+- **THEN** в боковой панели отображается кнопка «⚙ Админ ▾»
+- **AND** её список содержит те же пункты, что и в верхней строке: Пользователи, Скрытые организации, Импорт организаций
+- **AND** список раскрывается внутри панели, а не поверх неё
 
 #### Scenario: Закрытие боковой панели
 - **WHEN** боковая панель открыта и пользователь нажимает на оверлей
