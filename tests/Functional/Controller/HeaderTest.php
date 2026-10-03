@@ -26,12 +26,17 @@ final class HeaderTest extends DatabaseWebTestCase
         $this->assertSelectorExists('.header__actions .header-create__toggle');
         self::assertSame(6, $crawler->filter('.header__actions .header-create__menu .header-create__item')->count());
 
-        // «⚙ Админ ▾»: Пользователи, Скрытые организации, Импорт организаций.
+        // «⚙ Админ ▾»: Пользователи, Скрытые организации, Импорт организаций,
+        // Журнал отправки писем (change email-send-logging).
         $this->assertSelectorExists('.header__actions .header-admin__toggle');
-        self::assertSame(3, $crawler->filter('.header__actions .header-admin__menu .header-admin__item')->count());
+        self::assertSame(4, $crawler->filter('.header__actions .header-admin__menu .header-admin__item')->count());
         // Импорт открывается на своей вкладке «Результаты» (change
         // add-organizations-json-import).
         self::assertSame(1, $crawler->filter('.header__actions .header-admin__menu a[href="/admin/import/results"]')->count());
+        $this->assertSelectorTextContains(
+            '.header__actions .header-admin__menu a[href="/admin/mailer-logs"]',
+            'Журнал отправки писем',
+        );
 
         // Выпадающий список пользователя: «Профиль», первый пункт — логин, затем имя/email, затем «Выйти».
         $this->assertSelectorTextContains('.header__actions .header-user__toggle', 'Профиль');
@@ -55,10 +60,11 @@ final class HeaderTest extends DatabaseWebTestCase
         self::assertSame(1, $crawler->filter('.header__sidebar-user a[href="/logout"]')->count());
 
         // Панель повторяет всю правую часть шапки, включая «⚙ Админ ▾»
-        // (change add-admin-menu-to-mobile-sidebar): те же три пункта.
+        // (change add-admin-menu-to-mobile-sidebar): те же четыре пункта.
         $this->assertSelectorExists('.header__sidebar .header-admin--sidebar [data-header-admin-toggle]');
-        self::assertSame(3, $crawler->filter('.header__sidebar .header-admin__menu .header-admin__item')->count());
+        self::assertSame(4, $crawler->filter('.header__sidebar .header-admin__menu .header-admin__item')->count());
         self::assertSame(1, $crawler->filter('.header__sidebar .header-admin__menu a[href="/admin/import/results"]')->count());
+        self::assertSame(1, $crawler->filter('.header__sidebar .header-admin__menu a[href="/admin/mailer-logs"]')->count());
         self::assertSame('false', $crawler->filter('.header__sidebar [data-header-admin-toggle]')->attr('aria-expanded'));
 
         // Подвал: только копирайт.

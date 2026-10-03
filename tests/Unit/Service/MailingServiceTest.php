@@ -18,11 +18,17 @@ use App\Repository\UserRepository;
 use App\Service\CampaignAttachmentStorage;
 use App\Service\CampaignEmailRenderer;
 use App\Service\CampaignTokenFiller;
+use App\Service\EmailAddressMasker;
 use App\Service\MailingService;
 use Doctrine\ORM\EntityManagerInterface;
+use Monolog\Formatter\LineFormatter;
+use Monolog\Handler\TestHandler;
+use Monolog\Level;
+use Monolog\Logger;
+use Monolog\LogRecord;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
@@ -51,6 +57,12 @@ final class MailingServiceTest extends TestCase
 
     private EntityManagerInterface&MockObject $em;
 
+    /** Служебные сообщения MailingService остаются в дефолтном канале app. */
+    private TestHandler $appHandler;
+
+    /** Результаты фактической отправки — отдельный канал mailer. */
+    private TestHandler $mailerHandler;
+
     private MailingService $service;
 
     protected function setUp(): void
@@ -65,6 +77,9 @@ final class MailingServiceTest extends TestCase
         $this->campaigns = $this->createMock(CampaignRepository::class);
         $this->recipients = $this->createMock(CampaignRecipientRepository::class);
         $this->users = $this->createMock(UserRepository::class);
+
+        $this->appHandler = new TestHandler();
+        $this->mailerHandler = new TestHandler();
 
         $this->service = $this->createService($this->em);
     }
@@ -414,6 +429,387 @@ final class MailingServiceTest extends TestCase
         self::assertSame([], $this->sent);
     }
 
+    public function testDeliveredIsWrittenToMailerChannelWithMaskedAddresses(): void
+    {
+        $this->captureSentMail();
+        $org = $this->organization();
+        $this->setId($org, 3);
+        $alice = $this->contact($org, 'Алиса', 'anna@example.ru');
+        // Две копии: сценарий «Адреса в копии под маской» требует именно список.
+        $this->contact($org, 'Борис', 'boris@example.org');
+        $this->contact($org, 'Вера', 'vera@example.net');
+        $campaign = $this->campaign();
+        $this->setId($campaign, 5);
+
+        $this->service->processRecipient(new CampaignRecipient($campaign, $org, $alice));
+
+        $records = $this->mailerRecords();
+        self::assertCount(1, $records);
+        self::assertSame('Campaign send delivered', $records[0]->message);
+        self::assertSame(Level::Info, $records[0]->level);
+        self::assertSame([
+            'campaign_id' => 5,
+            'campaign_name' => 'Акция',
+            'organization_id' => 3,
+            'organization_name' => 'ООО Ромашка',
+            'recipient' => 'a***@example.ru',
+            'cc' => ['b***@example.org', 'v***@example.net'],
+            'result' => 'delivered',
+        ], $records[0]->context);
+        // Маскирование относится к записи журнала, а не к письму: в письме
+        // копии уходят полными адресами.
+        self::assertSame(
+            ['boris@example.org', 'vera@example.net'],
+            $this->addresses($this->sent[0]->getCc()),
+        );
+        self::assertSame([], $this->appHandler->getRecords());
+    }
+
+    public function testBouncedIsWrittenToMailerChannel(): void
+    {
+        $this->mailer->method('send')->willThrowException(
+            new \RuntimeException('got code "550" mailbox unavailable'),
+        );
+        $org = $this->organization();
+        $this->contact($org, 'Алиса', 'anna@example.ru');
+        $campaign = $this->campaign();
+        $this->recipients->method('countStillProcessing')->willReturn(1);
+
+        $this->service->processRecipient(new CampaignRecipient($campaign, $org));
+
+        $records = $this->mailerRecords();
+        self::assertCount(1, $records);
+        self::assertSame('Campaign send bounced', $records[0]->message);
+        self::assertSame(Level::Warning, $records[0]->level);
+        self::assertSame('bounced', $records[0]->context['result']);
+        self::assertSame('a***@example.ru', $records[0]->context['recipient']);
+        self::assertSame([], $records[0]->context['cc']);
+        // Ответ 5xx — это отказ сервера, а не сбой отправки: текст ошибки в
+        // записи bounced не пишется.
+        self::assertArrayNotHasKey('error', $records[0]->context);
+    }
+
+    public function testFailedRecordsCleanedSmtpErrorText(): void
+    {
+        $this->mailer->method('send')->willThrowException(new \RuntimeException(
+            "got code \"421\"\n4.7.0 <anna@example.ru> Temporary failure\n"
+            . ' 4.7.0 Too many connections, try again later',
+        ));
+        $org = $this->organization();
+        $this->contact($org, 'Алиса', 'anna@example.ru');
+        $campaign = $this->campaign();
+        $this->recipients->method('countStillProcessing')->willReturn(1);
+
+        $this->service->processRecipient(new CampaignRecipient($campaign, $org));
+
+        $records = $this->mailerRecords();
+        self::assertCount(1, $records);
+        self::assertSame('Campaign send failed', $records[0]->message);
+        self::assertSame('failed', $records[0]->context['result']);
+        self::assertStringNotContainsString('anna', $records[0]->context['error']);
+        self::assertStringContainsString('example.ru', $records[0]->context['error']);
+    }
+
+    /**
+     * Реальные ответы MTA: локальная часть адреса получателя не должна
+     * встречаться **нигде** в собранной записи, а не только в поле `error`.
+     * Перечисление полей проверяло бы лишь известные места и пропустило бы
+     * текст ошибки — единственный путь утечки (D3, D14).
+     *
+     * @return iterable<string, array{0: string}>
+     */
+    public static function provideRecipientLocalPartNeverLeaksIntoRecordCases(): iterable
+    {
+        yield 'Postfix 550 в угловых скобках' => [
+            'got code "550" 550 5.1.1 <anna@example.ru>: Recipient address rejected: User unknown',
+        ];
+
+        yield 'многострочный ответ Postfix' => [
+            "got code \"550\"\n550-5.1.1 The email account that you tried to reach\n"
+            . ' 550 5.1.1 <anna@example.ru> does not exist',
+        ];
+
+        yield 'Exim 550' => [
+            'got code "550" anna@example.ru: Rejected: address does not exist',
+        ];
+
+        yield 'Gmail 550' => [
+            'got code "550" 550-5.2.1 The email account that you tried to reach does not exist. '
+            . '550 5.2.1 <anna@example.ru> sender denied',
+        ];
+
+        yield 'Gmail 421' => [
+            'got code "421" 4.7.0 <anna@example.ru> Temporary failure',
+        ];
+
+        yield 'таймаут' => ['Connection timed out'];
+
+        yield 'отказ в соединении' => ['Connection refused'];
+
+        yield 'ошибка аутентификации 535' => [
+            'Failed to authenticate on SMTP server with username "user@b2b-crm.local": '
+            . '535 5.7.8 Authentication credentials invalid',
+        ];
+    }
+
+    #[DataProvider('provideRecipientLocalPartNeverLeaksIntoRecordCases')]
+    public function testRecipientLocalPartNeverLeaksIntoRecord(string $error): void
+    {
+        $this->mailer->method('send')->willThrowException(new \RuntimeException($error));
+        $org = $this->organization();
+        $this->contact($org, 'Алиса', 'anna@example.ru');
+        $this->contact($org, 'Борис', 'boris@example.org');
+        $campaign = $this->campaign();
+        $this->recipients->method('countStillProcessing')->willReturn(1);
+
+        $this->service->processRecipient(new CampaignRecipient($campaign, $org));
+
+        $records = $this->mailerRecords();
+        self::assertCount(1, $records);
+        $line = $this->formatRecord($records[0]);
+        self::assertStringNotContainsString('anna', $line);
+        self::assertStringNotContainsString('boris', $line);
+        self::assertStringContainsString('a***@example.ru', $line);
+        self::assertStringContainsString('b***@example.org', $line);
+    }
+
+    public function testRetryAfterTransientFailureKeepsBothRecords(): void
+    {
+        $attempt = 0;
+        $this->mailer->method('send')->willReturnCallback(function (Email $email) use (&$attempt): void {
+            if (0 === $attempt++) {
+                throw new \RuntimeException('Connection timed out');
+            }
+            $this->sent[] = $email;
+        });
+        $org = $this->organization();
+        $this->contact($org, 'Алиса', 'anna@example.ru');
+        $campaign = $this->campaign();
+        $this->recipients->method('countStillProcessing')->willReturn(1);
+        $recipient = new CampaignRecipient($campaign, $org);
+
+        $this->service->processRecipient($recipient);
+        self::assertSame(RecipientStatus::Failed, $recipient->status);
+        self::assertSame(1, $recipient->retryCount);
+
+        $this->service->processRecipient($recipient);
+        self::assertSame(RecipientStatus::Delivered, $recipient->status);
+
+        $records = $this->mailerRecords();
+        self::assertCount(2, $records);
+        self::assertSame('failed', $records[0]->context['result']);
+        self::assertSame('delivered', $records[1]->context['result']);
+        self::assertSame('a***@example.ru', $records[1]->context['recipient']);
+    }
+
+    public function testRecordsCarryNoRetryIndicatorForTransientError(): void
+    {
+        $this->mailer->method('send')->willThrowException(new \RuntimeException('Connection timed out'));
+        $org = $this->organization();
+        $this->contact($org, 'Алиса', 'anna@example.ru');
+        $campaign = $this->campaign();
+        $this->recipients->method('countStillProcessing')->willReturn(1);
+        $recipient = new CampaignRecipient($campaign, $org);
+
+        $this->service->processRecipient($recipient);
+
+        self::assertSame([], $this->retryIndicators($this->mailerRecords()[0]));
+        // Сам прогноз повтора остаётся в БД: журнал его не дублирует (D15).
+        self::assertSame(1, $recipient->retryCount);
+        self::assertNotNull($recipient->retryAt);
+    }
+
+    public function testRecordsCarryNoRetryIndicatorForPermanentError(): void
+    {
+        $this->mailer->method('send')->willThrowException(new \RuntimeException('Connection refused'));
+        $org = $this->organization();
+        $this->contact($org, 'Алиса', 'anna@example.ru');
+        $campaign = $this->campaign();
+        $this->recipients->method('countStillProcessing')->willReturn(1);
+        $recipient = new CampaignRecipient($campaign, $org);
+
+        $this->service->processRecipient($recipient);
+
+        $records = $this->mailerRecords();
+        self::assertCount(1, $records);
+        self::assertSame('Campaign send failed', $records[0]->message);
+        // Постоянная ошибка — тоже `failed` и тоже несёт текст ошибки SMTP,
+        // но повторная обработка в БД при этом не планируется.
+        self::assertSame('failed', $records[0]->context['result']);
+        self::assertSame('Connection refused', $records[0]->context['error']);
+        self::assertSame(RecipientStatus::Failed, $recipient->status);
+        self::assertSame(0, $recipient->retryCount);
+        self::assertNull($recipient->retryAt);
+        self::assertSame([], $this->retryIndicators($records[0]));
+    }
+
+    public function testOptedOutOrganizationWritesNoSendLogRecord(): void
+    {
+        $org = $this->organization();
+        $org->setIsOptedOut(true);
+        $this->contact($org, 'Алиса', 'anna@example.ru');
+        $campaign = $this->campaign();
+
+        $this->service->processRecipient(new CampaignRecipient($campaign, $org));
+
+        self::assertSame([], $this->mailerHandler->getRecords());
+    }
+
+    public function testRecipientWithoutEmailWritesNoSendLogRecord(): void
+    {
+        $org = $this->organization();
+        $this->contact($org, 'Без почты', null);
+        $campaign = $this->campaign();
+
+        $this->service->processRecipient(new CampaignRecipient($campaign, $org));
+
+        self::assertSame([], $this->mailerHandler->getRecords());
+    }
+
+    public function testMissingAttachmentIsReportedInAppChannelOnly(): void
+    {
+        $this->captureSentMail();
+        $campaign = $this->campaign();
+        $org = $this->organization();
+        $this->contact($org, 'Алиса', 'anna@example.ru');
+        new CampaignAttachment($campaign, 'пропал.txt', 'missing-storage-key');
+
+        $this->service->processRecipient(new CampaignRecipient($campaign, $org));
+
+        $this->assertServiceMessageStaysInAppChannel('Вложение рассылки');
+    }
+
+    public function testNoAdminsToNotifyIsReportedInAppChannelOnly(): void
+    {
+        $this->users->method('findAdmins')->willReturn([]);
+        $org = $this->organization();
+        $this->contact($org, 'Без почты', null);
+        $campaign = $this->campaign();
+        $this->escalateFailedCampaign($campaign, 11);
+
+        $this->service->processRecipient(new CampaignRecipient($campaign, $org));
+
+        $this->assertServiceMessageStaysInAppChannel('Нет администраторов');
+    }
+
+    public function testAdminWithoutEmailIsReportedInAppChannelOnly(): void
+    {
+        $this->users->method('findAdmins')->willReturn([(new User())->setLogin('admin')]);
+        $org = $this->organization();
+        $this->contact($org, 'Без почты', null);
+        $campaign = $this->campaign();
+        $this->escalateFailedCampaign($campaign, 12);
+
+        $this->service->processRecipient(new CampaignRecipient($campaign, $org));
+
+        $this->assertServiceMessageStaysInAppChannel('без email');
+    }
+
+    public function testFailedAdminNotificationIsReportedInAppChannelOnly(): void
+    {
+        $this->users->method('findAdmins')->willReturn([
+            (new User())->setLogin('admin')->setEmail('admin@b2b-crm.loc'),
+        ]);
+        $this->mailer->method('send')->willReturnCallback(static function (Email $email): void {
+            if ('admin@b2b-crm.loc' === $email->getTo()[0]->getAddress()) {
+                throw new \RuntimeException('Notification transport failed');
+            }
+        });
+        $org = $this->organization();
+        $this->contact($org, 'Без почты', null);
+        $campaign = $this->campaign();
+        $this->escalateFailedCampaign($campaign, 13);
+
+        $this->service->processRecipient(new CampaignRecipient($campaign, $org));
+
+        $this->assertServiceMessageStaysInAppChannel('Не удалось отправить уведомление');
+    }
+
+    /**
+     * Рассылка, у которой ни одно письмо не доставлено, переходит в статус
+     * «Ошибка» и пытается уведомить администратора — на этом пути пишутся
+     * служебные сообщения.
+     */
+    private function escalateFailedCampaign(Campaign $campaign, int $id): void
+    {
+        $this->setId($campaign, $id);
+        $this->campaigns->method('find')->with($id)->willReturn($campaign);
+        $this->recipients->method('countStillProcessing')->with($id)->willReturn(0);
+        $this->recipients->method('countDeliveredOrOpened')->with($id)->willReturn(0);
+        $this->recipients->method('countByCampaign')->with($id)->willReturn(1);
+        $this->recipients->method('countNoEmailFailures')->with($id)->willReturn(1);
+    }
+
+    /**
+     * Служебное сообщение остаётся в дефолтном канале `app` и не попадает в
+     * журнал отправки: в `mailer` лежат только результаты фактической отправки
+     * письма получателю (D11).
+     */
+    private function assertServiceMessageStaysInAppChannel(string $needle): void
+    {
+        $appMessages = array_map(
+            static fn(LogRecord $record): string => $record->message,
+            $this->appHandler->getRecords(),
+        );
+        $mailerMessages = array_map(
+            static fn(LogRecord $record): string => $record->message,
+            $this->mailerHandler->getRecords(),
+        );
+
+        self::assertCount(1, $appMessages);
+        self::assertStringContainsString($needle, $appMessages[0]);
+        self::assertNotContains($appMessages[0], $mailerMessages);
+    }
+
+    /**
+     * @return list<LogRecord>
+     */
+    private function mailerRecords(): array
+    {
+        return array_values($this->mailerHandler->getRecords());
+    }
+
+    /**
+     * Формат строки, которую получит оператор: тот же LineFormatter, что у
+     * обработчика канала `mailer` в приложении.
+     */
+    private function formatRecord(LogRecord $record): string
+    {
+        return (new LineFormatter(
+            "[%datetime%] %channel%.%level_name%: %message% %context% %extra%\n",
+            'Y-m-d\TH:i:sP',
+            false,
+            false,
+        ))->format($record);
+    }
+
+    /**
+     * Признаки того, что запись предсказывает повторную обработку (D15):
+     * их в записи быть не должно ни для временной, ни для постоянной ошибки.
+     *
+     * @return list<string>
+     */
+    private function retryIndicators(LogRecord $record): array
+    {
+        $needle = ['retry', 'повтор', 'repeat', 'next_attempt'];
+
+        $found = [];
+        foreach (array_keys($record->context) as $key) {
+            foreach ($needle as $word) {
+                if (str_contains(strtolower((string) $key), $word)) {
+                    $found[] = 'key: ' . $key;
+                }
+            }
+        }
+        foreach ($needle as $word) {
+            if (str_contains(strtolower($this->formatRecord($record)), $word)) {
+                $found[] = 'record: ' . $word;
+            }
+        }
+
+        return $found;
+    }
+
     private function createService(
         EntityManagerInterface $em,
         ?CampaignAttachmentStorage $storage = null,
@@ -448,7 +844,9 @@ final class MailingServiceTest extends TestCase
             $storage,
             $renderer,
             $urls,
-            new NullLogger(),
+            new Logger('app', [$this->appHandler]),
+            new Logger('mailer', [$this->mailerHandler]),
+            new EmailAddressMasker(),
             'user@b2b-crm.local',
             'B2B Call CRM',
         );

@@ -34,7 +34,7 @@ test('боковая панель: «⚙ Админ ▾» раскрываетс
   await toggle.click();
   const menu = page.locator('.header__sidebar .header-admin__menu');
   const items = page.locator('.header__sidebar .header-admin__item');
-  await expect(items).toHaveCount(3);
+  await expect(items).toHaveCount(4);
   await expect(items.first()).toBeVisible();
   await expect(items.first()).toHaveText('Пользователи');
   await expect(menu).toHaveCSS('position', 'static');
