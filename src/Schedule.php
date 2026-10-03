@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App;
 
+use App\Message\ArchiveMailerLogs;
 use App\Message\SendCampaignBatch;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Scheduler\Attribute\AsSchedule;
@@ -26,6 +27,7 @@ class Schedule implements ScheduleProviderInterface
             ->stateful($this->cache)
             ->processOnlyLastMissedRun(true)
             ->lock($this->lockFactory->createLock('scheduler.default'))
-            ->add(RecurringMessage::every('1 minute', new SendCampaignBatch()));
+            ->add(RecurringMessage::every('1 minute', new SendCampaignBatch()))
+            ->add(RecurringMessage::cron('5 0 * * *', new ArchiveMailerLogs()));
     }
 }

@@ -1,0 +1,49 @@
+@use '../tokens' as *;
+
+// Перечень файлов журнала отправки писем (change email-send-logging):
+// таблица позиций с размером файла и действиями у каждой позиции.
+
+.mailer-logs {
+    &__hint {
+        max-width: 70ch;
+        color: $color-text-secondary;
+    }
+
+    &__table {
+        td {
+            vertical-align: middle;
+        }
+    }
+
+    &__file,
+    &__size {
+        color: $color-text-body;
+        font-family: $font-heading;
+        font-size: $font-size-table;
+    }
+
+    &__size {
+        white-space: nowrap;
+    }
+
+    &__actions-head {
+        width: 1%;
+        white-space: nowrap;
+    }
+
+    &__actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        white-space: nowrap;
+    }
+
+    &__warning {
+        font-weight: 700;
+        color: $color-error-red;
+    }
+
+    &__form {
+        margin-top: 16px;
+    }
+}

@@ -1,6 +1,7 @@
 monolog:
     channels:
         - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
+        - mailer # Результаты фактической отправки писем рассылки (change email-send-logging, ADR-0016)
 
 when@dev:
     monolog:
@@ -10,6 +11,14 @@ when@dev:
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
                 channels: ["!event"]
+            mailer:
+                type: rotating_file
+                path: "%mailer.log_dir%/mailer.log"
+                filename_format: 'mailer-{date}'
+                date_format: 'Y-m'
+                max_files: 0
+                level: info
+                channels: [mailer]
             console:
                 type: console
                 process_psr_3_messages: false
@@ -23,7 +32,20 @@ when@test:
                 action_level: error
                 handler: nested
                 excluded_http_codes: [404, 405]
-                channels: ["!event"]
+                channels: ["!event", "!mailer"]
+            # Канал mailer исключён из main (D4a), поэтому нужен собственный
+            # обработчик, иначе запись ушла бы в никуда. Имя с префиксом
+            # `test-`, по образцу `%kernel.environment%.log` обработчика main,
+            # чтобы отправка тестового прогона не попадала в настоящий
+            # месячный файл журнала.
+            mailer:
+                type: rotating_file
+                path: "%mailer.log_dir%/test-mailer.log"
+                filename_format: 'test-mailer-{date}'
+                date_format: 'Y-m'
+                max_files: 0
+                level: info
+                channels: [mailer]
             nested:
                 type: stream
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
@@ -36,7 +58,15 @@ when@prod:
                 type: stream
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: info
-                channels: ["!event", "!deprecation"]
+                channels: ["!event", "!deprecation", "!mailer"]
+            mailer:
+                type: rotating_file
+                path: "%mailer.log_dir%/mailer.log"
+                filename_format: 'mailer-{date}'
+                date_format: 'Y-m'
+                max_files: 0
+                level: info
+                channels: [mailer]
             console:
                 type: console
                 process_psr_3_messages: false

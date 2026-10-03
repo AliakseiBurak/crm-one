@@ -31,6 +31,8 @@ readonly class MailingService
         private CampaignEmailRenderer $emailRenderer,
         private UrlGeneratorInterface $urlGenerator,
         private LoggerInterface $logger,
+        private LoggerInterface $mailerLogger,
+        private EmailAddressMasker $masker,
         #[Autowire(param: 'mailing.from_email')]
         private string $fromEmail,
         #[Autowire(param: 'mailing.from_name')]
@@ -78,10 +80,10 @@ readonly class MailingService
         try {
             $this->sendEmail($campaign, $recipient, $contact, $toEmail, $ccEmails);
 
-            $this->logger->info('Campaign ID {id} send for {email}', [
-                'id' => $campaign->id,
-                'email' => $toEmail,
-            ]);
+            $this->mailerLogger->info(
+                'Campaign send delivered',
+                $this->sendLogContext($campaign, $recipient, $toEmail, $ccEmails, 'delivered'),
+            );
 
             $recipient->markDelivered();
             $this->em->flush();
@@ -89,11 +91,10 @@ readonly class MailingService
             $message = $e->getMessage();
 
             if ($this->isBounceError($e)) {
-                $this->logger->warning('Campaign ID {id} bounced for {email}: {message}', [
-                    'id' => $campaign->id,
-                    'email' => $toEmail,
-                    'message' => $message,
-                ]);
+                $this->mailerLogger->warning(
+                    'Campaign send bounced',
+                    $this->sendLogContext($campaign, $recipient, $toEmail, $ccEmails, 'bounced'),
+                );
 
                 $recipient->markBounced((string) $this->smtpStatusCode($e));
                 $this->em->flush();
@@ -104,16 +105,48 @@ readonly class MailingService
 
             $isTransient = $this->isTransientError($e);
 
-            $this->logger->warning('Campaign ID {id} send failed for {email}: {message}', [
-                'id' => $campaign->id,
-                'email' => $toEmail,
-                'message' => $message,
-            ]);
+            $failedContext = $this->sendLogContext($campaign, $recipient, $toEmail, $ccEmails, 'failed');
+            $failedContext['error'] = $this->masker->maskInText($message);
+
+            $this->mailerLogger->warning('Campaign send failed', $failedContext);
 
             $recipient->markFailed($message, $isTransient);
             $this->em->flush();
             $this->checkCampaignEscalation($campaign);
         }
+    }
+
+    /**
+     * Контекст записи журнала отправки (change email-send-logging, D2, D3):
+     * сообщение фиксировано по результату, все переменные значения уходят в
+     * структурный контекст. Адреса получателя и копии замаскированы до записи,
+     * наименования организации и рассылки не затрагиваются. Сведений о
+     * повторной обработке запись не содержит (D15): прогноз повтора был бы
+     * ложным на третьей временной ошибке, а сам факт повтора остаётся в
+     * campaign_recipient.retryCount/retryAt.
+     *
+     * @param list<string> $ccEmails
+     *
+     * @return array<string, mixed>
+     */
+    private function sendLogContext(
+        Campaign $campaign,
+        CampaignRecipient $recipient,
+        string $toEmail,
+        array $ccEmails,
+        string $result,
+    ): array {
+        $organization = $recipient->organization;
+
+        return [
+            'campaign_id' => $campaign->id,
+            'campaign_name' => $campaign->name,
+            'organization_id' => $organization->id,
+            'organization_name' => $organization->name,
+            'recipient' => $this->masker->mask($toEmail),
+            'cc' => $this->masker->maskList($ccEmails),
+            'result' => $result,
+        ];
     }
 
     /**

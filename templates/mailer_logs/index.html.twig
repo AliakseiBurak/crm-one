@@ -1,0 +1,74 @@
+{#
+    Перечень файлов журнала отправки писем (change email-send-logging, D8).
+    Плоский список: существующие файлы месяцев `mailer-YYYY-MM.log` и архивы
+    годов `mailer-YYYY.zip`, новые сверху, архив года после месяцев своего года.
+    У каждой позиции — размер файла и кнопка скачивания; у всех, кроме файла
+    текущего календарного месяца, — кнопка удаления с подтверждением: год
+    целиком не удаляется никогда (D17). Надпись кнопки одна — «Удалить»:
+    период, вид файла и имя уже стоят в своих колонках строки, а называет
+    удаляемый файл страница подтверждения.
+
+    Содержимое журнала страница не отображает: разбор записей ведётся по
+    скачанному файлу вне приложения.
+
+    Ожидает: files (App\Dto\MailerLogFile[]), currentMonth (string «YYYY-MM»).
+#}
+{% extends 'base.html.twig' %}
+
+{% block title %}Журнал отправки писем{% endblock %}
+
+{% block body %}
+    <section class="section section--white">
+        <div class="container">
+            <h1>Журнал отправки писем</h1>
+
+            <p class="mailer-logs__hint">
+                Содержимое файлов на этой странице не показывается: скачайте файл и разберите его
+                вне приложения. Удаление файла необратимо.
+            </p>
+
+            {% if files is not empty %}
+                <div class="table-wrap">
+                    <table class="table mailer-logs__table">
+                        <thead>
+                            <tr>
+                                <th>Период</th>
+                                <th>Файл</th>
+                                <th>Размер</th>
+                                <th class="mailer-logs__actions-head"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for file in files %}
+                                <tr class="mailer-logs__row" data-mailer-log-row="{{ file.period }}" data-mailer-log-kind="{{ file.kind }}">
+                                    <td class="table__name">
+                                        {% if file.isMonth %}
+                                            {{ file.period }}
+                                        {% else %}
+                                            {{ file.period }} (архив года)
+                                        {% endif %}
+                                    </td>
+                                    <td class="mailer-logs__file">{{ file.filename }}</td>
+                                    <td class="mailer-logs__size">{{ file.formattedSize }}</td>
+                                    <td class="mailer-logs__actions">
+                                        {% if file.isMonth %}
+                                            <a class="btn btn--secondary btn--sm" href="{{ path('app_mailer_log_month_download', { month: file.period }) }}">Скачать</a>
+                                            {% if file.period != currentMonth %}
+                                                <a class="btn btn--secondary btn--sm mailer-logs__delete" href="{{ path('app_mailer_log_month_delete', { month: file.period }) }}">Удалить</a>
+                                            {% endif %}
+                                        {% else %}
+                                            <a class="btn btn--secondary btn--sm" href="{{ path('app_mailer_log_year_download', { year: file.period }) }}">Скачать</a>
+                                            <a class="btn btn--secondary btn--sm mailer-logs__delete" href="{{ path('app_mailer_log_year_delete', { year: file.period }) }}">Удалить</a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>Файлов журнала отправки писем нет.</p>
+            {% endif %}
+        </div>
+    </section>
+{% endblock %}

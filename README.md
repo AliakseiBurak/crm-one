@@ -68,6 +68,7 @@ PHPMyAdmin, Playwright e2e. Приложение доступно только �
 | `make e2e`              | Запустить Playwright smoke-тесты (профиль `e2e`)   |
 | `make exec`             | Войти в контейнер `php` пользователем `app` (`docker compose exec --user app php bash`) |
 | `make app-send`         | Один прогон отправки рассылок (`app:campaign:send`) |
+| `make app-archive-logs` | Архивирование журнала отправки писем по годам (`app:mailer-logs:archive`) |
 | `make app-scheduler`    | Локально подержать Symfony Scheduler ~60 с (`messenger:consume scheduler_default`) |
 
 ## E2E-тесты
@@ -112,6 +113,8 @@ BASE_URL=https://host.docker.internal npm test
 ```bash
 # or run app:campaign:send
 make app-send
+# or run app:mailer-logs:archive
+make app-archive-logs
 # or run messenger:consume scheduler_default
 make app-scheduler
 ```
@@ -130,9 +133,15 @@ php bin/console messenger:consume scheduler_default --time-limit=3600
 
 ```cron
 * * * * * cd /var/www/b2b-call-crm && /usr/bin/php bin/console app:campaign:send
+5 0 * * * cd /var/www/b2b-call-crm && /usr/bin/php bin/console app:mailer-logs:archive
 ```
 
 Тогда `messenger:consume scheduler_default` на сервере не запускайте.
+
+Вторая строка — архивирование журнала отправки писем по годам. При варианте
+**А** она выполняется самим Scheduler (`messenger:consume scheduler_default`),
+поэтому в cron добавляется только при варианте **B**. Команда идемпотентна и
+безвредна, если запускать её чаще.
 
 В окружении CLI задайте `DEFAULT_URI` (абсолютный URL для tracking-pixel в письмах; без HTTP-запроса Symfony его не угадает).
 

@@ -1,0 +1,41 @@
+{#
+    Подтверждение удаления файла журнала отправки писем (change
+    email-send-logging, D16, D17): удаляется ровно один файл, названный в
+    запросе, остальные файлы журнала сохраняются. Год целиком не удаляется
+    никогда. Действие необратимо: таблицы записей отправки в БД нет, поэтому
+    восстановить удалённый файл нечем.
+
+    Ожидает: filename (string), keepNotice (string), action (string URL POST).
+#}
+{% extends 'base.html.twig' %}
+
+{% block title %}Удаление файла журнала{% endblock %}
+
+{% block body %}
+    <section class="section section--white">
+        <div class="container">
+            <h1>Удаление файла журнала отправки</h1>
+
+            <p class="mailer-logs__warning">
+                Будет удалён файл <strong>{{ filename }}</strong>. Действие необратимо:
+                восстановить файл нечем.
+            </p>
+
+            <p>{{ keepNotice }}</p>
+
+            <form method="post" action="{{ action }}" class="mailer-logs__form">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('mailer_log_delete') }}">
+
+                <div class="mailer-logs__actions">
+                    {{ include('components/button.html.twig', { variant: 'primary', text: 'Удалить' }) }}
+                    {{ include('components/button.html.twig', {
+                        variant: 'secondary',
+                        text: 'Отмена',
+                        href: path('app_mailer_log_index'),
+                        type: 'button',
+                    }) }}
+                </div>
+            </form>
+        </div>
+    </section>
+{% endblock %}

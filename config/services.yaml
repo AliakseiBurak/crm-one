@@ -6,6 +6,12 @@ parameters:
     mailing.from_email: '%env(default:mailing.from_email.default:MAILING_FROM_EMAIL)%'
     mailing.from_name.default: 'B2B Call CRM'
     mailing.from_name: '%env(default:mailing.from_name.default:MAILING_FROM_NAME)%'
+    # Каталог файлов журнала отправки писем (change email-send-logging): его
+    # читают обработчик канала `mailer`, архиватор и перечень файлов. Параметр,
+    # а не `%kernel.logs_dir%` напрямую, — чтобы каталог задавался из окружения
+    # (MAILER_LOG_DIR) и разводился в разных окружениях.
+    mailer.log_dir: '%env(default:mailer.log_dir.default:MAILER_LOG_DIR)%'
+    mailer.log_dir.default: '%kernel.logs_dir%'
 
 services:
     _defaults:

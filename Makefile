@@ -1,4 +1,4 @@
-.PHONY: help up build down migrate fixtures styles exec e2e test logs app-send app-scheduler dev-log mysql-log-config mysql-log-drop mysql-log-tail stan stan-baseline cs cs-dry infection infection-coverage quality
+.PHONY: help up build down migrate fixtures styles exec e2e test logs app-send app-archive-logs app-scheduler dev-log mysql-log-config mysql-log-drop mysql-log-tail stan stan-baseline cs cs-dry infection infection-coverage quality
 
 help:
 	@echo "Usage: make <target>"
@@ -15,6 +15,7 @@ help:
 	@echo "  fixtures          Load fixtures"
 	@echo "  styles            Build frontend assets"
 	@echo "  app-send          Run campaign send command"
+	@echo "  app-archive-logs  Archive mailer send logs by year"
 	@echo "  app-scheduler     Run Messenger scheduler"
 	@echo ""
 	@echo "Testing & Quality:"
@@ -68,6 +69,9 @@ logs:
 
 app-send:
 	docker compose exec php php bin/console app:campaign:send
+
+app-archive-logs:
+	docker compose exec php php bin/console app:mailer-logs:archive
 
 app-scheduler:
 	docker compose exec php php bin/console messenger:consume scheduler_default --time-limit=60 -vv
