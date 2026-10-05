@@ -171,7 +171,7 @@ for checkbox/selection (in edit mode), organization name («Название»),
 industry («Отрасль»), organization created date («Дата создания») and
 organization creator («Создатель», the user referenced by
 `Organization.created_by`). Header cells for «Название», «Отрасль»,
-«Дата создания» and «Создатель» SHALL be sortable. The default sort SHALL
+«Дата создания» и «Создатель» SHALL be sortable. The default sort SHALL
 be organization name ascending. Clicking a sortable header SHALL toggle
 ascending then descending order for that column. Checkbox and action
 columns SHALL NOT be sortable. Industry and creator SHALL render as «—»
@@ -222,3 +222,33 @@ The group management UI SHALL be visible to both administrators and managers. Ma
 - **AND** в списке есть назначенная ему группа "Южный регион", созданная администратором
 - **THEN** для группы "Южный регион" отображается ссылка "Участники" с пометкой «только просмотр»
 - **AND** ссылка "Редактировать" для этой группы не отображается
+
+### Requirement: Пагинация не применяется к списку групп и составу группы
+The group list and the group-composition screen SHALL NOT be paginated: the
+group list SHALL show every group of the user's management scope, and the
+group-composition screen SHALL show every organization of the viewer's access
+scope in its «add to group» control. Both screens SHALL ignore a `page` query
+parameter and SHALL drop it from the canonical URL. The shared pagination
+component is reserved for the organization panel and the hidden-organization
+registry.
+
+Rationale: a company has far fewer custom groups than the 50-row page size, so
+paging the group list has no practical meaning. The group composition screen
+is a form of checkboxes over the whole accessible set, and paginating it would
+make a distant organization impossible to select. Both lists are bounded by
+the number of groups and by the number of organizations a user manages, and
+neither is expected to reach the page size.
+
+#### Scenario: Список групп не пагинируется
+- **WHEN** пользователь открывает список групп, в котором больше 50 групп
+- **THEN** список показывает все группы области управления пользователя
+- **AND** блок навигации по страницам не отображается
+
+#### Scenario: Номер страницы игнорируется списком групп
+- **WHEN** пользователь открывает `/groups?page=999`
+- **THEN** открывается полный список групп без параметра `page` в URL
+
+#### Scenario: Форма добавления в группу не пагинируется
+- **WHEN** пользователь открывает состав группы с правом редактирования
+- **THEN** список организаций для добавления содержит все организации его области доступа, а не только организации текущей страницы
+- **AND** организация, которая не помещается ни на одну страницу, всё равно доступна для выбора
