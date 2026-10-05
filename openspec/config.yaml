@@ -8,12 +8,16 @@ context: |
   #### Scenario blocks. Scenario names and step text (- **WHEN** / - **THEN** /
   - **AND**) are written in Russian; normative verbs in requirement text are
   English SHALL / MUST / MAY.
-  Access model: see adr/0006-0008, 0011. Managers own custom groups via
-  created_by with full CRUD on them, and have full access to organizations in
-  groups they created + groups assigned to them; personal user-<id>-group
-  records are eliminated (ADR-0011); org-group membership is many-to-many; do
-  not introduce per-org ACL tiers. Admin has no personal group and sees
-  everything (groups are not checked for admin).
+  Access model: see adr/0006-0008, 0011, 0012. Organization access scope is
+  default-open with a deny-list (ADR-0012, which inverted the ADR-0007/0011
+  formula): a manager sees ALL organizations except those with an
+  OrganizationHide record for them; group membership does NOT affect access to
+  organizations — groups are categorization only. Managers own custom groups
+  via created_by with full CRUD on them and read-only on groups assigned to
+  them (ADR-0011); personal user-<id>-group records are eliminated (ADR-0011);
+  org-group membership is many-to-many; do not introduce per-org ACL tiers.
+  Admin has no personal group and sees everything (groups are not checked for
+  admin, hides do not restrict admin either; ADR-0008).
   Calls model (adr/0004): one Call entity, result = at most one campaign, a
   deal, and/or a next call. Email via SMTP/outbox with per-letter statuses
   (adr/0010).

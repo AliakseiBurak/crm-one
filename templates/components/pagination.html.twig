@@ -1,0 +1,46 @@
+{#
+    Общий блок навигации по страницам (change organizations-pagination,
+    spec web-interface «Пагинация списков»).
+    Параметры макроса render:
+      - pagination: App\Dto\Pagination — границы страницы и окно номеров
+      - route: имя маршрута списка
+      - params: query-параметры списка, которые переходы обязаны сохранить
+        (поиск, фильтры, сортировка, подсветка). Номер страницы в них не
+        участвует — он добавляется макросом page_url.
+      - param: имя query-параметра страницы (по умолчанию 'page')
+
+    Блок выводится только при нескольких страницах, поэтому вид списка,
+    помещающегося в 50 строк, не меняется. Строка сводки вида
+    «Показано N–M из K» не выводится: число строк пользователю не нужно.
+
+    Переходов «‹ Назад»/«Вперёд ›» нет: соседние страницы и так видны в окне
+    номеров, а дублировать их стрелками значит показывать пользователю один и
+    тот же выбор дважды.
+#}
+{% macro page_url(route, params, number, param = 'page') -%}
+    {{- path(route, params|merge({ (param): number })) -}}
+{%- endmacro %}
+
+{% macro render(pagination, route, params = {}, param = 'page') %}
+    {%- if not pagination.isSinglePage %}
+        <nav class="pagination" aria-label="Навигация по страницам">
+            {% if pagination.page > pagination.firstPage %}
+                <a class="pagination__link" href="{{ _self.page_url(route, params, pagination.firstPage, param) }}" rel="first">‹ В начало</a>
+            {% endif %}
+
+            {% for item in pagination.window %}
+                {% if item == pagination.ELLIPSIS %}
+                    <span class="pagination__ellipsis" aria-hidden="true">{{ pagination.ELLIPSIS }}</span>
+                {% elseif item == pagination.page %}
+                    <span class="pagination__page pagination__page--active" aria-current="page">{{ item }}</span>
+                {% else %}
+                    <a class="pagination__page" href="{{ _self.page_url(route, params, item, param) }}">{{ item }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.page < pagination.lastPage %}
+                <a class="pagination__link" href="{{ _self.page_url(route, params, pagination.lastPage, param) }}" rel="last">В конец ›</a>
+            {% endif %}
+        </nav>
+    {%- endif %}
+{% endmacro %}

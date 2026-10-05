@@ -6,7 +6,6 @@ namespace App\Controller;
 
 use App\Entity\Enum\UserRole;
 use App\Entity\GroupAssignment;
-use App\Entity\Organization;
 use App\Entity\OrganizationGroup;
 use App\Entity\OrgGroupMembership;
 use App\Entity\User;
@@ -25,6 +24,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 #[Route('/groups')]
 class GroupController extends AbstractController
 {
+    use CanonicalListUrl;
+
     public function __construct(
         private readonly OrganizationGroupRepository $groups,
         private readonly UserRepository $users,
@@ -43,31 +44,21 @@ class GroupController extends AbstractController
         }
         $isAdmin = UserRole::Admin === $user->role;
 
-        $groups = $isAdmin
-            ? $this->groups->findAllGroups()
-            : $this->groups->findForManager($user);
-
         $sort = $request->query->get('sort', 'name');
         $direction = strtoupper($request->query->get('dir', 'ASC'));
+        // Администратору доступны все группы (ADR-0008); null — «без
+        // ограничения по области управления».
+        $scope = $isAdmin ? null : $user;
 
-        $groupsArray = $groups instanceof \Traversable ? iterator_to_array($groups) : $groups;
-        usort(
-            $groupsArray,
-            static function (OrganizationGroup $a, OrganizationGroup $b) use ($sort, $direction): int {
-                $cmp = match ($sort) {
-                    'creator' => strcmp(
-                        (string) ($a->createdBy?->email ?? ''),
-                        (string) ($b->createdBy?->email ?? ''),
-                    ),
-                    default => strcmp((string) $a->name, (string) $b->name),
-                };
-
-                return 'DESC' === $direction ? -$cmp : $cmp;
-            },
-        );
+        // Список групп не пагинируется: у компании десятки собственных групп,
+        // и `page` в URL не значит здесь ничего (change organizations-pagination).
+        $redirect = $this->canonicalParamsRedirect($request, 'app_group_list', [], ['sort', 'dir']);
+        if (null !== $redirect) {
+            return $redirect;
+        }
 
         return $this->render('group/list.html.twig', [
-            'groups' => $groupsArray,
+            'groups' => $this->groups->findVisible($scope, $sort, $direction),
             // null — доступна правка всех групп (админ, ADR-0008); иначе — id
             // групп, созданных менеджером (spec: organization-groups).
             'manageableIds' => $isAdmin
@@ -223,87 +214,52 @@ class GroupController extends AbstractController
         $sort = $request->query->get('sort', 'name');
         $dir = strtoupper($request->query->get('dir', 'ASC'));
 
+        // Состав группы не пагинируется: страница показывает состав целиком,
+        // а номер страницы в URL не значит здесь ничего (change
+        // organizations-pagination).
+        $redirect = $this->canonicalParamsRedirect(
+            $request,
+            'app_group_members',
+            ['id' => $group->id],
+            ['sort', 'dir'],
+        );
+        if (null !== $redirect) {
+            return $redirect;
+        }
+
         $memberIds = array_map(
             static fn(OrgGroupMembership $m): int => (int) $m->organization->id,
             $group->memberships->toArray()
         );
 
+        $viewer = $this->getUser();
+        $viewer = $viewer instanceof User ? $viewer : null;
+
         if (!$canEdit) {
             // Назначенная группа доступна только на просмотр (spec:
             // organization-groups): состав показывается без формы изменения.
             // Скрытые организации не отображаются менеджеру (ADR-0012);
-            // администратор видит всех участников.
-            $members = array_map(
-                static fn(OrgGroupMembership $m): Organization => $m->organization,
-                $group->memberships->toArray(),
-            );
-            $accessibleIds = $this->organizations->findAccessibleIds($this->getUser());
-            if (null !== $accessibleIds) {
-                $members = array_values(array_filter(
-                    $members,
-                    static fn(Organization $o): bool => \in_array($o->id, $accessibleIds, true),
-                ));
-            }
-
-            $members = $this->sortMembers($members, $sort, $dir);
-
+            // администратор видит всех участников (ADR-0008).
             return $this->render('group/members.html.twig', [
                 'group' => $group,
                 'canEdit' => false,
                 'organizations' => [],
-                'members' => $members,
+                'members' => $this->organizations->findGroupMembers($group, $viewer, $sort, $dir),
                 'memberIds' => $memberIds,
                 'sort' => $sort,
                 'dir' => $dir,
             ]);
         }
 
-        $organizations = $this->organizations->findAccessibleOrganizations($this->getUser());
-        $organizations = $this->sortMembers($organizations, $sort, $dir);
-
         return $this->render('group/members.html.twig', [
             'group' => $group,
             'canEdit' => true,
-            'organizations' => $organizations,
+            'organizations' => $this->organizations->findAccessibleOrganizations($viewer),
             'members' => [],
             'memberIds' => $memberIds,
             'sort' => $sort,
             'dir' => $dir,
         ]);
-    }
-
-    /**
-     * @param Organization[] $members
-     * @return Organization[]
-     */
-    private function sortMembers(array $members, string $sort, string $dir): array
-    {
-        $asc = strtoupper($dir) !== 'DESC';
-
-        usort($members, static function (Organization $a, Organization $b) use ($sort, $asc): int {
-            $cmp = match ($sort) {
-                'industry' => strcmp((string) $a->industry, (string) $b->industry),
-                'createdAt' => $a->createdAt <=> $b->createdAt,
-                'creator' => strcmp(
-                    self::creatorName($a),
-                    self::creatorName($b),
-                ),
-                default => strcmp((string) $a->name, (string) $b->name),
-            };
-
-            return $asc ? $cmp : -$cmp;
-        });
-
-        return $members;
-    }
-
-    private static function creatorName(Organization $org): string
-    {
-        if (null === $org->createdBy) {
-            return '';
-        }
-
-        return trim(($org->createdBy->name ?? '') . ' ' . ($org->createdBy->surname ?? ''));
     }
 
     #[Route('/{id}/members', name: 'app_group_update_members', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -317,7 +273,10 @@ class GroupController extends AbstractController
 
         // Менеджер может добавлять в группу только организации своей области
         // доступа (ADR-0012); администратору доступны все (ADR-0008).
-        $accessibleIds = $this->organizations->findAccessibleIds($this->getUser());
+        $currentUser = $this->getUser();
+        $accessibleIds = $this->organizations->findAccessibleIds(
+            $currentUser instanceof User ? $currentUser : null,
+        );
         if (null !== $accessibleIds) {
             $selectedIds = array_values(array_intersect($selectedIds, $accessibleIds));
         }

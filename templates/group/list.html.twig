@@ -1,9 +1,11 @@
 {#
-    Список групп менеджера (change organization-groups).
-    Таблица с названием, описанием, цветом и действиями.
-    Ожидает: groups (OrganizationGroup[]), manageableIds (int[]|null) —
-    null означает доступ на изменение для всех групп (администратор),
-    sort (string), direction (string).
+    Список групп менеджера (change organization-groups,
+    organizations-pagination): сортировка выполняется в SQL, постраничного
+    вывода нет — у компании десятки собственных групп, а блок навигации здесь
+    не окупает ни одного своего недостатка.
+    Ожидает: groups (OrganizationGroup[]), manageableIds (int[]|null) — null
+    означает доступ на изменение для всех групп (администратор), sort (string),
+    direction (string).
 #}
 {% extends 'base.html.twig' %}
 

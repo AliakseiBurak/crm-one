@@ -14,18 +14,23 @@ Project-specific conventions for agents working in this OpenSpec workspace.
 
 ## Access model (hard constraints)
 
-Do not re-introduce per-org ACL tiers. See `adr/0006–0008, 0011`:
+Do not re-introduce per-org ACL tiers. See `adr/0006–0008, 0011, 0012`:
 
+- ADR-0012 (инвертировал ADR-0007/ADR-0011): область доступа к организациям —
+  **default-open с deny-list**. Менеджер видит **все** организации, кроме
+  имеющих запись `OrganizationHide` для него. Принадлежность к группе на доступ
+  к организациям **не влияет** — группы остались только категоризацией.
 - ADR-0011: personal groups (`user-<id>-group`) eliminated; managers own custom
-  groups via `created_by`, full CRUD on own groups; manager access scope =
-  orgs in created + assigned groups.
+  groups via `created_by`, full CRUD on own groups, read-only on assigned ones.
+  Права на группы ADR-0012 не меняет.
 - ADR-0006: org ↔ group many-to-many (`OrgGroupMembership`, table
   `org_group_membership`); one group assignable to many managers
   (`GroupAssignment`).
-- ADR-0007 (amended by ADR-0011): manager gets full access to created +
-  assigned groups.
 - ADR-0008: admin sees everything, manages groups and assignments; admin has no
-  personal group, groups are not checked for admin.
+  personal group, groups are not checked for admin. Скрытие организаций админа
+  тоже не ограничивает.
+- Гейтвей доступа един: `OrganizationRepository::findAccessibleIds(?User)` —
+  `null` для администратора/гостя, для менеджера все id, кроме скрытых от него.
 
 ## Terminology
 

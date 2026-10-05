@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Dto\Pagination;
+use App\Entity\Organization;
+use App\Entity\OrganizationHide;
 use App\Entity\User;
 use App\Repository\OrganizationHideRepository;
 use App\Repository\OrganizationRepository;
@@ -25,6 +28,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_ADMIN')]
 class OrganizationHideController extends AbstractController
 {
+    use CanonicalListUrl;
+
     public function __construct(
         private readonly OrganizationHideRepository $hides,
         private readonly OrganizationRepository $organizations,
@@ -42,35 +47,49 @@ class OrganizationHideController extends AbstractController
         $sort = $request->query->get('sort', 'name');
         $direction = strtoupper($request->query->get('dir', 'ASC'));
 
+        // Страница реестра — это организации, а не отдельные записи скрытия:
+        // одну организацию можно скрыть от нескольких менеджеров, и по
+        // записям страницы считались бы полупустыми (change
+        // organizations-pagination). Сами записи скрытия организаций
+        // страницы подтягиваются для отображения.
+        $total = $this->hides->countRegistry();
+        $pagination = new Pagination($total, Pagination::PER_PAGE, $request->query->get('page', 1));
+
+        $redirect = $this->canonicalListRedirect(
+            $request,
+            $pagination,
+            'app_organization_hide_list',
+            [],
+            ['sort', 'dir'],
+        );
+        if (null !== $redirect) {
+            return $redirect;
+        }
+
+        $pageRows = $this->hides->findRegistryPage(
+            $sort,
+            $direction,
+            $pagination->offset,
+            Pagination::PER_PAGE,
+        );
+
+        $organizations = array_map(
+            static fn(OrganizationHide $hide): Organization => $hide->organization,
+            $pageRows,
+        );
+
         $grouped = [];
-        foreach ($this->hides->findBy([], ['hiddenAt' => 'DESC']) as $hide) {
-            $grouped[(int) $hide->organization->id]['organization'] = $hide->organization;
+        foreach ($organizations as $organization) {
+            $grouped[(int) $organization->id]['organization'] = $organization;
+            $grouped[(int) $organization->id]['hides'] = [];
+        }
+        foreach ($this->hides->findForOrganizations($organizations) as $hide) {
             $grouped[(int) $hide->organization->id]['hides'][] = $hide;
         }
 
-        usort(
-            $grouped,
-            static function (array $a, array $b) use ($sort, $direction): int {
-                $cmp = match ($sort) {
-                    'manager' => strcmp(
-                        (string) ($a['hides'][0]->manager->email ?? ''),
-                        (string) ($b['hides'][0]->manager->email ?? ''),
-                    ),
-                    'createdAt' => $a['organization']->createdAt <=> $b['organization']->createdAt,
-                    'industry' => strcmp((string) $a['organization']->industry, (string) $b['organization']->industry),
-                    'hiddenAt' => $a['hides'][0]->hiddenAt <=> $b['hides'][0]->hiddenAt,
-                    default => strcmp(
-                        (string) $a['organization']->name,
-                        (string) $b['organization']->name,
-                    ),
-                };
-
-                return 'DESC' === $direction ? -$cmp : $cmp;
-            },
-        );
-
         return $this->render('organization_hide/list.html.twig', [
             'grouped' => $grouped,
+            'pagination' => $pagination,
             'organizations' => $this->organizations->findBy([], ['name' => 'ASC']),
             'managers' => $this->users->findManagers(),
             'sort' => $sort,

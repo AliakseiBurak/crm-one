@@ -1,11 +1,18 @@
 {#
-    Секция «Организации» панели (change dashboard-orgs-contacts):
-    поиск, зебра-таблица с сортировкой, аккордеон контактов и звонков.
+    Секция «Организации» панели (change dashboard-orgs-contacts,
+    organizations-pagination): поиск, зебра-таблица с сортировкой, аккордеон
+    контактов и звонков, постраничный вывод по 50 строк.
     Кнопки «Изменить» карточек контактов и «Добавить контакт» ведут на
     маршруты contacts-crud (модальное окно / форма создания).
     Ожидает: organizationRows (DashboardOrganizationRow[]), contactsByOrganization,
-    callsByOrganization, search, sort, dir, highlight, inactive, optout.
+    callsByOrganization, pagination (App\Dto\Pagination), search, sort, dir,
+    highlight, inactive, optout.
+
+    Ссылка сортировки и форма поиска не передают `page`: его отсутствие и
+    означает возврат к первой странице.
 #}
+{% import 'components/pagination.html.twig' as pagination %}
+
 {% macro sort_url(col, search, sort, dir, highlight, inactive, optout) -%}
     {{ path('app_dashboard', { q: search|default(''), sort: col, dir: sort == col and dir == 'asc' ? 'desc' : 'asc' }
         |merge(highlight ? { highlight: highlight } : {})
@@ -28,6 +35,14 @@
         <h1>Организации</h1>
 
         <form class="org-search" method="get" action="{{ path('app_dashboard') }}">
+            {# Скрытые sort/dir: поиск больше не стирает выбранную сортировку.
+               Без сортировки поля не отправляются вовсе — тогда URL
+               поиска остаётся коротким. Номер страницы не переносится:
+               отправка поиска возвращает таблицу к первой странице. #}
+            {% if sort %}
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="dir" value="{{ dir }}">
+            {% endif %}
             <label class="org-search__field">
                 <span class="org-search__label">Поиск по названию и контактам</span>
                 <input
@@ -37,7 +52,6 @@
                     value="{{ search }}"
                     placeholder="Название организации, имя, телефон или email контакта"
                     autocomplete="off"
-                    data-dashboard-search
                 >
             </label>
             <label class="org-search__check">
@@ -181,6 +195,15 @@
                     </tbody>
                 </table>
             </div>
+
+            {# Переходы по страницам сохраняют поиск, сортировку, фильтры и
+               подсветку; при одной странице блок не выводится. #}
+            {{ pagination.render(pagination, 'app_dashboard',
+                (search ? { q: search } : {})
+                |merge(sort ? { sort: sort, dir: dir } : {})
+                |merge(inactive ? { inactive: 1 } : {})
+                |merge(optout ? { optout: 1 } : {})
+                |merge(highlight ? { highlight: highlight } : {})) }}
         {% endif %}
     </div>
 </section>

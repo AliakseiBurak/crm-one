@@ -1,11 +1,16 @@
 {#
-    Реестр «Скрытые организации» (change organization-hiding).
+    Реестр «Скрытые организации» (change organization-hiding,
+    organizations-pagination).
     Встроенная форма добавления (дропдаун организации + дропдаун менеджера)
-    и таблица записей скрытия с действиями «Показать».
-    Ожидает: grouped, organizations (Organization[]), managers (User[]),
-    sort (string), direction (string).
+    и постраничный список записей скрытия с действиями «Показать».
+    Ожидает: grouped, pagination (App\Dto\Pagination), organizations (Organization[]),
+    managers (User[]), sort (string), direction (string).
+
+    Ссылка сортировки не передаёт `page`: его отсутствие и означает возврат
+    к первой странице.
 #}
 {% extends 'base.html.twig' %}
+{% import 'components/pagination.html.twig' as pagination %}
 
 {% block title %}Скрытые организации{% endblock %}
 
@@ -100,6 +105,8 @@
                     </tbody>
                 </table>
                 </div>
+
+                {{ pagination.render(pagination, 'app_organization_hide_list', sort == 'name' ? {} : { sort: sort, dir: direction }) }}
             {% else %}
                 <p>Скрытых организаций нет.</p>
             {% endif %}

@@ -1,0 +1,51 @@
+@use '../tokens' as *;
+
+// Блок навигации по страницам (spec web-interface «Пагинация списков»).
+// Ссылки выглядят как кнопки рабочего интерфейса (Roboto Condensed 16px,
+// серый текст #5a5a5a), активная страница — оттенком того же голубого
+// семейства, что зебра таблиц (#e3f1f6 / #e5f5fb) и её hover (#cfe6f2).
+// Отступ снизу совпадает с .table-wrap: блок не отрывается от таблицы.
+
+.pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35em;
+    margin-bottom: 3rem;
+    font-family: $font-heading;
+    font-size: $font-size-table;
+    color: $color-text-body;
+
+    &__link,
+    &__page {
+        display: inline-block;
+        padding: 0.35em 0.75em;
+        border: 1px solid $color-text-secondary;
+        border-radius: 4px;
+        color: $color-text-body;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    &__page {
+        min-width: 2.2em;
+        text-align: center;
+    }
+
+    &__link:hover,
+    &__page:hover {
+        background: $color-table-stripe-hover;
+        border-color: $color-table-stripe-hover;
+    }
+
+    &__page--active {
+        background: $color-table-stripe-1;
+        border-color: $color-table-stripe-1;
+        font-weight: 700;
+    }
+
+    &__ellipsis {
+        padding: 0 0.25em;
+        color: $color-text-secondary;
+    }
+}

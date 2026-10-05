@@ -7,6 +7,7 @@ namespace App\Repository;
 use App\Entity\OrganizationGroup;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -14,6 +15,16 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class OrganizationGroupRepository extends ServiceEntityRepository
 {
+    /**
+     * Ключ сортировки списка групп: имя группы либо email создателя. Оба
+     * сопоставляются колонкам, поэтому сортировка целиком в SQL — страницу
+     * выбирает база (change organizations-pagination).
+     */
+    private const SORT_COLUMNS = [
+        'name' => 'g.name',
+        'creator' => 'creator.email',
+    ];
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, OrganizationGroup::class);
@@ -57,6 +68,27 @@ class OrganizationGroupRepository extends ServiceEntityRepository
     }
 
     /**
+     * Все группы области управления пользователя, отсортированные в SQL. null
+     * вместо $user — администратор, которому доступны все группы (ADR-0008).
+     *
+     * Список групп не пагинируется: у компании десятки собственных групп, а
+     * не сотни, и постраничный вывод здесь не окупает ни одного своего
+     * недостатка (change organizations-pagination).
+     *
+     * @return OrganizationGroup[]
+     */
+    public function findVisible(?User $user, string $sort, string $dir): array
+    {
+        $qb = $this->createQueryBuilder('g')
+            ->select('g')
+            ->leftJoin('g.createdBy', 'creator');
+        $this->applyScope($qb, $user);
+        $this->applyOrder($qb, $sort, $dir);
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
      * Назначена ли группа менеджеру (GroupAssignment) — запрос к БД, чтобы не
      * зависеть от уже загруженной коллекции группы.
      */
@@ -74,5 +106,33 @@ class OrganizationGroupRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
 
         return null !== $row;
+    }
+
+    /**
+     * Область управления: администратору все группы, менеджеру созданные им
+     * и назначенные ему (ADR-0011). Назначение (user_id, group_id) —
+     * составной первичный ключ, поэтому JOIN не дублирует строки.
+     */
+    private function applyScope(QueryBuilder $qb, ?User $user): void
+    {
+        if (null === $user) {
+            return;
+        }
+
+        $qb->leftJoin('g.assignments', 'ga')
+            ->andWhere('g.createdBy = :scopeUser OR ga.user = :scopeUser')
+            ->setParameter('scopeUser', $user);
+    }
+
+    /**
+     * Первичный ключ строки — последний ключ ORDER BY: названия групп не
+     * уникальны, без добивки одна и та же группа могла бы повлиять на порядок
+     * соседних строк.
+     */
+    private function applyOrder(QueryBuilder $qb, string $sort, string $dir): void
+    {
+        $column = self::SORT_COLUMNS[$sort] ?? self::SORT_COLUMNS['name'];
+        $qb->orderBy($column, 'DESC' === strtoupper($dir) ? 'DESC' : 'ASC')
+            ->addOrderBy('g.id', 'ASC');
     }
 }

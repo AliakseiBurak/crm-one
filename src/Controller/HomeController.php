@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Dto\Pagination;
 use App\Entity\Enum\UserRole;
 use App\Entity\User;
 use App\Repository\CallRepository;
@@ -19,6 +20,15 @@ use Symfony\Component\Routing\Attribute\Route;
 
 class HomeController extends AbstractController
 {
+    use CanonicalListUrl;
+
+    /**
+     * Query-параметры списка панели. Всё, что не входит в список, в
+     * канонический URL панели не попадает: чужой параметр (например
+     * `filter` со статистики) переход по пагинации сохранять не должен.
+     */
+    private const DASHBOARD_LIST_PARAMS = ['q', 'sort', 'dir', 'inactive', 'optout', 'highlight'];
+
     #[Route('/', name: 'app_home')]
     public function index(
         CallRepository $callRepository,
@@ -55,9 +65,11 @@ class HomeController extends AbstractController
         UserRepository $userRepository,
         CallResultService $callResults,
     ): Response {
-        $user = $this->getUser();
-        $organizationIds = $organizationRepository->findAccessibleIds($user);
-        $isAdmin = $user instanceof User && UserRole::Admin === $user->role;
+        // getUser() отдаёт UserInterface|null; область доступа считается по
+        // App\Entity\User, поэтому тип сужается явно.
+        $currentUser = $this->getUser();
+        $user = $currentUser instanceof User ? $currentUser : null;
+        $isAdmin = null !== $user && UserRole::Admin === $user->role;
         $adminUsers = $isAdmin ? $userRepository->findAdminsAndManagers() : [];
 
         $search = (string) $request->query->get('q', '');
@@ -67,13 +79,55 @@ class HomeController extends AbstractController
         $optout = $request->query->getBoolean('optout');
         $highlight = (int) $request->query->get('highlight', 0);
 
+        // Один $now на весь запрос: иначе «следующий звонок» мог бы посчитать
+        // разные строки при сортировке и при разрешении подсветки.
+        $now = new \DateTimeImmutable();
+        $isActive = $inactive ? false : null;
+        $isOptedOut = $optout ? true : null;
+
+        $total = $organizationRepository->countForDashboard($user, $search, $isActive, $isOptedOut);
+        $requestedPage = $request->query->get('page', 1);
+        $pagination = new Pagination($total, Pagination::PER_PAGE, $requestedPage);
+
+        if ($highlight > 0) {
+            $highlighted = $organizationRepository->find($highlight);
+            if (null !== $highlighted) {
+                $position = $organizationRepository->findDashboardPosition(
+                    $user,
+                    $highlighted,
+                    $search,
+                    $sort,
+                    $dir,
+                    $isActive,
+                    $isOptedOut,
+                    $now,
+                );
+                // Подсветка открывает страницу, содержащую организацию: если
+                // такая страница одна и та же, номер в URL не меняется.
+                if (null !== $position) {
+                    $highlightPage = intdiv($position, Pagination::PER_PAGE) + 1;
+                    if ($highlightPage !== $pagination->page) {
+                        $pagination = new Pagination($total, Pagination::PER_PAGE, $highlightPage);
+                    }
+                }
+            }
+        }
+
+        $redirect = $this->canonicalListRedirect($request, $pagination, 'app_dashboard', [], self::DASHBOARD_LIST_PARAMS);
+        if (null !== $redirect) {
+            return $redirect;
+        }
+
         $organizationRows = $organizationRepository->findForDashboard(
             $user,
             $search,
             $sort,
             $dir,
-            $inactive ? false : null,
-            $optout ? true : null,
+            $isActive,
+            $isOptedOut,
+            $pagination->offset,
+            Pagination::PER_PAGE,
+            $now,
         );
 
         $ids = array_map(static fn(\App\Dto\DashboardOrganizationRow $row): int => (int) $row->organization->id, $organizationRows);
@@ -107,7 +161,10 @@ class HomeController extends AbstractController
 
         return $this->render('home/dashboard.html.twig', [
             'organizationRows' => $organizationRows,
+            // Список элементов формы, не таблица: пагинировать его нельзя,
+            // иначе контакт нельзя было бы создать для далёкой организации.
             'organizations' => $organizationRepository->findAccessibleOrganizations($user),
+            'pagination' => $pagination,
             'contactsByOrganization' => $contactsByOrganization,
             'effectiveMainByOrganization' => $effectiveMainByOrganization,
             'contactById' => $contactById,
