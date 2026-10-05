@@ -155,6 +155,45 @@ sequenceDiagram
     Note over API,DB: opened: получатель запрашивает 1x1 pixel -> GET /track/{token} -> status=opened
 ```
 
+## 8. Загрузка страницы пагинированного списка с разрешением `highlight`
+
+```mermaid
+sequenceDiagram
+    actor U as Менеджер
+    participant C as HomeController
+    participant P as Pagination
+    participant R as OrganizationRepository
+    participant DB as MySQL
+
+    U->>C: GET /dashboard?page=999&sort=lastCall&dir=desc&highlight=<id>
+    C->>C: q, sort, dir, inactive, optout, highlight
+    C->>R: COUNT по области доступа + условиям (без подзапросов звонков)
+    R->>DB: SELECT COUNT(o.id) ... WHERE ...
+    DB-->>R: total
+    C->>P: зажать page к последней существующей
+    P-->>C: page, pages, offset, window
+    alt номер страницы вне диапазона или пустые параметры
+        C-->>U: 302 на канонический URL открытой страницы
+    end
+    opt highlight вне открытой страницы
+        C->>R: позиция организации в текущем порядке
+        R->>DB: SELECT COUNT(o.id) ... WHERE ключ сортировки «до» целевой строки
+        DB-->>C: rank
+        C->>P: открыть страницу floor(rank / 50) + 1
+    end
+    C->>R: срез страницы
+    R->>DB: SELECT ... ORDER BY CASE WHEN дата IS NULL THEN 1 ELSE 0 END ASC, дата DESC, o.id ASC LIMIT 50 OFFSET 50
+    DB-->>R: 50 строк
+    C->>R: контакты и звонки только для строк страницы
+    C-->>U: таблица страницы + макрос навигации (page в ссылках)
+```
+
+Тот же разбор — у списка групп, таблицы состава группы и реестра скрытых
+организаций: `COUNT` по тому же `WHERE`, затем `LIMIT/OFFSET 50`. Сортировка
+везде в SQL, поэтому страницу выбирает база, а страница — `OFFSET`, то есть
+позиция: последним ключом `ORDER BY` идёт первичный ключ строки, иначе две
+организации с одинаковым названием попадали бы на соседние страницы.
+
 ## Сверка со сценариями
 
 | Spec (Requirement) | Покрытие |
@@ -167,6 +206,10 @@ sequenceDiagram
 | access-control: видимость менеджера/админа | диаграммы 2, 3 |
 | calls: сеанс обзвона, результат, завершение | диаграмма 6 |
 | campaigns: launch, outbox, статусы + opened | диаграмма 7 |
+| dashboard: постраничный просмотр панели, `highlight` на нужной странице | диаграмма 8 |
+| web-interface: пагинация списков | диаграмма 8 |
+| organization-groups: постраничный просмотр списка групп и состава | диаграмма 8 |
+| organization-hiding: постраничный просмотр реестра | диаграмма 8 |
 
 ## Open questions
 
