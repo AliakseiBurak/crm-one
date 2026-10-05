@@ -957,4 +957,273 @@ final class GroupControllerTest extends DatabaseWebTestCase
         self::assertSame('Новое описание', $reloaded->description);
         self::assertSame('#00FF00', $reloaded->color);
     }
+
+    /**
+     * Список групп не пагинируется ни при каком объёме: показываются все
+     * группы области управления, блока навигации нет (spec
+     * organization-groups «Пагинация не применяется к списку групп и составу
+     * группы»).
+     */
+    public function testGroupListIsNotPaginatedBeyondFiftyGroups(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $this->makeGroups($admin, 60);
+
+        $this->login($admin);
+
+        $crawler = $this->open('/groups');
+
+        $this->assertResponseIsSuccessful();
+        self::assertCount(60, $crawler->filter('tr[data-group-row]'));
+        self::assertCount(0, $crawler->filter('nav.pagination'));
+    }
+
+    /**
+     * Номер страницы на списке групп не значит ничего и отбрасывается:
+     * `/groups?page=999` открывает `/groups`, а не страницу под номером 999.
+     */
+    public function testGroupListDropsPageParam(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $this->makeGroups($admin, 60);
+
+        $this->login($admin);
+
+        $crawler = $this->open('/groups?page=999');
+        $crawler = $this->client->followRedirect();
+
+        $this->assertResponseIsSuccessful();
+        self::assertSame('/groups', $this->client->getRequest()->getRequestUri());
+        self::assertCount(60, $crawler->filter('tr[data-group-row]'));
+    }
+
+    /**
+     * Пустые значения параметров сортировки отбрасываются, а заполненные
+     * остаются: URL сортировки сам по себе канонический.
+     */
+    public function testGroupListKeepsSortParamsAndDropsEmptyOnes(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $this->makeGroups($admin, 3);
+
+        $this->login($admin);
+
+        $this->open('/groups?sort=name&dir=DESC');
+        $this->assertResponseIsSuccessful();
+        self::assertSame('/groups?sort=name&dir=DESC', $this->client->getRequest()->getRequestUri());
+
+        $crawler = $this->open('/groups?sort=&dir=');
+        $crawler = $this->client->followRedirect();
+
+        $this->assertResponseIsSuccessful();
+        self::assertSame('/groups', $this->client->getRequest()->getRequestUri());
+        self::assertCount(3, $crawler->filter('tr[data-group-row]'));
+    }
+
+    /**
+     * Ссылка сортировки списка групп не тащит за собой `page` и сохраняет
+     * верхний регистр направления.
+     */
+    public function testGroupListSortLinkHasNoPageParam(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $this->makeGroups($admin, 60);
+
+        $this->login($admin);
+
+        $crawler = $this->open('/groups?sort=name&dir=ASC');
+        $sortHref = (string) $crawler->filter('a.table__sortable')->first()->attr('href');
+
+        self::assertStringNotContainsString('page=', $sortHref);
+        self::assertStringContainsString('sort=name', $sortHref);
+        self::assertStringContainsString('dir=DESC', $sortHref);
+    }
+
+    /**
+     * Список групп показывает группы области управления пользователя, а не все
+     * группы системы (ADR-0011, ADR-0008), и постраничного вывода у него нет.
+     */
+    public function testGroupListShowsManagementScope(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $this->makeGroups($admin, 60);
+        $own = $this->makeGroup('Моя группа', $manager);
+        $this->em()->persist($own);
+        $this->em()->flush();
+
+        $this->login($manager);
+
+        $crawler = $this->open('/groups');
+
+        $this->assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('tr[data-group-row]'));
+        self::assertStringContainsString('Моя группа', $crawler->text());
+        self::assertCount(0, $crawler->filter('nav.pagination'));
+    }
+
+    /**
+     * Состав группы тоже не пагинируется: ветка просмотра показывает всех
+     * участников, даже когда их больше 50.
+     */
+    public function testGroupMembersTableIsNotPaginated(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $group = $this->makeGroup('Назначенная', $admin);
+        $this->em()->persist($group);
+        $this->makeOrganizationsWithMembership($group, 60);
+        $this->em()->flush();
+
+        // Назначенная группа доступна менеджеру только на просмотр.
+        $this->em()->persist(new GroupAssignment($manager, $group));
+        $this->em()->flush();
+
+        $this->login($manager);
+
+        $crawler = $this->open('/groups/' . $group->id . '/members');
+
+        $this->assertResponseIsSuccessful();
+        self::assertCount(60, $crawler->filter('tr[data-member-row]'));
+        self::assertCount(0, $crawler->filter('nav.pagination'));
+    }
+
+    /**
+     * Ссылка сортировки состава сохраняет верхний регистр направления и не
+     * тащит `page`.
+     */
+    public function testGroupMembersSortLinkHasNoPageParam(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $group = $this->makeGroup('Назначенная', $admin);
+        $this->em()->persist($group);
+        $this->makeOrganizationsWithMembership($group, 60);
+        $this->em()->flush();
+        $this->em()->persist(new GroupAssignment($manager, $group));
+        $this->em()->flush();
+
+        $this->login($manager);
+
+        $crawler = $this->open('/groups/' . $group->id . '/members?sort=name&dir=ASC');
+        $sortHref = (string) $crawler->filter('a.table__sortable')->first()->attr('href');
+
+        self::assertStringNotContainsString('page=', $sortHref);
+        self::assertStringContainsString('sort=name', $sortHref);
+        self::assertStringContainsString('dir=DESC', $sortHref);
+    }
+
+    /**
+     * Номер страницы на составе группы отбрасывается, а сам состав после
+     * редиректа показан целиком.
+     */
+    public function testGroupMembersDropsPageParam(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $group = $this->makeGroup('Назначенная', $admin);
+        $this->em()->persist($group);
+        $this->makeOrganizationsWithMembership($group, 60);
+        $this->em()->flush();
+        $this->em()->persist(new GroupAssignment($manager, $group));
+        $this->em()->flush();
+
+        $this->login($manager);
+
+        $crawler = $this->open('/groups/' . $group->id . '/members?page=999');
+        $crawler = $this->client->followRedirect();
+
+        $this->assertResponseIsSuccessful();
+        self::assertSame(
+            '/groups/' . $group->id . '/members',
+            $this->client->getRequest()->getRequestUri(),
+        );
+        self::assertCount(60, $crawler->filter('tr[data-member-row]'));
+    }
+
+    /**
+     * Список организаций для формы добавления — элемент управления, а не
+     * таблица: он не пагинируется, даже когда организаций больше 50, и в нём
+     * остаётся строка, которая не поместилась бы ни на одну страницу.
+     */
+    public function testGroupMemberAddListIsNotPaginated(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $group = $this->makeGroup('Моя', $admin);
+        $this->em()->persist($group);
+        $this->makeOrganizationsWithMembership($group, 60);
+        $this->em()->flush();
+
+        $this->login($admin);
+
+        $crawler = $this->open('/groups/' . $group->id . '/members');
+
+        $this->assertResponseIsSuccessful();
+        // Все 60 организаций в списке добавления, а блока навигации нет.
+        self::assertCount(60, $crawler->filter('input[name="organizations[]"]'));
+        self::assertCount(0, $crawler->filter('nav.pagination'));
+    }
+
+    /**
+     * Скрытые от менеджера организации не попадают в состав (ADR-0012), а
+     * администратор видит всех участников (ADR-0008).
+     */
+    public function testGroupMembersRespectAccessScope(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $group = $this->makeGroup('Назначенная', $admin);
+        $this->em()->persist($group);
+        $organizations = $this->makeOrganizationsWithMembership($group, 3);
+        $this->em()->flush();
+        $this->em()->persist(new GroupAssignment($manager, $group));
+        $this->em()->persist(new OrganizationHide($organizations[2], $manager));
+        $this->em()->flush();
+
+        // Менеджеру назначенная группа открыта на просмотр: скрытая от него
+        // организация в состав не попадает.
+        $this->login($manager);
+
+        $crawler = $this->open('/groups/' . $group->id . '/members');
+        $this->assertResponseIsSuccessful();
+        self::assertCount(2, $crawler->filter('tr[data-member-row]'));
+        self::assertStringNotContainsString('Участник 003', $crawler->text());
+
+        // Администратору группа открыта на правку, поэтому состав показан
+        // списком выбора — и скрытие ему не мешает (ADR-0008).
+        $this->login($admin);
+
+        $crawler = $this->open('/groups/' . $group->id . '/members');
+        $this->assertResponseIsSuccessful();
+        self::assertStringContainsString('Участник 003', $crawler->text());
+    }
+
+    private function makeGroups(User $createdBy, int $count): void
+    {
+        for ($index = 1; $index <= $count; ++$index) {
+            $this->em()->persist(
+                $this->makeGroup(\sprintf('Группа %03d', $index), $createdBy),
+            );
+        }
+        $this->em()->flush();
+    }
+
+    /**
+     * @return Organization[]
+     */
+    private function makeOrganizationsWithMembership(OrganizationGroup $group, int $count): array
+    {
+        $organizations = [];
+        for ($index = 1; $index <= $count; ++$index) {
+            $organization = (new Organization())
+                ->setName(\sprintf('Участник %03d', $index))
+                ->setIndustry('IT');
+            $this->em()->persist($organization);
+            $this->em()->persist(new OrgGroupMembership($organization, $group));
+            $organizations[] = $organization;
+        }
+        $this->em()->flush();
+
+        return $organizations;
+    }
 }

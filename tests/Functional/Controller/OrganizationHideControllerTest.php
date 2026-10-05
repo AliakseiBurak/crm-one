@@ -444,4 +444,248 @@ final class OrganizationHideControllerTest extends DatabaseWebTestCase
     {
         return $this->em()->getRepository(OrganizationHide::class);
     }
+
+    /**
+     * Реестр постраничный: страница из 50 скрытых организаций (spec
+     * organization-hiding «Постраничный просмотр реестра скрытых
+     * организаций»).
+     */
+    public function testRegistryIsPaginatedFiftyPerPage(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $this->hideOrganizations($manager, 60);
+        $this->login($admin);
+
+        $crawler = $this->client->request('GET', '/admin/hides');
+
+        $this->assertResponseIsSuccessful();
+        self::assertCount(50, $crawler->filter('[data-hide-row]'));
+        self::assertCount(1, $crawler->filter('nav.pagination'));
+
+        $crawler = $this->client->request('GET', '/admin/hides?page=2');
+        $this->assertResponseIsSuccessful();
+        self::assertCount(10, $crawler->filter('[data-hide-row]'));
+        self::assertSame('Скрытая 051', $this->firstHiddenOrganizationName($crawler));
+    }
+
+    public function testRegistryHasNoNavigationWhenItFitsOnePage(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $this->hideOrganizations($manager, 50);
+        $this->login($admin);
+
+        $crawler = $this->client->request('GET', '/admin/hides');
+
+        $this->assertResponseIsSuccessful();
+        self::assertCount(50, $crawler->filter('[data-hide-row]'));
+        self::assertCount(0, $crawler->filter('nav.pagination'));
+    }
+
+    public function testRegistrySortLinkResetsPage(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $this->hideOrganizations($manager, 60);
+        $this->login($admin);
+
+        $crawler = $this->client->request('GET', '/admin/hides?page=2&sort=name&dir=ASC');
+        $sortHref = (string) $crawler->filter('a.table__sortable')->first()->attr('href');
+
+        // Номер страницы не передаётся — это и есть возврат к первой странице.
+        self::assertStringNotContainsString('page=', $sortHref);
+        self::assertStringContainsString('sort=name', $sortHref);
+        self::assertStringContainsString('dir=DESC', $sortHref);
+    }
+
+    /**
+     * Страницы реестра считаются по организациям, а не по отдельным записям
+     * скрытия: у организации несколько скрытий, но она занимает одну строку
+     * страницы.
+     */
+    public function testRegistryPagesCountOrganizationsNotHideRecords(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
+
+        // 50 организаций, 25 из них скрыты от обоих менеджеров: записей
+        // скрытия 75, а страница всё равно одна.
+        $organizations = $this->hideOrganizations($manager1, 50);
+        foreach ($organizations as $index => $organization) {
+            if (0 === $index % 2) {
+                $this->em()->persist(new OrganizationHide($organization, $manager2));
+            }
+        }
+        $this->em()->flush();
+        $this->login($admin);
+
+        $crawler = $this->client->request('GET', '/admin/hides');
+
+        $this->assertResponseIsSuccessful();
+        self::assertCount(75, $crawler->filter('[data-hide-row]'));
+        self::assertCount(0, $crawler->filter('nav.pagination'));
+    }
+
+    /**
+     * Сортировка реестра считается по последней записи скрытия
+     * организации: сортировка по менеджеру упорядочивает организации по email
+     * того, кто скрыл их последним.
+     */
+    public function testRegistrySortsByTheLastHidingManager(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
+
+        // «А» скрыта сначала от manager1, потом от manager2 — её последний
+        // скрывающий manager2. У «Б» наоборот: последний скрывающий
+        // manager1, поэтому при сортировке по менеджеру «Б» идёт первой.
+        $base = new \DateTimeImmutable('2026-01-01 10:00:00');
+        $a = $this->makeOrganization('Скрытая А');
+        $this->persistHide($a, $manager1, $base);
+        $this->persistHide($a, $manager2, $base->modify('+1 hour'));
+
+        $b = $this->makeOrganization('Скрытая Б');
+        $this->persistHide($b, $manager2, $base);
+        $this->persistHide($b, $manager1, $base->modify('+1 hour'));
+        $this->em()->flush();
+        $this->login($admin);
+
+        $crawler = $this->client->request('GET', '/admin/hides?sort=manager&dir=ASC');
+
+        $this->assertResponseIsSuccessful();
+        self::assertSame(
+            ['Скрытая Б', 'Скрытая Б', 'Скрытая А', 'Скрытая А'],
+            $crawler->filter('[data-hide-row] td.table--org__name')->each(
+                static fn(\Symfony\Component\DomCrawler\Crawler $node): string => trim($node->text()),
+            ),
+        );
+    }
+
+    /**
+     * Две записи скрытия одной организации, созданные в одну секунду, дают
+     * одинаковый hidden_at. «Последний скрывающий» тогда определяется
+     * дополнительным признаком (id), и порядок строк не должен прыгать от
+     * запроса к запросу.
+     */
+    public function testRegistryOrderIsStableWhenTwoHidesShareTheSameSecond(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager1 = $this->makeUser('manager1', 'manager1@b2b-crm.loc', UserRole::Manager);
+        $manager2 = $this->makeUser('manager2', 'manager2@b2b-crm.loc', UserRole::Manager);
+
+        // hidden_at у всех записей одинаковый — в пределах одной секунды
+        // порядок определяется дополнительным признаком (id записи).
+        $sameSecond = new \DateTimeImmutable('2026-01-01 10:00:00');
+        foreach (['Скрытая А', 'Скрытая Б', 'Скрытая В'] as $name) {
+            $organization = $this->makeOrganization($name);
+            $this->persistHide($organization, $manager1, $sameSecond);
+            $this->persistHide($organization, $manager2, $sameSecond);
+        }
+        $this->em()->flush();
+        self::assertCount(6, $this->repo()->findAll());
+        $this->login($admin);
+
+        $orders = [];
+        foreach ([1, 2, 3] as $attempt) {
+            $crawler = $this->client->request('GET', '/admin/hides?sort=manager&dir=ASC');
+            $this->assertResponseIsSuccessful();
+            $orders[] = $crawler->filter('[data-hide-row] td.table--org__name')->each(
+                static fn(\Symfony\Component\DomCrawler\Crawler $node): string => trim($node->text()),
+            );
+            unset($attempt);
+        }
+
+        self::assertSame($orders[0], $orders[1]);
+        self::assertSame($orders[1], $orders[2]);
+
+        // Записи одной организации идут подряд: 3 организации × 2 записи.
+        // Порядок организаций внутри страницы при равном hidden_at задаётся
+        // случайным id записи, поэтому сравниваем состав, а не позиции.
+        $counts = array_count_values($orders[0]);
+        ksort($counts);
+        self::assertSame(
+            ['Скрытая А' => 2, 'Скрытая Б' => 2, 'Скрытая В' => 2],
+            $counts,
+        );
+        foreach (array_chunk($orders[0], 2) as $pair) {
+            self::assertCount(1, array_unique($pair), 'Записи одной организации должны идти подряд.');
+        }
+    }
+
+    /**
+     * Страница реестра за пределами диапазона открывает последнюю
+     * существующую страницу со строками.
+     */
+    public function testRegistryPageBeyondTheRangeOpensLastPage(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $this->hideOrganizations($manager, 60);
+        $this->login($admin);
+
+        $this->client->request('GET', '/admin/hides?page=999');
+        $crawler = $this->client->followRedirect();
+
+        $this->assertResponseIsSuccessful();
+        self::assertSame('2', $this->client->getRequest()->query->get('page'));
+        self::assertCount(10, $crawler->filter('[data-hide-row]'));
+        // Последняя страница: сортировка по имени по умолчанию, остаток выборки.
+        self::assertSame('Скрытая 051', $this->firstHiddenOrganizationName($crawler));
+    }
+
+    private function firstHiddenOrganizationName(\Symfony\Component\DomCrawler\Crawler $crawler): string
+    {
+        return trim($crawler->filter('[data-hide-row] td.table--org__name')->first()->text());
+    }
+
+    /**
+     * Запись скрытия с заданной датой: конструктор проставляет «сейчас», а
+     * для проверки порядка нужны разные (и одинаковые) секунды.
+     */
+    private function persistHide(Organization $organization, User $manager, \DateTimeImmutable $hiddenAt): OrganizationHide
+    {
+        $hide = new OrganizationHide($organization, $manager);
+        new \ReflectionProperty($hide, 'hiddenAt')->setValue($hide, $hiddenAt);
+        $this->em()->persist($hide);
+
+        return $hide;
+    }
+
+    /**
+     * Канонический URL реестра: пустые значения параметров убираются, а
+     * номер страницы приводится к открытой.
+     */
+    public function testRegistryCanonicalUrlDropsEmptySort(): void
+    {
+        $admin = $this->makeUser('admin', 'admin@b2b-crm.loc', UserRole::Admin);
+        $manager = $this->makeUser('manager', 'manager@b2b-crm.loc', UserRole::Manager);
+        $this->hideOrganizations($manager, 60);
+        $this->login($admin);
+
+        $this->client->request('GET', '/admin/hides?sort=&dir=ASC');
+        $crawler = $this->client->followRedirect();
+
+        $this->assertResponseIsSuccessful();
+        self::assertSame('/admin/hides?dir=ASC', $this->client->getRequest()->getRequestUri());
+        self::assertCount(50, $crawler->filter('[data-hide-row]'));
+    }
+
+    /**
+     * @return Organization[]
+     */
+    private function hideOrganizations(User $manager, int $count): array
+    {
+        $organizations = [];
+        for ($index = 1; $index <= $count; ++$index) {
+            $organization = $this->makeOrganization(\sprintf('Скрытая %03d', $index));
+            $this->em()->persist(new OrganizationHide($organization, $manager));
+            $organizations[] = $organization;
+        }
+        $this->em()->flush();
+
+        return $organizations;
+    }
 }

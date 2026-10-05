@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests;
 
 use App\Entity\User;
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -14,6 +16,11 @@ use Symfony\Component\DomCrawler\Crawler;
 /**
  * База функциональных тестов: SQLite в памяти (.env.test), схема создаётся
  * из метаданных Doctrine (SchemaTool), вход — loginUser().
+ *
+ * Тот же набор можно гнать на MySQL (DATABASE_URL через внешний bootstrap):
+ * тогда схема приходит миграциями, а таблицы очищаются перед каждым тестом,
+ * что даёт ту же изоляцию, что и свежая in-memory база на SQLite. Такую базу
+ * после прогона нужно перезагрузить фикстурами.
  */
 abstract class DatabaseWebTestCase extends WebTestCase
 {
@@ -27,13 +34,49 @@ abstract class DatabaseWebTestCase extends WebTestCase
         $this->client->disableReboot();
 
         $em = $this->em();
+        $connection = $em->getConnection();
+
         // SQLite по умолчанию не включает внешние ключи: без PRAGMA каскадное
-        // удаление контактов (ON DELETE CASCADE) не срабатывает.
-        $em->getConnection()->executeStatement('PRAGMA foreign_keys = ON');
+        // удаление контактов (ON DELETE CASCADE) не срабатывает. На MySQL
+        // внешние ключи включены всегда, а PRAGMA — синтаксическая ошибка,
+        // поэтому набор тестов гоняется и на обеих БД.
+        //
+        // Схему создаёт SchemaTool только для in-memory SQLite: в MySQL она
+        // приходит миграциями, а updateSchema() пытается привести её к
+        // метаданным (там id — bigint, в метаданных int) и падает на
+        // существующем внешнем ключе.
+        if (!$connection->getDatabasePlatform() instanceof SQLitePlatform) {
+            $this->truncateAllTables($connection);
+
+            return;
+        }
+
+        $connection->executeStatement('PRAGMA foreign_keys = ON');
 
         $schemaTool = new SchemaTool($em);
         // updateSchema идемпотентен: создаёт схему в пустой in-memory БД.
         $schemaTool->updateSchema($em->getMetadataFactory()->getAllMetadata());
+    }
+
+    /**
+     * Чистая база перед каждым тестом на MySQL: аналог свежей in-memory базы
+     * на SQLite, без которой тесты видят данные предыдущих.
+     */
+    private function truncateAllTables(Connection $connection): void
+    {
+        $platform = $connection->getDatabasePlatform();
+        $schema = (string) $connection->getDatabase();
+
+        $tables = $connection->fetchFirstColumn(
+            'SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_type = \'BASE TABLE\'',
+            [$schema],
+        );
+
+        $connection->executeStatement('SET FOREIGN_KEY_CHECKS = 0');
+        foreach ($tables as $table) {
+            $connection->executeStatement($platform->getTruncateTableSQL($table, true));
+        }
+        $connection->executeStatement('SET FOREIGN_KEY_CHECKS = 1');
     }
 
     protected function em(): EntityManagerInterface
